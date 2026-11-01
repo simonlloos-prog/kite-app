@@ -1,41 +1,57 @@
-# Kite App — vent AROME sur le Bassin d'Arcachon
+# Kite App — vent AROME pour le kitesurf, Gironde et Landes
 
-PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de l'estuaire de la Gironde à Capbreton, loin au large et jusqu'aux portes de Bordeaux (les 22 spots du tableau KitesurfBordeaux, de Bonne Anse aux lacs de Cazaux et Biscarrosse, plus l'Aérium) :
-- des **zones de couleur vectorielles** par paliers de 2–3 kn, nettes à tous les zooms, avec un liseré et le trait de côte redessiné par-dessus ;
-- une **grille régulière de petites valeurs en nœuds** ;
-- de **longues lignes de vent continues, régulièrement espacées, avec des pointes de flèche intégrées** le long de chaque ligne.
+PWA mobile-first (iPhone en priorité, installée sur l'écran d'accueil) pour décider **où et quand aller naviguer**. Elle affiche la prévision de vent AROME 0,01° (~1,3 km) de Météo-France, de l'estuaire de la Gironde à Capbreton, loin au large et jusqu'aux portes de Bordeaux. Les spots viennent du tableau KitesurfBordeaux.
 
-La carte est **bloquée sur la zone des données** (`maxBounds`) : on ne peut pas dézoomer sur un bord vide.
-
-Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales ainsi qu'entre **nœuds et km/h** (Meteociel affiche en km/h). Les données et les seuils restent en nœuds : seul l'affichage est converti (`fmtSpeed`). L'unité est mémorisée dans `localStorage` (`kite-prefs`). On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
-
-Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées ou en quinconce (pas assez « continues »), le champ en image raster (bords pixelisés), « atténuer la terre » (masque tiré de l'orographie AROME, car le champ `lsm` du fichier constant se décode mal), l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
+En ligne : https://simonlloos-prog.github.io/kite-app/ (GitHub Pages, dépôt public `simonlloos-prog/kite-app`).
 
 ## Phase actuelle : POC
-Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il doit rester propre et lisible, sans viser l'architecture définitive. L'app sera **refaite ensuite avec une structure pensée à l'avance**. Conséquences :
+Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il doit rester propre et lisible, sans viser l'architecture définitive. L'app sera **refaite ensuite avec une structure pensée à l'avance** (voir « À faire »). Conséquences :
 - Préférer une variante isolée (un fichier, une couche, un flag) à une abstraction générique.
-- Noter dans `docs/decisions.md` (à créer au besoin) ce qu'on a essayé, retenu ou rejeté, et pourquoi.
+- Garder à jour la section « Testé puis rejeté » ci-dessous : elle évite de refaire les mêmes essais.
+
+## Choix métiers et logique
+- **Lecture façon Meteociel** : l'utilisateur la juge plus claire que Windy pour voir d'un coup d'œil où et quand ça souffle. D'où :
+  - des **zones de couleur nettes par paliers** de 2–3 kn ;
+  - **une valeur par point de grille** ;
+  - de **longues lignes de vent continues avec des flèches intégrées**.
+  
+  L'échelle est en bleus de plus en plus foncés jusqu'à 12 kn, puis vert, jaune, orange, rouge et violet.
+- **Données AROME 0,01°**, le même modèle que l'« AROME 1.3 km » de Meteociel. Les fichiers GRIB open data de Météo-France sont préparés par un serveur (GitHub Actions) plutôt qu'appelés depuis le téléphone : il y a assez de points pour la pleine résolution, sans quota ni clé côté app. L'utilisateur accepte quelques minutes de préparation par run, puisque Meteociel n'est pas plus frais.
+- **Fraîcheur** : un run AROME toutes les 3 h, publié 3 à 4 h après. La légende affiche le run en heure de Paris (« run dim. 16 h » = 15 UTC).
+- **AROME-PI** (run horaire, environ 1 h de retard) ne donne que des **rafales** via l'API, pas de vent moyen : il n'est pas dessiné. Il sert d'**indicateur de tendance** : pour chaque spot, un badge « PI ↑ +3 / ↓ −2 / = » donne l'écart moyen des rafales AROME-PI − AROME sur les heures communes (+1 à +6 h), avec un seuil de 1,5 kn. Le badge **ne dépend pas de l'heure choisie**. Le point touché affiche aussi « raf. 18 (PI 18) ».
+- **Unités** : tout est calculé en **nœuds**. Le bouton kn ↔ km/h ne convertit que l'affichage (`fmtSpeed`) ; Meteociel affiche en km/h. Le choix est mémorisé (`localStorage`, `kite-prefs`).
+- **Direction** : on parle d'où vient le vent (convention météo), et les flèches pointent là où il va.
+- **Spots** (`spots/spots.ts`) : les 22 spots du tableau « Trouve ton spot autour de Bordeaux » (KitesurfBordeaux.com, 2018), avec quelques ajustements :
+  - Lacanau Sud et Super Sud sont fusionnés en **Lacanau Océan** ;
+  - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier ».
+
+  Chaque spot a ses directions 🤙 bonnes (`good`) et 👍 moyennes (`ok`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). La plupart des positions ont été données par l'utilisateur sur la plage. Les autres sont géocodées depuis les adresses du tableau (voir « À faire »).
+- **Note d'un spot** (`spots/rating.ts`) :
+  - **Direction** : bonne, moyenne (un cran de moins) ou défavorable. Chacune des 8 directions couvre ±22,5°.
+  - **Force** : sous 12 kn trop faible, 12–15 léger, 15–25 bon, 25–32 fort, au-delà trop fort.
+  - **Tri** : la liste est triée par note, puis par force.
+- **Zone** (`BOX`, 43,55–45,85 N, 2,00–0,60 O) : elle couvre tous les spots, avec du large pour voir le vent arriver. La carte est **bloquée sur cette zone** (`maxBounds`) pour qu'on ne dézoome jamais sur un bord sans données.
+- **Changer d'heure doit rester le geste le plus simple** : un module flottant indépendant, qui ne s'ouvre pas, et qu'on swipe **vers la droite pour avancer**. Changer d'heure ne fait aucune requête : toutes les heures sont chargées en arrière-plan.
 
 ## Architecture
 ```
 Météo-France open data ──► pipeline/fetch_arome.py ───┐
 (GRIB2 AROME 0,01°, SP1)                              ├─► public/data/ ──► build Vite ──► GitHub Pages
-API Météo-France ─────────► pipeline/fetch_aromepi.py ┘   meta.json + <run>/hNN.bin + pi-<run>.bin
+API Météo-France ─────────► pipeline/fetch_aromepi.py ┘   meta.json + <run>_<grille>/hNN.bin + pi-<run>_<grille>.bin
 (WCS AROME-PI, clé)        (GitHub Actions, chaque heure)
 ```
-- **AROME-PI** (`fetch_aromepi.py`) : c'est le run horaire de prévision immédiate (+1 à +6 h), publié environ 1 h après son heure. Via l'API, il n'a **que des rafales, pas de vent moyen**. On prend `WIND_SPEED_GUST` à 10 m (rafale max de l'heure écoulée, même définition que la rafale AROME) sur toute `BOX`, en 6 requêtes WCS GetCoverage au format GRIB. Ce n'est pas dessiné sur la carte : la liste des spots montre un badge « PI ↑ / ↓ / = » (écart moyen AROME-PI − AROME sur les heures communes, seuil 1,5 kn, voir `wind/pi.ts`), et le point touché affiche « (PI xx) ». La clé est le secret GitHub `METEOFRANCE_API_KEY`, ou `.env.local` en local (ignoré par git, jamais affiché). Sans clé, AROME-PI est simplement absent.
-- **Source** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a un run toutes les 3 h, avec 52 échéances (0 à 51 h), soit environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
-- **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (43,55–45,85 N, 2,00–0,60 O, de l'estuaire de la Gironde à Capbreton, jusqu'aux portes de Bordeaux, 231 × 141 points) et écrit un fichier binaire par heure (~98 Ko, soit ~5 Mo par run). Les noms de fichiers portent une empreinte de la grille (`data_folder`) : un changement de `BOX` ne sert jamais d'anciens fichiers en cache. Au-delà de ~3 fois cette surface, il faudra découper en tuiles et ne charger que la partie visible.
-- **Fraîcheur** : AROME tourne toutes les 3 h (00, 03… 21 UTC), et Météo-France publie chaque run environ 3 à 4 h après son heure nominale. La légende affiche l'heure du run en heure de Paris (le run 15 UTC s'affiche « 16 h »). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
-- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run AROME prend environ 4 minutes, une simple mise à jour AROME-PI environ 1 minute.
-- **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres heures (CacheFirst, les fichiers sont rangés par run). Aucun appel API côté client.
+- **Source AROME** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a 52 échéances (0 à 51 h), environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
+- **Pipeline AROME** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (231 × 141 points) et écrit un fichier binaire par heure (~98 Ko, ~5 Mo par run). Le format, documenté en tête de `fetch_arome.py`, est `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud. **Les noms de fichiers portent une empreinte de la grille** (`data_folder`). Le téléphone garde les fichiers en cache indéfiniment, et republier un run sur une autre grille sous les mêmes noms avait servi d'anciens fichiers (« Fichier AROME inattendu »). L'app recharge aussi depuis le réseau un fichier de taille inattendue (`fetchBin`). Au-delà de ~3 fois la surface actuelle, il faudra découper en tuiles.
+- **Pipeline AROME-PI** (`fetch_aromepi.py`) : `WIND_SPEED_GUST` à 10 m sur toute `BOX`, en 6 requêtes WCS GetCoverage en GRIB. La clé est le secret GitHub `METEOFRANCE_API_KEY`, ou `.env.local` en local (ignoré par git, jamais affiché). Sans clé ou si l'API échoue, AROME-PI est simplement absent.
+- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
+- **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres (CacheFirst). Aucun appel API côté client.
 
 ## Stack (décisions figées)
 - Svelte 5 (runes) + Vite + TypeScript strict
 - `maplibre-gl` ; fond de carte OpenFreeMap `https://tiles.openfreemap.org/styles/liberty` (sans clé, polices `Noto Sans Regular|Bold|Italic`)
-- `vite-plugin-pwa` (Workbox) ; Vitest pour la logique pure
+- `vite-plugin-pwa` (Workbox, `autoUpdate`) ; Vitest pour la logique pure
 - `d3-contour` : isobandes vectorielles (petite librairie, sans dépendance lourde)
-- Gestionnaire de paquets : **npm** (pnpm n'est pas installé)
+- Hébergement GitHub Pages ; gestionnaire de paquets **npm** (pnpm n'est pas installé)
 
 ## Commandes
 ```
@@ -47,47 +63,81 @@ npm test          # vitest
 npm run check     # svelte-check + tsc
 npm run dev:phone # serveur accessible depuis le téléphone sur le Wi-Fi local (sans HTTPS)
 ```
-`public/data/` est généré et ignoré par git. Dans la console du navigateur, en dev, `window.app` donne accès à l'état de l'app.
+`public/data/` est généré et ignoré par git. En dev, `window.app` dans la console donne accès à l'état de l'app.
 
 ## Arborescence
 ```
 pipeline/                  fetch_arome.py (GRIB → binaire), fetch_aromepi.py (rafales AROME-PI), requirements.txt
+.github/workflows/         deploy.yml (données + build + GitHub Pages, chaque heure)
 src/
-  App.svelte               MapView + Legend + LayerToggles + TimeDial + SpotsSheet
+  main.ts                  montage, service worker, blocage du pincement iOS
+  App.svelte               MapView + Legend + LayerToggles + TimeDial + SpotsSheet (+ Diagnostics)
   lib/
-    map/                   MapView, LayerToggles, Legend, windLayers.ts (sources/couches MapLibre + image du champ)
-    time/                  TimeDial (module flottant : heure, gestes, point touché)
-    sheet/                 SpotsSheet (fermé / half / full) + SpotList
-    wind/                  arome.ts (format des données, décodage, vent en un point),
-                           field.ts (valeurs, interpolation, isobandes, lignes de vent, grille de valeurs), pi.ts (AROME-PI),
-                           units.ts, time.ts, windColor.ts (paliers)
-    spots/                 spots.ts (spots : orientations 🤙 `good` / 👍 `ok` sur 8 directions, niveau, restrictions,
-                           d'après le tableau KitesurfBordeaux ; positions géocodées depuis ses adresses, à affiner),
-                           rating.ts (note : direction bonne / moyenne (−1 cran) / défavorable, puis force)
-    stores/app.svelte.ts   état global (run, heures chargées, heure choisie, point touché, couches, vue)
+    map/                   MapView, LayerToggles (couches, Moy/Raf, kn/km/h, ☰, ⟳), Legend, windLayers.ts (sources/couches)
+    time/                  TimeDial (module flottant : heure, gestes, frise, point touché)
+    sheet/                 SpotsSheet (fermé / half / full), SpotList, PiBadge
+    wind/                  arome.ts (format, décodage, vent en un point), field.ts (valeurs, interpolation, isobandes,
+                           lignes de vent, grille de valeurs), pi.ts (AROME-PI), units.ts, time.ts, windColor.ts (paliers)
+    spots/                 spots.ts (spots, orientations, niveau, restrictions), rating.ts (note)
+    stores/app.svelte.ts   état global (run, heures, AROME-PI, heure choisie, point touché, couches, vue, préférences)
+    pwa.ts                 enregistrement du service worker, vérification des mises à jour
+    Diagnostics.svelte     diagnostic écran (appui long sur ⟳)
 ```
 
 ## Règles UX
 - Mobile-first (cible 360–430 px), portrait. Zones tactiles ≥ 44 px, `env(safe-area-inset-*)`.
-- **Changer d'heure doit rester le geste le plus simple et le plus naturel** : un module flottant indépendant (`TimeDial`), qui ne s'ouvre pas. Le swipe horizontal fait 24 px par heure, et **doigt vers la droite = avancer**, comme l'a demandé l'utilisateur. Toucher ‹ › déplace d'une heure, et un appui long fait défiler en continu. Un tap sur les ticks saute à cette heure. Flèches ← → au clavier.
-- La liste des spots (`SpotsSheet`) s'ouvre avec le bouton ☰ et se ferme au glisser ou avec ✕. Pas de modale. Seuls de petits boutons flottants sont tolérés sur la carte.
-- Pas de `padding.bottom` pour le module de temps : `maxBounds` ignore le padding, et un padding laissait le bas de l'écran déborder des données (une bande sans vent). Seul le panneau des spots ouvert met la moitié de l'écran en padding, et il couvre ce débord.
-- Trait de côte : seulement la classe `ocean` de la couche `water`. Les « lakes » OSM incluent les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau.
-- Rotation de la carte désactivée : nord en haut.
-- **Barre d'état iOS opaque (`black`), jamais `black-translucent`.** En app installée (iOS 18, iPhone 393 × 852), la barre translucide fait commencer la page sous la barre d'état mais la raccourcit quand même de sa hauteur : `innerHeight` vaut 793, et les 59 px du bas ne sont **jamais dessinés**, quoi qu'on mette en CSS (diagnostic sur le téléphone). Avec `black`, la page commence sous la barre et va jusqu'en bas. La carte est en `position: fixed; inset: 0`, pas en `100vh`/`100lvh`, qui valent 852 dans ce mode. iOS lit ce réglage à l'ajout sur l'écran d'accueil : il faut réinstaller l'app après un changement. Le manifeste demande `fullscreen` (Android) ; iOS l'ignore.
-- **La page ne zoome jamais**, seule la carte zoome : `touch-action: pan-x pan-y` sur `html`/`body`, `user-scalable=no` (Android), et `gesturestart` bloqué hors carte (iOS Safari ignore `user-scalable`).
-- Frise du module de temps : un grand tick avec le nom du jour marque minuit, un petit marque midi, le bleu marque l'heure choisie.
-- **Mises à jour** : le service worker est enregistré dans `lib/pwa.ts` (`autoUpdate`). Une nouvelle version s'installe et recharge la page toute seule. Elle est vérifiée au retour sur l'app, toutes les 30 min, et avec le bouton ⟳ (`app.refresh()` : nouvelle version, puis nouvelles données).
-- **Diagnostic écran** : un appui long sur ⟳ ouvre `lib/Diagnostics.svelte`, qui affiche les tailles d'écran (innerHeight, vh/lvh/dvh, zones de sécurité, mode installé, position de la carte…). Ça sert à déboguer depuis une capture du téléphone ce qu'on ne reproduit pas sur ordinateur.
+- **Module de temps** (`TimeDial`) : le swipe horizontal fait 24 px par heure (doigt vers la droite = avancer). ‹ › déplace d'une heure, et un appui long fait défiler en continu. Un tap sur la frise saute à l'heure touchée. Sur la frise, un grand tick avec le nom du jour marque minuit, un petit marque midi, le bleu marque l'heure choisie. Flèches ← → au clavier.
+- **Liste des spots** (`SpotsSheet`) : elle s'ouvre avec ☰, se ferme au glisser ou avec ✕, et défile à tous les crans. Pas de modale. Seuls de petits boutons flottants sont tolérés sur la carte.
+- **Boutons à gauche** : couleurs, valeurs, flèches, spots, Moy/Raf, kn/km/h, ☰, ⟳ (tap = recharger ; appui long = diagnostic). **Crédits du fond de carte** (ⓘ, obligatoires) en haut à droite sous la géolocalisation, repliés au démarrage.
+- **Barre d'état iOS opaque (`black`), jamais `black-translucent`** : choix de l'utilisateur après essai. En app installée (iOS 18, iPhone 393 × 852), la barre translucide met la carte sous l'heure, mais iOS raccourcit quand même la page de la hauteur de la barre (`innerHeight` 793). Les 59 px du bas ne sont alors **jamais dessinés**, quoi qu'on mette en CSS (diagnostic sur le téléphone). On ne peut pas avoir les deux. La carte est en `position: fixed; inset: 0`, pas en `100vh`/`100lvh` (852 dans ce mode). iOS lit ce réglage à l'ajout sur l'écran d'accueil : il faut réinstaller l'app après un changement. Le manifeste demande `fullscreen` (Android) ; iOS l'ignore.
+- **Pas de `padding.bottom` pour le module de temps** : `maxBounds` ignore le padding, et un padding laissait le bas de l'écran déborder des données. Seul le panneau des spots ouvert met la moitié de l'écran en padding.
+- **La page ne zoome jamais**, seule la carte zoome : `touch-action: pan-x pan-y` sur `html`/`body`, `user-scalable=no` (Android), et `gesturestart` bloqué hors carte (iOS ignore `user-scalable`).
+- **Trait de côte** : seulement la classe `ocean` de la couche `water`, en ligne sombre sur un liseré clair. Les « lakes » OSM incluent les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau.
+- **Rotation de la carte désactivée** : nord en haut.
+- **Mises à jour** : une nouvelle version s'installe et recharge la page toute seule (`lib/pwa.ts`). Elle est vérifiée au retour sur l'app, toutes les 30 min, et avec ⟳ (`app.refresh()` : nouvelle version, puis nouvelles données).
+- **Diagnostic écran** (appui long sur ⟳) : il affiche innerHeight, vh/lvh/dvh, les zones de sécurité, le mode installé, la barre d'état, la position de la carte… Ça sert à déboguer depuis une capture du téléphone ce qu'on ne reproduit pas sur ordinateur.
 
 ## Règles données et rendu
-- Vitesses en **nœuds**. La direction indique **d'où vient** le vent (convention météo). Les flèches pointent **là où il va**.
 - Heures affichées en `Europe/Paris`, clé `YYYY-MM-DDTHH:00`. `meta.json` donne les heures de validité en UTC.
 - **Zones de couleur** : `isobands` (d3-contour, marching squares interpolé) produit des MultiPolygones cumulés (« ≥ seuil »), dessinés opaques dans l'ordre sous les libellés du fond de carte. d3-contour place la valeur de la cellule (x, y) en (x + 0,5, y + 0,5). Elles sont mémorisées par run, heure et type.
-- **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 14 px à l’écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l’est, tous les 35 px). Elles sont calculées sur la zone visible et recalculées à chaque `moveend` et à chaque changement d'heure.
-- **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 14 px entre deux valeurs (une valeur par point de grille dès que ça tient, comme Meteociel). **MapLibre compte ses zooms en tuiles de 512 px.**
+- **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 14 px à l'écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l'est, tous les 35 px). Elles sont calculées sur la zone visible, et recalculées à chaque `moveend` et à chaque changement d'heure (~50 ms).
+- **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 14 px entre deux valeurs (une valeur par point de grille dès que ça tient). **MapLibre compte ses zooms en tuiles de 512 px.**
+- **Légende** : les valeurs sont sous la barre de couleurs, centrées sur la limite de leur palier. Dans les cases, elles débordaient sur la couleur suivante.
+- **Vent d'un spot** : la cellule AROME la plus proche de sa position (`windAt` → `cellOf`). Voir « À faire » pour le point de mesure décalé vers le large.
+
+## Testé puis rejeté (voir l'historique git)
+- **Interface** :
+  - réticule central qui donne le vent sous la cible ;
+  - frise horaire dans un panneau ;
+  - heure intégrée au panneau qui s'ouvre ;
+  - swipe dans l'autre sens (gauche = avancer).
+- **Rendu** :
+  - dégradé de couleurs continu ;
+  - champ en image raster (bords pixelisés) ;
+  - flèches isolées ou en quinconce (pas assez « continues ») ;
+  - cyan à 10–12 kn (paraissait plus clair que le palier précédent).
+- **Données** : Open-Meteo appelé depuis le navigateur. Le quota compte par point, ce qui donnait trop peu de valeurs et une zone en carré figé.
+- **« Atténuer la terre »** : le masque était tiré de l'orographie AROME, parce que le champ `lsm` du fichier constant se décode mal (valeurs de −256 à 253). L'utilisateur n'a pas aimé.
+- **Barre d'état iOS translucide** : bande vide en bas, voir les règles UX.
+
+## À faire
+**Prochaine étape (prévue)**
+- **Point de mesure du vent décalé vers le large** pour chaque spot. Aujourd'hui, la note et les valeurs d'un spot viennent de la cellule AROME sous sa position, sur la plage. Or le vent utile est souvent quelques dizaines de mètres plus loin, sur l'eau. Près du bord, le modèle le ralentit (frottement de la terre), si bien que des spots sont notés « trop faible » à tort. Idée : un champ optionnel `windPoint` (lat/lon) par spot, utilisé par `windAt`, `rateSpot` et la tendance AROME-PI, en gardant `lat`/`lon` pour l'emplacement affiché. **L'utilisateur fournira ces coordonnées.**
+
+**Données des spots à compléter**
+- Positions encore tirées des adresses du tableau (à remplacer par des positions sur la plage) : Bonne Anse, Biscarrosse, Laouga, Les Aigrettes, Port de l'Estey, Mayotte, Navarrosse, Ispe.
+- Orientations devinées à confirmer : l'Aérium, Taussat, Soulac.
+
+**Idées évoquées, non décidées**
+- Contour des grands lacs (Hourtin, Lacanau, Cazaux), sans les petits « lakes » OSM.
+- Marées (colonnes B / MM / H du tableau) et restrictions saisonnières (griser un spot « Interdit l'été » en été).
+- Dessiner AROME-PI sur la carte si Météo-France publie un jour son vent moyen.
+
+**Après le POC**
+- Refaire l'app avec une structure pensée à l'avance, en reprenant les choix ci-dessus et les essais rejetés.
 
 ## Conventions
 - La logique pure va dans `lib/**/*.ts` et a ses tests `*.test.ts` à côté. Les composants `.svelte` restent minces.
-- L'objet `maplibregl.Map` et les tableaux décodés ne sont jamais mis dans un `$state` : ce sont des propriétés simples de `app`. Après l'arrivée d'une heure, incrémenter `app.dataVersion`.
+- L'objet `maplibregl.Map` et les tableaux décodés ne sont jamais mis dans un `$state` : ce sont des propriétés simples de `app`. Après l'arrivée d'une heure ou d'AROME-PI, incrémenter `app.dataVersion`.
 - Pas de nouvelle dépendance sans le justifier.
+- Commits en français, poussés sur `main` (déploiement automatique).
