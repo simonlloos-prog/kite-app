@@ -6,11 +6,12 @@ type Rgb = [number, number, number]
  */
 export const BINS: [number, string][] = [
   [0, '#ffffff'],
-  [2, '#d6ecff'],
-  [4, '#a8d4ff'],
-  [6, '#6fb3ff'],
-  [8, '#3b8cf0'],
-  [10, '#1fc8e0'],
+  // Blues darken steadily with strength (light → medium → dark), then green from 12 kn.
+  [2, '#dcecff'],
+  [4, '#b3d4fb'],
+  [6, '#84b4f2'],
+  [8, '#5590e3'],
+  [10, '#2f6bcf'],
   [12, '#19c27a'],
   [14, '#5fd83a'],
   [16, '#b4e61e'],

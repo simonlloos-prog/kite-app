@@ -1,6 +1,6 @@
 # Kite App — vent AROME sur le Bassin d'Arcachon
 
-PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de Lacanau à Mimizan et loin au large :
+PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de Soulac à Capbreton et loin au large :
 - des **zones de couleur vectorielles** par paliers de 2–3 kn, nettes à tous les zooms, avec un liseré et le trait de côte redessiné par-dessus ;
 - une **grille régulière de petites valeurs en nœuds** ;
 - de **longues lignes de vent continues, régulièrement espacées, avec des pointes de flèche intégrées** le long de chaque ligne.
@@ -22,7 +22,8 @@ Météo-France open data ──► pipeline/fetch_arome.py ──► public/data
 (GRIB2 AROME 0,01°, SP1)   (GitHub Actions, chaque heure)  meta.json + <run>/hNN.bin      (app + données)
 ```
 - **Source** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a un run toutes les 3 h, avec 52 échéances (0 à 51 h), soit environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
-- **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (44,10–45,10 N, 1,90–0,80 O, 101 × 111 points) et écrit un fichier binaire par heure (~34 Ko). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
+- **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (43,55–45,60 N, 2,00–0,90 O, Soulac → Capbreton, 206 × 111 points) et écrit un fichier binaire par heure (~68 Ko, soit ~3,5 Mo par run). Au-delà de ~4 fois cette surface, il faudra découper en tuiles et ne charger que la partie visible.
+- **Fraîcheur** : AROME tourne toutes les 3 h (00, 03… 21 UTC), et Météo-France publie chaque run environ 3 à 4 h après son heure nominale. La légende affiche l'heure du run en heure de Paris (le run 15 UTC s'affiche « 16 h »). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
 - **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). En mode planifié, il s'arrête si le run publié est toujours le dernier. Un run complet prend environ 4 minutes.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres heures (CacheFirst, les fichiers sont rangés par run). Aucun appel API côté client.
 
