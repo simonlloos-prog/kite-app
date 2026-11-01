@@ -124,6 +124,12 @@ src/
 **Prochaine étape (prévue)**
 - **Point de mesure du vent décalé vers le large** pour chaque spot. Aujourd'hui, la note et les valeurs d'un spot viennent de la cellule AROME sous sa position, sur la plage. Or le vent utile est souvent quelques dizaines de mètres plus loin, sur l'eau. Près du bord, le modèle le ralentit (frottement de la terre), si bien que des spots sont notés « trop faible » à tort. Idée : un champ optionnel `windPoint` (lat/lon) par spot, utilisé par `windAt`, `rateSpot` et la tendance AROME-PI, en gardant `lat`/`lon` pour l'emplacement affiché. **L'utilisateur fournira ces coordonnées.**
 
+**Carte sur tout l'écran de l'iPhone (souhaité, peut-être impossible)**
+- L'utilisateur voudrait la carte partout : sous l'heure en haut **et** jusqu'en bas. Aujourd'hui, c'est l'un ou l'autre (voir « Barre d'état iOS » dans les règles UX). Pistes à essayer, en réinstallant l'app à chaque fois, et à vérifier avec le diagnostic (appui long sur ⟳) :
+  - revérifier `black-translucent` après chaque mise à jour d'iOS : c'est peut-être un bug corrigé un jour ;
+  - avec `black-translucent`, essayer `html`/`body` à `height: 100vh` (852) ou `min-height: calc(100% + env(safe-area-inset-top))`, au cas où iOS dessinerait alors le bas ;
+  - en dernier recours, garder la barre translucide et coller le module de temps au bas de l'écran, sa couleur remplissant les 59 px non dessinés : plus de bande vide, mais un module « barre du bas » (proposé et refusé pour l'instant).
+
 **Données des spots à compléter**
 - Positions encore tirées des adresses du tableau (à remplacer par des positions sur la plage) : Bonne Anse, Biscarrosse, Laouga, Les Aigrettes, Port de l'Estey, Mayotte, Navarrosse, Ispe.
 - Orientations devinées à confirmer : l'Aérium, Taussat, Soulac.
