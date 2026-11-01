@@ -73,13 +73,26 @@ export function addWindLayers(map: MlMap) {
     },
     firstLabel,
   )
+  // Coastline: a light casing under a dark line, so it stands out on every band colour.
+  map.addLayer(
+    {
+      id: 'coastline-casing',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'water',
+      layout: { 'line-join': 'round' },
+      paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 5], 'line-opacity': 0.55 },
+    },
+    firstLabel,
+  )
   map.addLayer(
     {
       id: 'coastline',
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'water',
-      paint: { 'line-color': INK, 'line-width': 1.2, 'line-opacity': 0.8 },
+      layout: { 'line-join': 'round' },
+      paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.4, 13, 2.4] },
     },
     firstLabel,
   )
