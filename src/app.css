@@ -28,6 +28,13 @@ body,
   margin: 0;
 }
 
+/* The page itself never zooms (double tap or pinch): only scrolling is allowed.
+   The map sets its own touch-action and handles pinch and double tap itself. */
+html,
+body {
+  touch-action: pan-x pan-y;
+}
+
 body {
   overflow: hidden;
   overscroll-behavior: none;

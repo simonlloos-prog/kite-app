@@ -112,8 +112,11 @@
   </div>
 
   <div class="ticks" aria-hidden="true">
+    <!-- Tall tick + day name = midnight, small tick = noon, blue = selected hour. -->
     {#each app.times as t, i (t)}
-      <i class:on={i === idx} class:day={t.endsWith('T00:00')}></i>
+      <i class:on={i === idx} class:day={t.endsWith('T00:00')} class:noon={t.endsWith('T12:00')}
+        >{#if t.endsWith('T00:00')}<b>{formatHour(t).split(' ')[0]}</b>{/if}</i
+      >
     {/each}
   </div>
 
@@ -204,18 +207,36 @@
     gap: 2px;
     height: 22px;
     align-items: center;
-    margin: 4px 4px 2px;
+    margin: 4px 4px 12px;
     cursor: pointer;
   }
   .ticks i {
+    position: relative;
     flex: 1;
     height: 4px;
     border-radius: 2px;
     background: var(--border);
   }
+  .ticks i.noon {
+    height: 7px;
+  }
   .ticks i.day {
     height: 10px;
     background: var(--muted);
+  }
+  .ticks b {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    font: 600 10px var(--font);
+    color: var(--muted);
+    text-transform: capitalize;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .ticks i.on b {
+    margin-top: 2px;
   }
   .ticks i.on {
     height: 14px;

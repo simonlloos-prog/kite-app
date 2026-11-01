@@ -1,5 +1,6 @@
 import type { Map as MlMap } from 'maplibre-gl'
 import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
+import { checkForUpdate } from '../pwa'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { parisHourKey } from '../wind/time'
@@ -63,6 +64,7 @@ class AppState {
   /** Bumped when an hour or the AROME-PI gusts arrive: the decoded arrays are not reactive. */
   dataVersion = $state(0)
   online = $state(navigator.onLine)
+  refreshing = $state(false)
 
   /** Plain properties: the map instance and the decoded arrays must never be proxied. */
   map: MlMap | null = null
@@ -173,6 +175,24 @@ class AppState {
     }
   }
 
+  /** ⟳ button and return to the app: newer app version, then newer data. */
+  async refresh() {
+    if (this.refreshing) return
+    this.refreshing = true
+    try {
+      await checkForUpdate()
+      await this.loadData()
+    } finally {
+      this.refreshing = false
+    }
+  }
+
+  /** Paris hour keys compared by the AROME-PI badges: hours both runs cover. */
+  get piHours(): string[] {
+    void this.dataVersion
+    return [...this.pi.keys()].filter((k) => this.hours.has(k)).sort()
+  }
+
   flyTo(p: Picked) {
     const map = this.map
     if (!map) return
@@ -192,7 +212,7 @@ if (import.meta.env.DEV) Object.assign(window, { app })
 
 addEventListener('online', () => (app.online = true))
 addEventListener('offline', () => (app.online = false))
-// Back to the app after a while: pick up a newer run if there is one.
+// Back to the app after a while: pick up a newer app version and a newer run if there is one.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') app.loadData()
+  if (document.visibilityState === 'visible') app.refresh()
 })

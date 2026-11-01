@@ -45,6 +45,14 @@
     aria-label="Liste des spots"
     onclick={() => (app.snap = app.snap === 'closed' ? 'half' : 'closed')}>☰</button
   >
+  <button
+    type="button"
+    class="list"
+    class:spinning={app.refreshing}
+    title="Recharger : nouvelle version de l'app et dernières données"
+    aria-label="Recharger l'app et les données"
+    onclick={() => app.refresh()}>⟳</button
+  >
 </div>
 
 <style>
@@ -82,5 +90,16 @@
     color: var(--text);
     opacity: 1;
     font-size: 20px;
+  }
+  .list + .list {
+    margin-top: 0;
+  }
+  .spinning {
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

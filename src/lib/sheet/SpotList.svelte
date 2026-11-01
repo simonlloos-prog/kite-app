@@ -16,12 +16,17 @@
   const piHour = $derived(
     app.piRun ? new Date(app.piRun).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric' }) : null,
   )
+  const hourOf = (key: string) => `${Number(key.slice(11, 13))} h`
+  const piSpan = $derived(app.piHours.length ? `de ${hourOf(app.piHours[0])} à ${hourOf(app.piHours.at(-1)!)}` : null)
 </script>
 
 <div class="list">
   <h2>Spots · {formatHour(app.selectedTime)}</h2>
-  {#if piHour}
-    <p class="note">Badge PI : rafales du run AROME-PI de {piHour} comparées à AROME sur les 6 prochaines heures.</p>
+  {#if piHour && piSpan}
+    <p class="note">
+      Badge PI : écart moyen des rafales entre AROME-PI (run de {piHour}) et AROME, {piSpan}. Il ne dépend pas de
+      l'heure choisie : ↑ = rafales plus fortes prévues, ↓ = plus faibles, = écart sous 1,5 kn.
+    </p>
   {/if}
   <ul>
     {#each rows as { spot, w, rating, trend } (spot.id)}
