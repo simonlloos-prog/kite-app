@@ -40,7 +40,8 @@ body {
   overscroll-behavior: none;
   font-family: var(--font);
   color: var(--text);
-  background: #0b1320;
+  /* Light, close to the map colours: any edge not covered by the map no longer shows as a dark band. */
+  background: #dcecff;
   -webkit-tap-highlight-color: transparent;
 }
 

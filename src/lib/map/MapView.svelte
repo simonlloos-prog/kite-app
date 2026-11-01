@@ -116,7 +116,13 @@
 <style>
   .map {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* Down to the very bottom of the screen, under the gesture bar / home indicator:
+       `inset: 0` stopped at the safe area on phones and left a dark strip. */
+    height: 100vh;
+    height: 100lvh;
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);

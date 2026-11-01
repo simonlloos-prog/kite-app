@@ -72,7 +72,9 @@
     <div class="handle"></div>
     <button type="button" class="close" aria-label="Fermer la liste" onclick={() => (app.snap = 'closed')}>✕</button>
   </div>
-  <div class="body" class:scroll={app.snap === 'full'}>
+  <!-- Always scrollable. The sheet is full height and slid down, so its bottom is off screen
+       at "half": the padding lets the last spots scroll up into view. -->
+  <div class="body" style:padding-bottom="calc({16 + heights.full - visible}px + env(safe-area-inset-bottom))">
     <SpotList />
   </div>
 </section>
@@ -122,10 +124,7 @@
   }
   .body {
     flex: 1;
-    overflow: hidden;
-    padding: 0 0 calc(16px + env(safe-area-inset-bottom));
-  }
-  .body.scroll {
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
