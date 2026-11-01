@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
-import { gridSymbols, sample, strideFor, valuesOf } from './field'
+import { isobands, labels, sample, streamlines, strideFor, valuesOf } from './field'
 import { formatHour, parisHourKey } from './time'
 import { angleDiff, beaufort, sector } from './units'
 import { BINS, binOf, windColor } from './windColor'
@@ -75,33 +75,45 @@ describe('field', () => {
   })
 
   const all = { west: -2, south: 44, east: -0.7, north: 45.2 }
+  const small = { west: -1.2, south: 44.6, east: -1.1, north: 44.7 }
 
-  it('alternates values and arrows on the lattice', () => {
-    const { labels, strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 2, all)
-    const lattice = Math.ceil(grid.rows / 2) * Math.ceil(grid.cols / 2)
-    expect(labels.length + strokes.length).toBe(lattice)
-    expect(labels.length).toBe(Math.floor(grid.rows / 4 + 0.5) * Math.floor(grid.cols / 4 + 0.5))
-    expect(labels[0].value).toBe(12)
-  })
-
-  it('points arrows where the wind goes', () => {
-    const { strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 4, all)
-    for (const { shaft } of strokes) {
-      const [[lon0, lat0], [lon1, lat1]] = shaft
-      expect(lon1).toBeGreaterThan(lon0) // westerly → heads east
-      expect(lat1).toBeCloseTo(lat0, 9)
-    }
-    const north = gridSymbols(grid, uniform(180, 12), valuesOf(uniform(180, 12), 'speed'), 4, all).strokes[0].shaft
-    expect(north[1][1]).toBeGreaterThan(north[0][1]) // southerly → heads north
-  })
-
-  it('only emits what is on screen and skips calm cells', () => {
-    const small = { west: -1.2, south: 44.6, east: -1.1, north: 44.7 }
-    const { labels, strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 1, small)
-    expect(labels.length + strokes.length).toBe(11 * 11)
-    for (const s of strokes) expect(s.shaft[0][0]).toBeGreaterThan(small.west - 0.01)
-    expect(gridSymbols(grid, uniform(0, 0), new Float32Array(n), 1, small).strokes).toHaveLength(0)
+  it('lays values on a regular grid, only on screen', () => {
+    const v = valuesOf(uniform(270, 12), 'speed')
+    expect(labels(grid, v, 1, small)).toHaveLength(11 * 11)
+    const coarse = labels(grid, v, 4, all)
+    expect(coarse).toHaveLength(Math.ceil(grid.rows / 4) * Math.ceil(grid.cols / 4))
+    expect(coarse[0]).toEqual({ coord: [-1.9, 44.1], value: 12 })
     expect(nodeAt(grid, 1, 1)).toEqual({ lat: 44.11, lon: -1.89 })
+  })
+
+  it('cuts vector bands at the thresholds, in lon/lat', () => {
+    // Speed grows eastwards: 0 kn on the west edge to 22 kn on the east edge.
+    const v = new Float32Array(n)
+    for (let k = 0; k < n; k++) v[k] = ((k % grid.cols) / (grid.cols - 1)) * 22
+    const bands = isobands(grid, v, [0, 10, 20])
+    expect(bands.map((b) => b.min)).toEqual([0, 10, 20])
+    const lons = (b: (typeof bands)[number]) => b.polygons.flat(2).map(([lon]) => lon)
+    // The 10 kn band starts about 10/22 of the way east.
+    expect(Math.min(...lons(bands[1]))).toBeCloseTo(-1.9 + (10 / 22) * 1.1, 2)
+    expect(Math.max(...lons(bands[0]))).toBeCloseTo(-0.8 + 0.005, 3)
+  })
+
+  it('draws long continuous lines that go where the wind blows', () => {
+    const lines = streamlines(grid, uniform(270, 12), 2, small)
+    expect(lines.length).toBeGreaterThan(3)
+    for (const line of lines) {
+      const [first, last] = [line[0], line[line.length - 1]]
+      expect(last[0]).toBeGreaterThan(first[0]) // westerly → heads east
+      expect(last[1]).toBeCloseTo(first[1], 6)
+      // Continuous: runs across the whole screen, not a short stroke.
+      expect(last[0] - first[0]).toBeGreaterThan(small.east - small.west)
+    }
+    // Evenly spaced: neighbouring lines at least half the separation apart (2 cells = 0.02°).
+    const lats = lines.map((l) => l[0][1]).sort((a, b) => a - b)
+    for (let i = 1; i < lats.length; i++) expect(lats[i] - lats[i - 1]).toBeGreaterThan(0.01)
+    const north = streamlines(grid, uniform(180, 12), 2, small)[0]
+    expect(north[north.length - 1][1]).toBeGreaterThan(north[0][1]) // southerly → heads north
+    expect(streamlines(grid, uniform(0, 0), 2, small)).toEqual([])
   })
 })
 

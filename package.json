@@ -15,6 +15,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tsconfig/svelte": "^5.0.8",
+    "@types/d3-contour": "^3.0.6",
     "@types/node": "^24.19.2",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.7",
@@ -24,6 +25,7 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
+    "d3-contour": "^4.0.2",
     "maplibre-gl": "^6.16.0"
   }
 }

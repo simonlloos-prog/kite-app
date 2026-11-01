@@ -5,12 +5,12 @@
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
   import { onMount } from 'svelte'
   import { app } from '../stores/app.svelte'
-  import { strideFor } from '../wind/field'
   import {
     addWindLayers,
-    setFieldData,
-    setGridData,
+    gridBounds,
+    setBandsData,
     setLayerVisibility,
+    setLinesData,
     setPickedData,
     setSpotsData,
     STYLE_URL,
@@ -67,7 +67,9 @@
 
   $effect(() => {
     if (styleReady && app.meta && !ready) {
-      addWindLayers(app.map!, app.meta.grid)
+      addWindLayers(app.map!)
+      // Keep the view inside the data: no zooming out onto a blank edge.
+      app.map!.setMaxBounds(gridBounds(app.meta.grid))
       ready = true
     }
   })
@@ -79,12 +81,12 @@
 
   $effect(() => {
     const { meta, hour } = app
-    if (ready && meta && hour && app.layers.field) setFieldData(app.map!, meta.grid, meta.run, app.selectedTime, hour, app.kind)
+    if (ready && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, meta.run, app.selectedTime, hour, app.kind)
   })
 
   $effect(() => {
     const { meta, hour, bounds } = app
-    if (ready && meta && hour && bounds) setGridData(app.map!, meta.grid, hour, app.kind, strideFor(meta.grid, app.zoom), bounds)
+    if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, app.zoom, bounds)
   })
 
   $effect(() => {

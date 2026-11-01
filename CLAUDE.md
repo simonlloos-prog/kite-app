@@ -1,12 +1,15 @@
 # Kite App — vent AROME sur le Bassin d'Arcachon
 
 PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de Lacanau à Mimizan et loin au large :
-- des **bandes de couleur nettes** par paliers de 2–3 kn, séparées par un liseré ;
-- en quinconce sur la grille, des **valeurs en nœuds** et de **petites flèches qui se suivent**, plus denses quand on zoome.
+- des **zones de couleur vectorielles** par paliers de 2–3 kn, nettes à tous les zooms, avec un liseré et le trait de côte redessiné par-dessus ;
+- une **grille régulière de petites valeurs en nœuds** ;
+- de **longues lignes de vent continues, régulièrement espacées, avec des pointes de flèche intégrées** le long de chaque ligne.
+
+La carte est **bloquée sur la zone des données** (`maxBounds`) : on ne peut pas dézoomer sur un bord vide.
 
 Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales. On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
 
-Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées, les lignes de courant longues, l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
+Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées ou en quinconce (pas assez « continues »), le champ en image raster (bords pixelisés), l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
 
 ## Phase actuelle : POC
 Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il doit rester propre et lisible, sans viser l'architecture définitive. L'app sera **refaite ensuite avec une structure pensée à l'avance**. Conséquences :
@@ -27,6 +30,7 @@ Météo-France open data ──► pipeline/fetch_arome.py ──► public/data
 - Svelte 5 (runes) + Vite + TypeScript strict
 - `maplibre-gl` ; fond de carte OpenFreeMap `https://tiles.openfreemap.org/styles/liberty` (sans clé, polices `Noto Sans Regular|Bold|Italic`)
 - `vite-plugin-pwa` (Workbox) ; Vitest pour la logique pure
+- `d3-contour` : isobandes vectorielles (petite librairie, sans dépendance lourde)
 - Gestionnaire de paquets : **npm** (pnpm n'est pas installé)
 
 ## Commandes
@@ -51,7 +55,8 @@ src/
     time/                  TimeDial (module flottant : heure, gestes, point touché)
     sheet/                 SpotsSheet (fermé / half / full) + SpotList
     wind/                  arome.ts (format des données, décodage, vent en un point),
-                           field.ts (valeurs, interpolation, grille valeurs/flèches), units.ts, time.ts, windColor.ts (paliers)
+                           field.ts (valeurs, interpolation, isobandes, lignes de vent, grille de valeurs),
+                           units.ts, time.ts, windColor.ts (paliers)
     spots/                 spots.ts (données statiques), rating.ts (note d'un spot)
     stores/app.svelte.ts   état global (run, heures chargées, heure choisie, point touché, couches, vue)
 ```
@@ -66,8 +71,9 @@ src/
 ## Règles données et rendu
 - Vitesses en **nœuds**. La direction indique **d'où vient** le vent (convention météo). Les flèches pointent **là où il va**.
 - Heures affichées en `Europe/Paris`, clé `YYYY-MM-DDTHH:00`. `meta.json` donne les heures de validité en UTC.
-- La grille valeurs/flèches est un réseau de pas `k` cellules : `strideFor` choisit `k` pour garder au moins 20 px entre symboles. **MapLibre compte ses zooms en tuiles de 512 px.** Une case sur quatre (ligne et colonne impaires du réseau) porte la valeur, les autres une flèche longue d'environ 0,84 pas. Seul ce qui est à l'écran est émis, et le tout est recalculé à chaque `moveend`.
-- Image du champ : bilinéaire, paliers et liserés, 6 px par cellule. Les lignes sont espacées en **Y Mercator**, parce que MapLibre étire l'image linéairement en Mercator. L'image est mémorisée par run, heure et type.
+- **Zones de couleur** : `isobands` (d3-contour, marching squares interpolé) produit des MultiPolygones cumulés (« ≥ seuil »), dessinés opaques dans l'ordre sous les libellés du fond de carte. d3-contour place la valeur de la cellule (x, y) en (x + 0,5, y + 0,5). Elles sont mémorisées par run, heure et type.
+- **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 26 px à l'écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l'est, tous les 70 px). Elles sont calculées sur la zone visible et recalculées à chaque `moveend` et à chaque changement d'heure.
+- **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 24 px entre deux valeurs. **MapLibre compte ses zooms en tuiles de 512 px.**
 
 ## Conventions
 - La logique pure va dans `lib/**/*.ts` et a ses tests `*.test.ts` à côté. Les composants `.svelte` restent minces.
