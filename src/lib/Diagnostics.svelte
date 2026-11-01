@@ -21,7 +21,6 @@
   }
 
   function measure() {
-    const css = getComputedStyle(document.documentElement)
     const mm = (q: string) => (matchMedia(q).matches ? 'oui' : 'non')
     return [
       ['innerHeight', innerHeight],
@@ -36,7 +35,7 @@
       ['navigator.standalone', String((navigator as Navigator & { standalone?: boolean }).standalone)],
       ['display-mode standalone', mm('(display-mode: standalone)')],
       ['display-mode fullscreen', mm('(display-mode: fullscreen)')],
-      ['--screen-h / --bottom-gap', `${css.getPropertyValue('--screen-h') || '—'} / ${css.getPropertyValue('--bottom-gap') || '—'}`],
+      ['barre d\'état iOS', document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.getAttribute('content') ?? '—'],
       ['carte', rect('.map')],
       ['canvas', rect('.maplibregl-canvas')],
       ['module temps', rect('.dial')],

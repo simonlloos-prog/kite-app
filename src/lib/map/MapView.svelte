@@ -115,14 +115,10 @@
 
 <style>
   .map {
+    /* The visible page, exactly. On an installed iPhone app, 100vh/lvh is taller than what iOS
+       draws: see the status-bar note in index.html. */
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    /* Down to the very bottom of the screen, under the home indicator. On an installed iPhone
-       app, 100lvh stops a status-bar height short: --screen-h (main.ts) is the physical screen. */
-    height: 100vh;
-    height: max(100lvh, var(--screen-h, 0px));
+    inset: 0;
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);

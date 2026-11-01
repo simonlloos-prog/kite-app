@@ -10,7 +10,11 @@
     <meta name="theme-color" content="#0b1320" />
     <meta name="description" content="Vent AROME HD sur le Bassin d'Arcachon" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Opaque, not black-translucent: with a translucent bar, iOS (18) installed apps start the
+         page under the status bar but still shorten it by the bar's height, so the bottom
+         59 px were never drawn (measured: innerHeight 793 for an 852 px screen).
+         iOS reads this when the app is added to the home screen: re-add it after a change. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <title>Kite Bassin</title>
   </head>
