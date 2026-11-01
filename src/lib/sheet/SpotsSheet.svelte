@@ -2,8 +2,6 @@
   import { app, type Snap } from '../stores/app.svelte'
   import SpotList from './SpotList.svelte'
 
-  /** Map area hidden by the floating time dial when the sheet is closed. */
-  const DIAL_PAD = 150
 
   let vh = $state(window.innerHeight)
   const heights = $derived<Record<Snap, number>>({
@@ -16,9 +14,11 @@
   let dragH = $state<number | null>(null)
   const visible = $derived(dragH ?? heights[app.snap])
 
+  // No padding for the floating time dial: maxBounds ignores padding, so a bottom padding
+  // let the screen bottom slide past the data and show a strip with no wind.
   // The full sheet covers the map: keep the half padding so the map doesn't jump.
   $effect(() => {
-    app.mapPadBottom = app.snap === 'closed' ? DIAL_PAD : heights.half
+    app.mapPadBottom = app.snap === 'closed' ? 0 : heights.half
   })
 
   let startY = 0

@@ -9,7 +9,6 @@
     addWindLayers,
     gridBounds,
     setBandsData,
-    setLandData,
     setLayerVisibility,
     setLinesData,
     setPickedData,
@@ -87,14 +86,7 @@
 
   $effect(() => {
     const { meta, hour, bounds, zoom, unit } = app
-    // `hour` reads dataVersion, which also signals the mask's arrival.
-    const land = app.layers.land ? (app.mask ?? undefined) : undefined
-    if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit, land })
-  })
-
-  $effect(() => {
-    void app.dataVersion
-    if (ready && app.meta && app.mask) setLandData(app.map!, app.meta.grid, app.mask)
+    if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
   })
 
   $effect(() => {

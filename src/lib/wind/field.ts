@@ -80,20 +80,14 @@ export interface Label {
   value: number
 }
 
-/** Land fraction above which a cell counts as land. */
-const LAND = 0.5
-
-/**
- * Meteociel-like regular grid of values (knots, unrounded): every `k` cells, only what is on
- * screen, and none on land when a `land` mask is given.
- */
-export function labels(g: Grid, values: Float32Array, k: number, bounds: Bounds, land?: Float32Array): Label[] {
+/** Meteociel-like regular grid of values (knots, unrounded): every `k` cells, only what is on screen. */
+export function labels(g: Grid, values: Float32Array, k: number, bounds: Bounds): Label[] {
   const out: Label[] = []
   const { r0, r1, c0, c1 } = indexRange(g, bounds, k)
   for (let r = r0; r <= r1; r += k) {
     for (let c = c0; c <= c1; c += k) {
       const i = r * g.cols + c
-      if (Number.isNaN(values[i]) || (land && land[i] >= LAND)) continue
+      if (Number.isNaN(values[i])) continue
       const { lat, lon } = nodeAt(g, r, c)
       out.push({ coord: [lon, lat], value: values[i] })
     }
@@ -108,10 +102,9 @@ const MAX_STEPS = 600
  * Evenly spaced wind lines (Jobard & Lefer): long continuous lines following the wind,
  * kept about `sep` cells apart. Each line runs upwind → downwind, so arrowheads placed along
  * it point where the wind goes. Directions are interpolated as vectors (350° and 10° give 0°).
- * Distances are physical: longitude cells are narrower by cos(lat). With a `land` mask,
- * lines stop at the coast.
+ * Distances are physical: longitude cells are narrower by cos(lat).
  */
-export function streamlines(g: Grid, h: Hour, sep: number, bounds: Bounds, land?: Float32Array): [number, number][][] {
+export function streamlines(g: Grid, h: Hour, sep: number, bounds: Bounds): [number, number][][] {
   const cosLat = Math.cos(((g.south + (g.rows * g.step) / 2) * Math.PI) / 180)
   // Integration step in cells: fine enough to stay smooth on screen at every zoom.
   const H = Math.min(0.25, sep * 0.2)
@@ -124,7 +117,6 @@ export function streamlines(g: Grid, h: Hour, sep: number, bounds: Bounds, land?
   /** Unit step (physical length 1, in row units) at a fractional position, or null. */
   const dirAt = (fr: number, fc: number): [number, number] | null => {
     if (fr < lo.r || fc < lo.c || fr > hi.r || fc > hi.c) return null
-    if (land && sample(g, land, fr, fc) >= LAND) return null
     const e = sample(g, h.u, fr, fc)
     const n = sample(g, h.v, fr, fc)
     const norm = Math.hypot(e, n)

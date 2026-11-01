@@ -25,8 +25,6 @@ export interface Meta {
   times: string[]
   /** Hour files, relative to the data folder. */
   files: string[]
-  /** Land-sea mask file (uint8 per cell, 0 sea … 255 land), relative to the data folder. */
-  mask?: string
 }
 
 /** One forecast hour over the grid, in knots. Index = row * cols + col. */
@@ -59,13 +57,6 @@ export function decodeHour(buf: ArrayBuffer, grid: Grid, scale: number): Hour {
     hour.gust[k] = g === 255 ? NaN : g * scale
   }
   return hour
-}
-
-/** Land fraction per cell, 0 (sea) to 1 (land). */
-export function decodeMask(buf: ArrayBuffer, grid: Grid): Float32Array {
-  const bytes = new Uint8Array(buf)
-  if (bytes.length !== grid.rows * grid.cols) throw new Error(`Masque terre/mer inattendu : ${bytes.length} octets`)
-  return Float32Array.from(bytes, (b) => b / 255)
 }
 
 /** Direction the wind comes from, from its east/north components. */

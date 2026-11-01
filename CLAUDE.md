@@ -7,9 +7,9 @@ PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide p
 
 La carte est **bloquée sur la zone des données** (`maxBounds`) : on ne peut pas dézoomer sur un bord vide.
 
-Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales ainsi qu'entre **nœuds et km/h** (Meteociel affiche en km/h). Les données et les seuils restent en nœuds : seul l'affichage est converti (`fmtSpeed`). En essai : **« atténuer la terre »** (⛰, désactivé par défaut) délave la terre et y retire valeurs et lignes. L'unité et ce réglage sont mémorisés dans `localStorage` (`kite-prefs`). On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
+Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales ainsi qu'entre **nœuds et km/h** (Meteociel affiche en km/h). Les données et les seuils restent en nœuds : seul l'affichage est converti (`fmtSpeed`). L'unité est mémorisée dans `localStorage` (`kite-prefs`). On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
 
-Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées ou en quinconce (pas assez « continues »), le champ en image raster (bords pixelisés), l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
+Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées ou en quinconce (pas assez « continues »), le champ en image raster (bords pixelisés), « atténuer la terre » (masque tiré de l'orographie AROME, car le champ `lsm` du fichier constant se décode mal), l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
 
 ## Phase actuelle : POC
 Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il doit rester propre et lisible, sans viser l'architecture définitive. L'app sera **refaite ensuite avec une structure pensée à l'avance**. Conséquences :
@@ -22,7 +22,6 @@ Météo-France open data ──► pipeline/fetch_arome.py ──► public/data
 (GRIB2 AROME 0,01°, SP1)   (GitHub Actions, chaque heure)  meta.json + <run>/hNN.bin      (app + données)
 ```
 - **Source** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a un run toutes les 3 h, avec 52 échéances (0 à 51 h), soit environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
-- **Masque terre** (`mask.bin`) : il est tiré de l'orographie du fichier « Champs CONSTANT » (terre = sol au-dessus de 0,5 m), parce que le champ `lsm` de ce fichier se décode mal (valeurs de −256 à 253). Les lacs intérieurs (Cazaux, Lacanau, Hourtin) comptent donc comme de la terre.
 - **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (44,10–45,10 N, 1,90–0,80 O, 101 × 111 points) et écrit un fichier binaire par heure (~34 Ko). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
 - **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). En mode planifié, il s'arrête si le run publié est toujours le dernier. Un run complet prend environ 4 minutes.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres heures (CacheFirst, les fichiers sont rangés par run). Aucun appel API côté client.
@@ -66,7 +65,8 @@ src/
 - Mobile-first (cible 360–430 px), portrait. Zones tactiles ≥ 44 px, `env(safe-area-inset-*)`.
 - **Changer d'heure doit rester le geste le plus simple et le plus naturel** : un module flottant indépendant (`TimeDial`), qui ne s'ouvre pas. Le swipe horizontal fait 24 px par heure, et **doigt vers la droite = avancer**, comme l'a demandé l'utilisateur. Toucher ‹ › déplace d'une heure, et un appui long fait défiler en continu. Un tap sur les ticks saute à cette heure. Flèches ← → au clavier.
 - La liste des spots (`SpotsSheet`) s'ouvre avec le bouton ☰ et se ferme au glisser ou avec ✕. Pas de modale. Seuls de petits boutons flottants sont tolérés sur la carte.
-- Le `padding.bottom` de la carte suit ce qui la couvre : le module de temps, ou la moitié de l'écran quand le panneau est ouvert.
+- Pas de `padding.bottom` pour le module de temps : `maxBounds` ignore le padding, et un padding laissait le bas de l'écran déborder des données (une bande sans vent). Seul le panneau des spots ouvert met la moitié de l'écran en padding, et il couvre ce débord.
+- Trait de côte : seulement la classe `ocean` de la couche `water`. Les « lakes » OSM incluent les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau.
 - Rotation de la carte désactivée : nord en haut.
 
 ## Règles données et rendu

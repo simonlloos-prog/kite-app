@@ -1,5 +1,5 @@
 import type { FeatureCollection, Geometry, LineString, MultiPolygon, Point } from 'geojson'
-import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl'
+import type { FilterSpecification, GeoJSONSource, Map as MlMap } from 'maplibre-gl'
 import type { Picked } from '../stores/app.svelte'
 import { rateSpot } from '../spots/rating'
 import { SPOTS } from '../spots/spots'
@@ -11,6 +11,7 @@ import { BINS } from '../wind/windColor'
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
 const INK = '#0b1320'
+const COAST_FILTER: FilterSpecification = ['==', ['get', 'class'], 'ocean']
 /** Screen distance between wind lines: tight, so local bends show up. */
 const LINE_SEP_PX = 14
 /** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
@@ -21,7 +22,6 @@ export interface Layers {
   values: boolean
   arrows: boolean
   spots: boolean
-  land: boolean
 }
 
 /** Open arrowhead pointing east: line-placed symbols align their x axis with the line. */
@@ -53,7 +53,7 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
-  for (const id of ['wind-bands', 'land', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
+  for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
 
   // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
@@ -75,24 +75,16 @@ export function addWindLayers(map: MlMap) {
     },
     firstLabel,
   )
-  // Optional: wash out the land so the water stands out.
-  map.addLayer(
-    {
-      id: 'land-dim',
-      type: 'fill',
-      source: 'land',
-      layout: { visibility: 'none' },
-      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.65 },
-    },
-    firstLabel,
-  )
   // Coastline: a light casing under a dark line, so it stands out on every band colour.
+  // Sea and Bassin only: OSM "lake" polygons include the Piraillan fish ponds on the shore,
+  // which drew a stray rectangle in the water.
   map.addLayer(
     {
       id: 'coastline-casing',
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'water',
+      filter: COAST_FILTER,
       layout: { 'line-join': 'round' },
       paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 5], 'line-opacity': 0.55 },
     },
@@ -104,6 +96,7 @@ export function addWindLayers(map: MlMap) {
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'water',
+      filter: COAST_FILTER,
       layout: { 'line-join': 'round' },
       paint: { 'line-color': INK, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.4, 13, 2.4] },
     },
@@ -203,29 +196,20 @@ export interface View {
   zoom: number
   bounds: Bounds
   unit: Unit
-  /** Land mask when the land is dimmed: no values or lines there. */
-  land?: Float32Array
 }
 
 export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) {
   const lines = empty<LineString>()
-  for (const coords of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds, v.land)) {
+  for (const coords of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
     lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
   }
   ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
 
   const values = empty()
-  for (const l of labels(g, valuesOf(h, kind), strideFor(g, v.zoom, LABEL_PX), v.bounds, v.land)) {
+  for (const l of labels(g, valuesOf(h, kind), strideFor(g, v.zoom, LABEL_PX), v.bounds)) {
     values.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmtSpeed(l.value, v.unit) } })
   }
   ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
-}
-
-/** Land shape from the AROME mask, for the optional wash-out. */
-export function setLandData(map: MlMap, g: Grid, mask: Float32Array) {
-  const fc = empty<MultiPolygon>()
-  for (const b of isobands(g, mask, [0.5])) fc.features.push({ type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: b.polygons }, properties: {} })
-  ;(map.getSource('land') as GeoJSONSource).setData(fc)
 }
 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined) {
@@ -248,6 +232,5 @@ export function setLayerVisibility(map: MlMap, l: Layers) {
   for (const id of ['wind-bands', 'wind-band-edges']) map.setLayoutProperty(id, 'visibility', vis(l.field))
   for (const id of ['wind-lines', 'wind-heads']) map.setLayoutProperty(id, 'visibility', vis(l.arrows))
   map.setLayoutProperty('wind-values', 'visibility', vis(l.values))
-  map.setLayoutProperty('land-dim', 'visibility', vis(l.land))
   for (const id of ['spots-circle', 'spots-label']) map.setLayoutProperty(id, 'visibility', vis(l.spots))
 }

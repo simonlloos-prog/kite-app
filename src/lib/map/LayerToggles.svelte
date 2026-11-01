@@ -40,17 +40,6 @@
   >
   <button
     type="button"
-    title="Atténuer la terre (essai)"
-    aria-label="Atténuer la terre"
-    aria-pressed={app.layers.land}
-    class:on={app.layers.land}
-    onclick={() => {
-      app.layers.land = !app.layers.land
-      app.savePrefs()
-    }}>⛰</button
-  >
-  <button
-    type="button"
     class="list"
     title="Liste des spots"
     aria-label="Liste des spots"

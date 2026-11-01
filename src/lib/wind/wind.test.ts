@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellOf, decodeHour, decodeMask, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
+import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
 import { isobands, labels, sample, streamlines, strideFor, valuesOf } from './field'
 import { formatHour, parisHourKey } from './time'
 import { angleDiff, beaufort, fmtSpeed, sector } from './units'
@@ -32,14 +32,6 @@ describe('arome data', () => {
     expect(h.gust[0]).toBe(15)
     expect(h.gust[1]).toBeNaN()
     expect(() => decodeHour(new ArrayBuffer(10), grid, 0.5)).toThrow()
-  })
-
-  it('decodes the land mask', () => {
-    const bytes = new Uint8Array(n)
-    bytes[0] = 255
-    const m = decodeMask(bytes.buffer, grid)
-    expect([m[0], m[1]]).toEqual([1, 0])
-    expect(() => decodeMask(new ArrayBuffer(3), grid)).toThrow()
   })
 
   it('turns components into where the wind comes from', () => {
@@ -95,23 +87,6 @@ describe('field', () => {
     expect(nodeAt(grid, 1, 1)).toEqual({ lat: 44.11, lon: -1.89 })
   })
 
-  /** Land on the eastern half of the grid. */
-  const eastLand = () => {
-    const m = new Float32Array(n)
-    for (let k = 0; k < n; k++) m[k] = k % grid.cols >= grid.cols / 2 ? 1 : 0
-    return m
-  }
-
-  it('drops values and stops lines on land when a mask is given', () => {
-    const coast = -1.9 + (grid.cols / 2) * grid.step
-    const v = valuesOf(uniform(270, 12), 'speed')
-    const sea = labels(grid, v, 1, all, eastLand())
-    expect(sea.length).toBeGreaterThan(0)
-    for (const l of sea) expect(l.coord[0]).toBeLessThan(coast)
-    for (const line of streamlines(grid, uniform(270, 12), 2, all, eastLand())) {
-      for (const [lon] of line) expect(lon).toBeLessThan(coast + grid.step)
-    }
-  })
 
   it('cuts vector bands at the thresholds, in lon/lat', () => {
     // Speed grows eastwards: 0 kn on the west edge to 22 kn on the east edge.
