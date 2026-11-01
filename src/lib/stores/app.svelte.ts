@@ -1,5 +1,6 @@
 import type { Map as MlMap } from 'maplibre-gl'
-import { decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
+import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
+import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
@@ -42,7 +43,9 @@ class AppState {
   unit = $state<Unit>(prefs.unit ?? 'kn')
   zoom = $state(11)
   bounds = $state.raw<Bounds | null>(null)
-  /** Bumped when an hour arrives: `hours` itself is not reactive. */
+  /** Run time (ISO UTC) of the AROME-PI gusts loaded, if any. */
+  piRun = $state.raw<string | null>(null)
+  /** Bumped when an hour or the AROME-PI gusts arrive: the decoded arrays are not reactive. */
   dataVersion = $state(0)
   online = $state(navigator.onLine)
 
@@ -50,6 +53,8 @@ class AppState {
   map: MlMap | null = null
   private hours = new Map<string, Hour>()
   private fileOf = new Map<string, string>()
+  /** AROME-PI gusts per Paris hour key. */
+  private pi = new Map<string, Float32Array>()
 
   get timeIndex() {
     return this.times.indexOf(this.selectedTime)
@@ -82,6 +87,36 @@ class AppState {
     return this.meta ? windAt(this.meta.grid, this.hour, p) : null
   }
 
+  /** AROME-PI gust at a point for the selected hour, null outside its 6 hours. */
+  piGustAt(p: LatLon): number | null {
+    void this.dataVersion
+    const gusts = this.pi.get(this.selectedTime)
+    const k = gusts && this.meta ? cellOf(this.meta.grid, p) : null
+    return k === null ? null : gusts![k]
+  }
+
+  /** AROME-PI against AROME gusts at a point, over the hours both cover. */
+  gustTrendAt(p: LatLon): GustTrend | null {
+    void this.dataVersion
+    const k = this.meta ? cellOf(this.meta.grid, p) : null
+    if (k === null) return null
+    return gustTrend([...this.pi].map(([key, gusts]) => [this.hours.get(key)?.gust[k] ?? NaN, gusts[k]]))
+  }
+
+  private async loadPi(meta: Meta) {
+    const pi = meta.pi!
+    try {
+      const res = await fetch(DATA_URL + pi.file)
+      if (!res.ok) return
+      const hours = decodePi(await res.arrayBuffer(), meta.grid, pi.times.length, meta.scale)
+      this.pi = new Map(pi.times.map((t, i) => [parisHourKey(new Date(t)), hours[i]]))
+      this.piRun = pi.run
+      this.dataVersion++
+    } catch {
+      // Optional: without it, spots simply show no AROME-PI trend.
+    }
+  }
+
   /** Latest run: the selected hour first, then the others in order. */
   async loadData() {
     let meta: Meta
@@ -93,8 +128,10 @@ class AppState {
       this.error = e instanceof Error ? e.message : String(e)
       return
     }
-    if (meta.run === this.meta?.run) return
     this.error = null
+    // AROME-PI runs every hour, AROME every 3 h: refresh it even when the AROME run is the same.
+    if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
+    if (meta.run === this.meta?.run) return
 
     const now = parisHourKey()
     const keys = meta.times.map((t) => parisHourKey(new Date(t)))

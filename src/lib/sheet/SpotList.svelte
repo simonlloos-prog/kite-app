@@ -5,25 +5,35 @@
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
+  import PiBadge from './PiBadge.svelte'
 
   const rows = $derived(
     SPOTS.map((spot) => {
       const w = app.windAt(spot)
-      return { spot, w, rating: rateSpot(spot, w) }
+      return { spot, w, rating: rateSpot(spot, w), trend: app.gustTrendAt(spot) }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
+  )
+  const piHour = $derived(
+    app.piRun ? new Date(app.piRun).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric' }) : null,
   )
 </script>
 
 <div class="list">
   <h2>Spots · {formatHour(app.selectedTime)}</h2>
+  {#if piHour}
+    <p class="note">Badge PI : rafales du run AROME-PI de {piHour} comparées à AROME sur les 6 prochaines heures.</p>
+  {/if}
   <ul>
-    {#each rows as { spot, w, rating } (spot.id)}
+    {#each rows as { spot, w, rating, trend } (spot.id)}
       <li>
         <button type="button" onclick={() => app.flyTo(spot)}>
           <span class="dot" style:background={rating.color}></span>
           <span class="name">
             {spot.name}
-            <small>{rating.label} · {spot.sectors.join(' ')}</small>
+            <small>
+              {rating.label} · {spot.sectors.join(' ')}
+              {#if trend}<PiBadge {trend} />{/if}
+            </small>
           </span>
           {#if w}
             <svg viewBox="0 0 24 24" style:transform="rotate({w.dir + 180}deg)" aria-hidden="true">
@@ -81,6 +91,14 @@
     flex-direction: column;
   }
   small {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .note {
+    margin: -4px 0 6px;
     color: var(--muted);
     font-size: 12px;
   }

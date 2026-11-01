@@ -10,7 +10,9 @@
   const SLOP = 8
 
   const idx = $derived(app.timeIndex)
-  const picked = $derived(app.picked ? { name: app.picked.name, w: app.windAt(app.picked) } : null)
+  const picked = $derived(
+    app.picked ? { name: app.picked.name, w: app.windAt(app.picked), piGust: app.piGustAt(app.picked) } : null,
+  )
 
   let el: HTMLDivElement
   let mode: 'idle' | 'pending' | 'swipe' = 'idle'
@@ -125,7 +127,13 @@
     {:else if picked?.w}
       {@const w = picked.w}
       <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
-      <span>raf. {fmtSpeed(w.gust, app.unit)} {UNIT_LABEL[app.unit]}</span>
+      <span
+        >raf. {fmtSpeed(w.gust, app.unit)}{#if picked.piGust != null && !Number.isNaN(picked.piGust)}<span
+            class="pi"
+            title="Rafale AROME-PI (run horaire)">&nbsp;(PI {fmtSpeed(picked.piGust, app.unit)})</span
+          >{/if}
+        {UNIT_LABEL[app.unit]}</span
+      >
       <svg viewBox="0 0 24 24" style:transform="rotate({w.dir + 180}deg)" aria-hidden="true">
         <path d="M12 2l6 9h-4.5v11h-3V11H6z" fill="currentColor" />
       </svg>
@@ -242,6 +250,10 @@
   }
   .error {
     color: #ef4444;
+  }
+  .pi {
+    color: var(--muted);
+    font-size: 12px;
   }
   .progress {
     margin-left: auto;

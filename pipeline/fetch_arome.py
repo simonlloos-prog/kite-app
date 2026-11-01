@@ -113,22 +113,48 @@ def encode(fields: dict[str, np.ndarray], shape: tuple[int, int]) -> bytes:
     return u.tobytes() + v.tobytes() + gust.tobytes()
 
 
+def reuse_published(base: str, run: str, grid: dict, out: Path) -> bool:
+    """Copy the published hour files when they are already this run on this grid.
+
+    AROME runs every 3 h but AROME-PI every hour: this keeps the hourly update to a few MB
+    instead of 1.2 GB of GRIB files.
+    """
+    try:
+        with urllib.request.urlopen(f"{base}/meta.json", timeout=30) as r:
+            meta = json.load(r)
+    except (urllib.error.URLError, ValueError):
+        return False
+    if meta.get("run") != run or meta.get("grid") != grid:
+        return False
+    for name in meta["files"]:
+        dest = out / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        download(f"{base}/{name}", dest)
+    meta.pop("pi", None)  # Rebuilt by fetch_aromepi.py.
+    (out / "meta.json").write_text(json.dumps(meta, indent=1))
+    print(f"run {run} already published: reused {len(meta['files'])} hour files")
+    return True
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--max-step", type=int, default=MAX_STEP, help="last forecast hour (lower it to test)")
     p.add_argument("--run", help="run to use, e.g. 2026-11-01T15:00:00Z (default: latest complete)")
-    p.add_argument("--skip-if-run", help="exit without output when the latest run equals this one")
+    p.add_argument(
+        "--reuse-from",
+        help="published data URL (…/data): when it already holds the latest run on the same grid, "
+        "copy it instead of downloading the GRIB files again",
+    )
     args = p.parse_args()
 
     run = args.run or latest_run(args.max_step)
     print(f"run {run}")
-    if args.skip_if_run == run:
-        print("already published, nothing to do")
-        return
-
     rows = round((BOX["north"] - BOX["south"]) / STEP) + 1
     cols = round((BOX["east"] - BOX["west"]) / STEP) + 1
+    grid = {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols}
+    if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out):
+        return
     run_dir = args.out / run.replace(":", "")
     run_dir.mkdir(parents=True, exist_ok=True)
     run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
@@ -150,7 +176,7 @@ def main() -> None:
     meta = {
         "model": MODEL,
         "run": run,
-        "grid": {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols},
+        "grid": grid,
         "scale": SCALE,
         "times": times,
         "files": files,

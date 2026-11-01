@@ -1,5 +1,7 @@
-# Fetch the latest AROME 0.01° run, cut the kite area, build the app and publish it on GitHub Pages.
-# Runs on every push and every hour; a run already published is skipped (AROME runs every 3 h).
+# Fetch the latest AROME 0.01° run and AROME-PI gusts, build the app and publish it on GitHub Pages.
+# Runs on every push and every hour. AROME runs every 3 h: an unchanged run is copied from the
+# published site instead of downloaded again. AROME-PI runs every hour. On the hourly schedule,
+# nothing is published when neither run changed.
 name: Données AROME + déploiement
 
 on:
@@ -34,18 +36,24 @@ jobs:
 
       - run: pip install -r pipeline/requirements.txt
 
-      - name: Données AROME
+      - name: Données AROME + AROME-PI
         id: data
         env:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
         run: |
-          # On the hourly schedule, skip when the published run is still the latest.
-          published=""
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            published=$(curl -sf "$PAGES_URL/data/meta.json" | python -c "import json,sys; print(json.load(sys.stdin)['run'])" || true)
+          # Runs currently online, to reuse AROME and to tell whether anything changed.
+          runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), (m.get('pi') or {}).get('run'))"; }
+          published=$(curl -sf "$PAGES_URL/data/meta.json" | runs || echo "none")
+          python pipeline/fetch_arome.py --out public/data --reuse-from "$PAGES_URL/data"
+          python pipeline/fetch_aromepi.py --out public/data
+          fresh=$(runs < public/data/meta.json)
+          echo "online: $published / new: $fresh"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$published" = "$fresh" ]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
-          python pipeline/fetch_arome.py --out public/data ${published:+--skip-if-run "$published"}
-          if [ -f public/data/meta.json ]; then echo "skipped=false" >> "$GITHUB_OUTPUT"; else echo "skipped=true" >> "$GITHUB_OUTPUT"; fi
 
       - uses: actions/setup-node@v4
         if: steps.data.outputs.skipped == 'false'

@@ -18,13 +18,16 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
 
 ## Architecture
 ```
-Météo-France open data ──► pipeline/fetch_arome.py ──► public/data/ ──► build Vite ──► GitHub Pages
-(GRIB2 AROME 0,01°, SP1)   (GitHub Actions, chaque heure)  meta.json + <run>/hNN.bin      (app + données)
+Météo-France open data ──► pipeline/fetch_arome.py ───┐
+(GRIB2 AROME 0,01°, SP1)                              ├─► public/data/ ──► build Vite ──► GitHub Pages
+API Météo-France ─────────► pipeline/fetch_aromepi.py ┘   meta.json + <run>/hNN.bin + pi-<run>.bin
+(WCS AROME-PI, clé)        (GitHub Actions, chaque heure)
 ```
+- **AROME-PI** (`fetch_aromepi.py`) : c'est le run horaire de prévision immédiate (+1 à +6 h), publié environ 1 h après son heure. Via l'API, il n'a **que des rafales, pas de vent moyen**. On prend `WIND_SPEED_GUST` à 10 m (rafale max de l'heure écoulée, même définition que la rafale AROME) sur toute `BOX`, en 6 requêtes WCS GetCoverage au format GRIB. Ce n'est pas dessiné sur la carte : la liste des spots montre un badge « PI ↑ / ↓ / = » (écart moyen AROME-PI − AROME sur les heures communes, seuil 1,5 kn, voir `wind/pi.ts`), et le point touché affiche « (PI xx) ». La clé est le secret GitHub `METEOFRANCE_API_KEY`, ou `.env.local` en local (ignoré par git, jamais affiché). Sans clé, AROME-PI est simplement absent.
 - **Source** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a un run toutes les 3 h, avec 52 échéances (0 à 51 h), soit environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
 - **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (43,55–45,60 N, 2,00–0,90 O, Soulac → Capbreton, 206 × 111 points) et écrit un fichier binaire par heure (~68 Ko, soit ~3,5 Mo par run). Au-delà de ~4 fois cette surface, il faudra découper en tuiles et ne charger que la partie visible.
 - **Fraîcheur** : AROME tourne toutes les 3 h (00, 03… 21 UTC), et Météo-France publie chaque run environ 3 à 4 h après son heure nominale. La légende affiche l'heure du run en heure de Paris (le run 15 UTC s'affiche « 16 h »). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
-- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). En mode planifié, il s'arrête si le run publié est toujours le dernier. Un run complet prend environ 4 minutes.
+- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run AROME prend environ 4 minutes, une simple mise à jour AROME-PI environ 1 minute.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres heures (CacheFirst, les fichiers sont rangés par run). Aucun appel API côté client.
 
 ## Stack (décisions figées)
@@ -37,7 +40,7 @@ Météo-France open data ──► pipeline/fetch_arome.py ──► public/data
 ## Commandes
 ```
 npm run dev       # serveur de dev (il faut des données dans public/data, voir `npm run data`)
-npm run data      # pipeline local, 13 heures (Python + `pip install -r pipeline/requirements.txt`)
+npm run data      # pipeline local : AROME 13 heures + AROME-PI (Python + `pip install -r pipeline/requirements.txt`)
 npm run build     # build prod + service worker (BASE_PATH=/kite-app/ pour GitHub Pages)
 npm run preview   # sert le build (tester la PWA / le hors-ligne)
 npm test          # vitest
@@ -48,7 +51,7 @@ npm run dev:phone # serveur accessible depuis le téléphone sur le Wi-Fi local 
 
 ## Arborescence
 ```
-pipeline/                  fetch_arome.py (GRIB → binaire), requirements.txt
+pipeline/                  fetch_arome.py (GRIB → binaire), fetch_aromepi.py (rafales AROME-PI), requirements.txt
 src/
   App.svelte               MapView + Legend + LayerToggles + TimeDial + SpotsSheet
   lib/
@@ -56,7 +59,7 @@ src/
     time/                  TimeDial (module flottant : heure, gestes, point touché)
     sheet/                 SpotsSheet (fermé / half / full) + SpotList
     wind/                  arome.ts (format des données, décodage, vent en un point),
-                           field.ts (valeurs, interpolation, isobandes, lignes de vent, grille de valeurs),
+                           field.ts (valeurs, interpolation, isobandes, lignes de vent, grille de valeurs), pi.ts (AROME-PI),
                            units.ts, time.ts, windColor.ts (paliers)
     spots/                 spots.ts (données statiques), rating.ts (note d'un spot)
     stores/app.svelte.ts   état global (run, heures chargées, heure choisie, point touché, couches, vue)

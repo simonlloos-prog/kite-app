@@ -25,6 +25,15 @@ export interface Meta {
   times: string[]
   /** Hour files, relative to the data folder. */
   files: string[]
+  /** Latest AROME-PI gusts, when the pipeline could fetch them (see pipeline/fetch_aromepi.py). */
+  pi?: {
+    /** Run time, ISO UTC: AROME-PI runs every hour. */
+    run: string
+    /** Validity times, ISO UTC, one per hour in the file. */
+    times: string[]
+    /** uint8 per cell and hour, hours one after another, `scale` kn per unit. */
+    file: string
+  }
 }
 
 /** One forecast hour over the grid, in knots. Index = row * cols + col. */
