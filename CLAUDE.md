@@ -72,8 +72,8 @@ src/
 - Vitesses en **nœuds**. La direction indique **d'où vient** le vent (convention météo). Les flèches pointent **là où il va**.
 - Heures affichées en `Europe/Paris`, clé `YYYY-MM-DDTHH:00`. `meta.json` donne les heures de validité en UTC.
 - **Zones de couleur** : `isobands` (d3-contour, marching squares interpolé) produit des MultiPolygones cumulés (« ≥ seuil »), dessinés opaques dans l'ordre sous les libellés du fond de carte. d3-contour place la valeur de la cellule (x, y) en (x + 0,5, y + 0,5). Elles sont mémorisées par run, heure et type.
-- **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 26 px à l'écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l'est, tous les 70 px). Elles sont calculées sur la zone visible et recalculées à chaque `moveend` et à chaque changement d'heure.
-- **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 24 px entre deux valeurs. **MapLibre compte ses zooms en tuiles de 512 px.**
+- **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 14 px à l’écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l’est, tous les 35 px). Elles sont calculées sur la zone visible et recalculées à chaque `moveend` et à chaque changement d'heure.
+- **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 14 px entre deux valeurs (une valeur par point de grille dès que ça tient, comme Meteociel). **MapLibre compte ses zooms en tuiles de 512 px.**
 
 ## Conventions
 - La logique pure va dans `lib/**/*.ts` et a ses tests `*.test.ts` à côté. Les composants `.svelte` restent minces.

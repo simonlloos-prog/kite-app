@@ -10,10 +10,10 @@ import { BINS } from '../wind/windColor'
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
 const INK = '#0b1320'
-/** Screen distance between wind lines. */
-const LINE_SEP_PX = 26
-/** Screen distance between labels. */
-const LABEL_PX = 24
+/** Screen distance between wind lines: tight, so local bends show up. */
+const LINE_SEP_PX = 14
+/** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
+const LABEL_PX = 14
 
 export interface Layers {
   field: boolean
@@ -88,7 +88,7 @@ export function addWindLayers(map: MlMap) {
     type: 'line',
     source: 'wind-lines',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': INK, 'line-width': 1.1, 'line-opacity': 0.7 },
+    paint: { 'line-color': INK, 'line-width': 0.9, 'line-opacity': 0.65 },
   })
   map.addLayer({
     id: 'wind-heads',
@@ -96,8 +96,9 @@ export function addWindLayers(map: MlMap) {
     source: 'wind-lines',
     layout: {
       'symbol-placement': 'line',
-      'symbol-spacing': 70,
+      'symbol-spacing': 35,
       'icon-image': 'wind-chevron',
+      'icon-size': 0.8,
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
@@ -111,7 +112,7 @@ export function addWindLayers(map: MlMap) {
     layout: {
       'text-field': ['get', 'label'],
       'text-font': FONT,
-      'text-size': 10,
+      'text-size': 9,
       'text-allow-overlap': true,
       'text-ignore-placement': true,
     },
