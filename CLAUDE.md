@@ -1,6 +1,6 @@
 # Kite App — vent AROME HD sur le Bassin d'Arcachon
 
-PWA mobile-first pour kitesurfeurs. Une carte MapLibre plein écran avec un **réticule fixe au centre** : le vent prévu par AROME HD (Météo-France, 1,5 km) sous la cible s'affiche en direct quand on déplace la carte. Une grille de **valeurs de vent façon Meteociel** (chiffres colorés + flèches) se superpose à la carte et s'active ou se désactive. Toute l'interface tient dans **un seul panneau bas à 3 crans**. Les spots du Bassin sont préchargés.
+PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** : sur une carte MapLibre, un champ de vent AROME HD (Météo-France, 1,5 km) coloré et lissé, avec les valeurs et les flèches de vent par-dessus. Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales. On change d'heure par un **swipe horizontal** sur le bandeau du bas. Il n'y a ni réticule ni frise horaire, deux idées testées puis rejetées. Toucher la carte affiche le vent du point touché. Toute l'interface tient dans **un seul panneau bas à 3 crans** : bandeau du temps, puis liste des spots.
 
 ## Phase actuelle : POC
 Le code actuel sert de **bac à sable** : on y teste des technos et des variantes d'UX sur téléphone. Il doit rester propre et lisible, sans viser l'architecture définitive. Une fois les bonnes approches trouvées, l'app sera **refaite avec une structure pensée à l'avance**. Conséquences :
@@ -32,26 +32,29 @@ src/
   App.svelte               MapView + Reticle + LayerToggles + BottomSheet
   app.css                  tokens (clair/sombre), safe-area
   lib/
-    map/                   MapView, Reticle, LayerToggles, windLayers.ts (sources/couches MapLibre)
-    sheet/                 BottomSheet (3 crans) + PeekView / HalfView / FullView
-    wind/                  openMeteo.ts (URL + parsing), cache.ts (arrondi grille + cache + loadPoints),
-                           grid.ts (grille visible), units.ts, time.ts, windColor.ts
+    map/                   MapView, LayerToggles, windLayers.ts (sources/couches MapLibre + image du champ)
+    sheet/                 BottomSheet (3 crans, gestes) + TimeBar (heure, point touché) + SpotList
+    wind/                  openMeteo.ts (URL + parsing), cache.ts (arrondi + cache persistant + loadPoints),
+                           domain.ts (grille fixe du Bassin), field.ts (champ + interpolation),
+                           units.ts, time.ts, windColor.ts (échelle continue)
     spots/                 spots.ts (données statiques), rating.ts (note d'un spot)
     stores/app.svelte.ts   état global (centre, vent cible, heure choisie, cran, couches)
 ```
 
 ## Règles UX
 - Mobile-first (cible 360–430 px), portrait. Zones tactiles ≥ 44 px, `env(safe-area-inset-*)`.
-- **Un seul panneau bas** à 3 crans (`peek` / `half` / `full`), sans modale ni second panneau. Seuls de petits boutons flottants sont tolérés sur la carte (couches, géoloc).
-- Le réticule reste au centre de la **zone visible** : le `padding.bottom` de la carte suit le cran (plafonné au cran `half`), et `getCenter()` renvoie donc le point sous le réticule.
+- **Un seul panneau bas** à 3 crans (`peek` / `half` / `full`), sans modale ni second panneau. Seuls de petits boutons flottants sont tolérés sur la carte (couches, moyen/rafales, géoloc).
+- **Changer d'heure doit rester immédiat** : swipe horizontal sur l'en-tête du panneau, 28 px par heure (doigt vers la gauche = avancer). Le sens du geste se décide après 8 px : vertical = panneau, horizontal = temps, tap = cran suivant. Flèches ← → au clavier.
+- Le `padding.bottom` de la carte suit le cran (plafonné au cran `half`).
 - Rotation de la carte désactivée : les flèches restent lisibles, nord en haut.
 
 ## Règles données
 - Vitesses en **nœuds**. La direction indique **d'où vient** le vent (convention météo) ; la flèche est tournée de `dir + 180` pour pointer là où il va.
 - Heures en `Europe/Paris`, clé horaire `YYYY-MM-DDTHH:00` (format Open-Meteo).
-- Chaque point est **arrondi à la grille 0,0125°** (`keyOf`/`snapPoint`) avant tout fetch, et les pas de la grille visible en sont des multiples : la cible, la grille et les spots partagent le même cache.
-- Les appels Open-Meteo vivent uniquement dans `src/lib/wind/`. Chaque appel déclenché par un mouvement de carte passe par un `AbortController`.
-- Quota gratuit Open-Meteo : environ 600 appels/minute et 10 000/jour, et **chaque point d'une requête multi-points compte comme un appel**. Garder la grille ≤ 120 points (espacés d'au moins 64 px) et le cache TTL à 30 min. Un `$effect` qui relance un fetch doit passer par `untrack` : une boucle d'effet épuise le quota en quelques secondes (erreur 429).
+- **Grille fixe** `DOMAIN` (44,50–44,85 N, 1,35–0,95 O, pas de 0,025°, soit 15 × 17 = 255 points) + les spots, chargés **une fois pour les 48 h**. Changer d'heure ne fait aucune requête. L'image du champ (bilinéaire, 256 px) est mémorisée par heure et par type.
+- Le cache est persisté dans `localStorage` (`wind-cache-v1`, TTL 30 min) et rafraîchi au retour sur l'app (`visibilitychange`). Les points sont arrondis à 0,0125° (`keyOf`) avant tout fetch.
+- Les appels Open-Meteo vivent uniquement dans `src/lib/wind/`.
+- Quota gratuit Open-Meteo : environ 600 appels/minute et 10 000/jour, et **chaque point d'une requête multi-points compte comme un appel**. Un chargement complet coûte environ 264 appels : ne pas agrandir ni densifier `DOMAIN` sans recalculer. Un `$effect` qui relance un fetch doit passer par `untrack` : une boucle d'effet épuise le quota en quelques secondes (erreur 429).
 
 ## Conventions
 - La logique pure va dans `lib/**/*.ts` et a ses tests `*.test.ts` à côté. Les composants `.svelte` restent minces.

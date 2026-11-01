@@ -3,41 +3,20 @@
   import 'maplibre-gl/dist/maplibre-gl.css'
   // MapLibre looks for its worker next to its own module, which Vite moves: give it the real URL.
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-  import { onMount, untrack } from 'svelte'
+  import { onMount } from 'svelte'
   import { app } from '../stores/app.svelte'
-  import { loadPoints } from '../wind/cache'
-  import { gridPoints, pickStep } from '../wind/grid'
-  import type { LatLon } from '../wind/openMeteo'
-  import { addWindLayers, setGridData, setLayerVisibility, setSpotsData, STYLE_URL } from './windLayers'
+  import {
+    addWindLayers,
+    setFieldData,
+    setLayerVisibility,
+    setPickedData,
+    setPointsData,
+    setSpotsData,
+    STYLE_URL,
+  } from './windLayers'
 
   let el: HTMLDivElement
   let ready = $state(false)
-  let grid = $state.raw<LatLon[]>([])
-  let gridAbort: AbortController | null = null
-
-  function visibleGrid(map: MlMap): LatLon[] {
-    const b = map.getBounds()
-    const { clientWidth: w, clientHeight: h } = map.getCanvas()
-    const latStep = pickStep((b.getNorth() - b.getSouth()) / h)
-    const lonStep = pickStep((b.getEast() - b.getWest()) / w)
-    return gridPoints({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, latStep, lonStep)
-  }
-
-  async function refreshGrid() {
-    const map = app.map
-    if (!map || !ready || !(app.layers.values || app.layers.arrows)) return
-    const pts = visibleGrid(map)
-    grid = pts
-    gridAbort?.abort()
-    const ac = new AbortController()
-    gridAbort = ac
-    try {
-      await loadPoints(pts, ac.signal)
-      app.cacheVersion++
-    } catch (e) {
-      if (!ac.signal.aborted) console.warn('grid', e)
-    }
-  }
 
   setWorkerUrl(workerUrl)
 
@@ -45,8 +24,8 @@
     const map = new MlMap({
       container: el,
       style: STYLE_URL,
-      center: [app.center.lon, app.center.lat],
-      zoom: 11,
+      center: [-1.15, 44.68],
+      zoom: 10.8,
       attributionControl: { compact: true },
     })
     map.dragRotate.disable()
@@ -55,45 +34,39 @@
     map.addControl(new GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), 'top-right')
     app.map = map
 
-    let t = 0
-    const emitCenter = () => {
-      clearTimeout(t)
-      t = window.setTimeout(() => {
-        const c = map.getCenter()
-        app.setCenter({ lat: c.lat, lon: c.lng })
-      }, 250)
-    }
-    map.on('move', emitCenter)
-    map.on('moveend', refreshGrid)
     map.on('load', () => {
       addWindLayers(map)
       ready = true
-      emitCenter()
-      refreshGrid()
-      app.loadSpots()
+      app.loadData()
     })
-    map.on('click', 'spots-circle', (e) => {
-      const [lon, lat] = (e.features![0].geometry as GeoJSON.Point).coordinates
-      app.flyTo({ lat, lon })
+    map.on('click', (e) => {
+      const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
+      if (spot) {
+        const [lon, lat] = (spot.geometry as GeoJSON.Point).coordinates
+        app.picked = { lat, lon, name: spot.properties.name }
+      } else {
+        app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
+      }
     })
 
     return () => {
-      clearTimeout(t)
-      gridAbort?.abort()
       map.remove()
       app.map = null
     }
   })
 
-  // Keep the reticle centred in the part of the map the sheet leaves visible.
   $effect(() => {
     const bottom = app.mapPadBottom
     if (ready) app.map!.easeTo({ padding: { top: 0, left: 0, right: 0, bottom }, duration: 250 })
   })
 
   $effect(() => {
+    if (ready && app.layers.field) setFieldData(app.map!, app.cacheVersion, app.selectedTime, app.kind)
+  })
+
+  $effect(() => {
     void app.cacheVersion
-    if (ready) setGridData(app.map!, grid, app.selectedTime)
+    if (ready) setPointsData(app.map!, app.selectedTime, app.kind)
   })
 
   $effect(() => {
@@ -102,12 +75,21 @@
   })
 
   $effect(() => {
+    if (ready) setPickedData(app.map!, app.picked)
+  })
+
+  $effect(() => {
     const layers = { ...app.layers }
-    if (!ready) return
-    setLayerVisibility(app.map!, layers)
-    untrack(refreshGrid)
+    if (ready) setLayerVisibility(app.map!, layers)
   })
 </script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'ArrowRight') app.stepTime(1)
+    if (e.key === 'ArrowLeft') app.stepTime(-1)
+  }}
+/>
 
 <div class="map" bind:this={el}></div>
 

@@ -2,6 +2,7 @@
   import { app } from '../stores/app.svelte'
 
   const toggles = [
+    { key: 'field', label: '▦', title: 'Couleurs du vent' },
     { key: 'values', label: '12', title: 'Valeurs de vent' },
     { key: 'arrows', label: '➚', title: 'Flèches de vent' },
     { key: 'spots', label: '●', title: 'Spots' },
@@ -19,6 +20,13 @@
       onclick={() => (app.layers[t.key] = !app.layers[t.key])}>{t.label}</button
     >
   {/each}
+  <button
+    type="button"
+    class="kind on"
+    title="Vent moyen ou rafales"
+    aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
+    onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
+  >
 </div>
 
 <style>
@@ -46,5 +54,8 @@
     background: var(--accent);
     color: #fff;
     opacity: 1;
+  }
+  .kind {
+    font-size: 13px;
   }
 </style>

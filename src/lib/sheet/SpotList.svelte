@@ -17,7 +17,7 @@
   })
 </script>
 
-<div class="full">
+<div class="list">
   <h2>Spots · {formatHour(app.selectedTime)}</h2>
   <ul>
     {#each rows as { spot, w, rating } (spot.id)}
@@ -33,7 +33,7 @@
               <path d="M12 2l6 9h-4.5v11h-3V11H6z" fill="currentColor" />
             </svg>
             <span class="dir">{sector(w.dir)}</span>
-            <span class="kn" style:color={windColor(w.speed)}>{Math.round(w.speed)}</span>
+            <span class="kn" style:background={windColor(w.speed)}>{Math.round(w.speed)}</span>
             <span class="g">{Number.isNaN(w.gust) ? '–' : Math.round(w.gust)}</span>
           {:else}
             <span class="g">…</span>
@@ -45,12 +45,13 @@
 </div>
 
 <style>
-  .full {
-    padding: 8px 16px;
+  .list {
+    padding: 4px 16px;
   }
   h2 {
     font-size: 15px;
     margin: 8px 0;
+    text-transform: capitalize;
   }
   ul {
     list-style: none;
@@ -96,11 +97,13 @@
     font-size: 13px;
   }
   .kn {
-    width: 28px;
-    text-align: right;
+    min-width: 30px;
+    padding: 2px 4px;
+    border-radius: 8px;
+    text-align: center;
+    color: #0b1320;
     font-weight: 800;
-    font-size: 18px;
-    text-shadow: 0 0 1px rgb(0 0 0 / 0.4);
+    font-size: 16px;
   }
   .g {
     width: 26px;

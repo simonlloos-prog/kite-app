@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { keyOf, loadPoints, snapPoint, WindCache } from './cache'
-import { gridPoints, pickStep, STEPS } from './grid'
+import { COLS, domainPoints, nearestNode, ROWS } from './domain'
+import { bilinear, fieldAt } from './field'
 import { buildUrl, parseResponse, valueAt, type WindSeries } from './openMeteo'
 import { formatHour, parisHourKey } from './time'
 import { angleDiff, beaufort, sector } from './units'
@@ -55,6 +56,19 @@ describe('cache', () => {
     expect(c.missing([{ lat: 44.7, lon: -1.2 }, { lat: 44.7001, lon: -1.2001 }], 0)).toHaveLength(1)
   })
 
+  it('survives a serialize/restore round trip, NaN included', () => {
+    const c = new WindCache()
+    const [s] = parseResponse(raw(12), 1)
+    c.set('k', s, 1000)
+    const back = new WindCache()
+    back.restore(c.serialize(), 2000)
+    expect(back.get('k', 2000)?.speed[0]).toBe(12)
+    expect(back.get('k', 2000)?.speed[1]).toBeNaN()
+    const stale = new WindCache()
+    stale.restore(c.serialize(), 1000 + 31 * 60_000)
+    expect(stale.get('k', 1000 + 31 * 60_000)).toBeUndefined()
+  })
+
   it('only fetches missing points', async () => {
     const c = new WindCache()
     const fetchMock = vi.fn(async (url: string) => {
@@ -70,19 +84,38 @@ describe('cache', () => {
   })
 })
 
-describe('grid', () => {
-  it('picks the smallest step that is wide enough', () => {
-    expect(pickStep(0.0001)).toBe(STEPS[0])
-    expect(pickStep(0.001)).toBe(0.1)
-    expect(pickStep(1)).toBe(STEPS[STEPS.length - 1])
+describe('domain & field', () => {
+  it('covers the Bassin with distinct cache keys, within the API quota', () => {
+    const pts = domainPoints()
+    expect(pts).toHaveLength(ROWS * COLS)
+    expect(pts.length).toBeLessThanOrEqual(300)
+    expect(new Set(pts.map(keyOf)).size).toBe(pts.length)
   })
 
-  it('aligns points on multiples of the step and caps the count', () => {
-    const b = { west: -1.3, south: 44.55, east: -1.0, north: 44.85 }
-    const pts = gridPoints(b, 0.05, 0.05)
-    expect(pts).toHaveLength(7 * 7)
-    for (const p of pts) expect(keyOf(p)).toBe(`${p.lat.toFixed(4)},${p.lon.toFixed(4)}`)
-    expect(gridPoints(b, STEPS[0], STEPS[0], 200).length).toBeLessThanOrEqual(200)
+  it('finds the nearest node, or nothing outside', () => {
+    expect(nearestNode({ lat: 44.6761, lon: -1.1739 })).toEqual(domainPoints()[7 * COLS + 7])
+    expect(nearestNode({ lat: 46, lon: -1.1 })).toBeNull()
+  })
+
+  it('interpolates bilinearly', () => {
+    const g = [
+      [0, 10],
+      [20, 30],
+    ]
+    expect(bilinear(g, 0, 0)).toBe(0)
+    expect(bilinear(g, 1, 1)).toBe(30)
+    expect(bilinear(g, 0.5, 0.5)).toBe(15)
+    expect(bilinear([[NaN, 1], [1, 1]], 0.5, 0.5)).toBeNaN()
+  })
+
+  it('reads a field from the cache', () => {
+    const c = new WindCache()
+    const [s] = parseResponse(raw(12), 1)
+    c.set(keyOf(domainPoints()[0]), s)
+    const f = fieldAt('2026-11-01T14:00', 'gust', c)
+    expect(f).toHaveLength(ROWS)
+    expect(f[0][0]).toBe(17)
+    expect(f[1][1]).toBeNaN()
   })
 })
 
@@ -102,8 +135,11 @@ describe('units & time', () => {
     expect(formatHour('2026-11-01T14:00')).toBe('dim. 14h')
   })
 
-  it('colors by strength', () => {
-    expect(windColor(5)).not.toBe(windColor(18))
-    expect(windColor(NaN)).toBe(windColor(0))
+  it('colors by strength on a continuous scale', () => {
+    expect(windColor(0)).toBe('rgb(255 255 255)')
+    expect(windColor(10)).toBe('rgb(59 130 246)')
+    expect(windColor(12)).not.toBe(windColor(10))
+    expect(windColor(99)).toBe(windColor(45))
+    expect(windColor(NaN)).toBe('rgb(148 163 184)')
   })
 })

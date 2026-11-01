@@ -23,6 +23,18 @@ export class WindCache {
     this.entries.set(key, { at: now, series })
   }
 
+  /** JSON turns NaN into null: `restore` turns it back. */
+  serialize(): string {
+    return JSON.stringify([...this.entries])
+  }
+
+  restore(json: string, now = Date.now()) {
+    const nan = (a: (number | null)[]) => a.map((v) => (v == null ? NaN : v))
+    for (const [key, { at, series: s }] of JSON.parse(json) as [string, { at: number; series: WindSeries }][]) {
+      if (now - at < TTL_MS) this.entries.set(key, { at, series: { ...s, speed: nan(s.speed), gust: nan(s.gust), dir: nan(s.dir) } })
+    }
+  }
+
   /** Snapped, de-duplicated points that have no fresh entry. */
   missing(points: LatLon[], now = Date.now()): LatLon[] {
     const out = new Map<string, LatLon>()
