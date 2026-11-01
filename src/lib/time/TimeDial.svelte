@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
   import { formatHour } from '../wind/time'
-  import { sector } from '../wind/units'
+  import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
 
   /** Finger travel for one hour. */
@@ -124,8 +124,8 @@
       <span class="muted">Chargement de cette heure… ({app.loaded}/{app.times.length})</span>
     {:else if picked?.w}
       {@const w = picked.w}
-      <span class="pill" style:background={windColor(w.speed)}>{Math.round(w.speed)}</span>
-      <span>raf. {Number.isNaN(w.gust) ? '–' : Math.round(w.gust)}</span>
+      <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
+      <span>raf. {fmtSpeed(w.gust, app.unit)} {UNIT_LABEL[app.unit]}</span>
       <svg viewBox="0 0 24 24" style:transform="rotate({w.dir + 180}deg)" aria-hidden="true">
         <path d="M12 2l6 9h-4.5v11h-3V11H6z" fill="currentColor" />
       </svg>

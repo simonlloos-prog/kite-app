@@ -7,7 +7,7 @@ PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide p
 
 La carte est **bloquée sur la zone des données** (`maxBounds`) : on ne peut pas dézoomer sur un bord vide.
 
-Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales. On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
+Chaque couche s'active ou se désactive, et on bascule entre vent moyen et rafales ainsi qu'entre **nœuds et km/h** (Meteociel affiche en km/h). Les données et les seuils restent en nœuds : seul l'affichage est converti (`fmtSpeed`). En essai : **« atténuer la terre »** (⛰, désactivé par défaut) délave la terre et y retire valeurs et lignes. L'unité et ce réglage sont mémorisés dans `localStorage` (`kite-prefs`). On change d'heure avec un **module flottant indépendant** en bas de l'écran. Toucher la carte affiche le vent du point touché. La liste des spots est dans un panneau séparé, fermé par défaut.
 
 Testé puis rejeté (voir l'historique git) : le réticule central, la frise horaire, le dégradé continu, les flèches isolées ou en quinconce (pas assez « continues »), le champ en image raster (bords pixelisés), l'heure intégrée au panneau qui s'ouvre, et Open-Meteo appelé depuis le navigateur (quota par point, trop peu de valeurs).
 
@@ -22,6 +22,7 @@ Météo-France open data ──► pipeline/fetch_arome.py ──► public/data
 (GRIB2 AROME 0,01°, SP1)   (GitHub Actions, chaque heure)  meta.json + <run>/hNN.bin      (app + données)
 ```
 - **Source** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a un run toutes les 3 h, avec 52 échéances (0 à 51 h), soit environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
+- **Masque terre** (`mask.bin`) : il est tiré de l'orographie du fichier « Champs CONSTANT » (terre = sol au-dessus de 0,5 m), parce que le champ `lsm` de ce fichier se décode mal (valeurs de −256 à 253). Les lacs intérieurs (Cazaux, Lacanau, Hourtin) comptent donc comme de la terre.
 - **Pipeline** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (44,10–45,10 N, 1,90–0,80 O, 101 × 111 points) et écrit un fichier binaire par heure (~34 Ko). Le format est documenté en tête de `fetch_arome.py` : `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud.
 - **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). En mode planifié, il s'arrête si le run publié est toujours le dernier. Un run complet prend environ 4 minutes.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres heures (CacheFirst, les fichiers sont rangés par run). Aucun appel API côté client.

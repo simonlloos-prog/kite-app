@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
+  import { fmtSpeed, UNIT_LABEL } from '../wind/units'
   import { BINS } from '../wind/windColor'
 
   const LABELED = new Set([4, 8, 12, 16, 20, 25, 31, 40])
@@ -11,12 +12,12 @@
 </script>
 
 {#if app.layers.field}
-  <div class="legend" aria-label="Échelle du vent en nœuds">
-    <span class="unit">{app.kind === 'gust' ? 'raf.' : 'moy.'} kn</span>
+  <div class="legend" aria-label="Échelle du vent en {UNIT_LABEL[app.unit]}">
+    <span class="unit">{app.kind === 'gust' ? 'raf.' : 'moy.'} {UNIT_LABEL[app.unit]}</span>
     <div class="scale">
       {#each BINS as [min, color] (min)}
         <div class="bin" style:background={color}>
-          {#if LABELED.has(min)}<span>{min}</span>{/if}
+          {#if LABELED.has(min)}<span>{fmtSpeed(min, app.unit)}</span>{/if}
         </div>
       {/each}
     </div>

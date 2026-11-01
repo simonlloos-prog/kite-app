@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
+  import { UNIT_LABEL } from '../wind/units'
 
   const toggles = [
     { key: 'field', label: '▦', title: 'Couleurs du vent' },
@@ -26,6 +27,27 @@
     title="Vent moyen ou rafales"
     aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
     onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
+  >
+  <button
+    type="button"
+    class="kind on"
+    title="Unité : nœuds ou km/h"
+    aria-label={app.unit === 'kn' ? 'Afficher en km/h' : 'Afficher en nœuds'}
+    onclick={() => {
+      app.unit = app.unit === 'kn' ? 'kmh' : 'kn'
+      app.savePrefs()
+    }}>{UNIT_LABEL[app.unit]}</button
+  >
+  <button
+    type="button"
+    title="Atténuer la terre (essai)"
+    aria-label="Atténuer la terre"
+    aria-pressed={app.layers.land}
+    class:on={app.layers.land}
+    onclick={() => {
+      app.layers.land = !app.layers.land
+      app.savePrefs()
+    }}>⛰</button
   >
   <button
     type="button"

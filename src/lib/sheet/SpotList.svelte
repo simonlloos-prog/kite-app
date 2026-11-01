@@ -3,7 +3,7 @@
   import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { formatHour } from '../wind/time'
-  import { sector } from '../wind/units'
+  import { fmtSpeed, sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
 
   const rows = $derived(
@@ -30,8 +30,8 @@
               <path d="M12 2l6 9h-4.5v11h-3V11H6z" fill="currentColor" />
             </svg>
             <span class="dir">{sector(w.dir)}</span>
-            <span class="kn" style:background={windColor(w.speed)}>{Math.round(w.speed)}</span>
-            <span class="g">{Number.isNaN(w.gust) ? '–' : Math.round(w.gust)}</span>
+            <span class="kn" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
+            <span class="g">{fmtSpeed(w.gust, app.unit)}</span>
           {:else}
             <span class="g">…</span>
           {/if}

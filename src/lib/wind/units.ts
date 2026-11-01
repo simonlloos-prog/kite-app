@@ -20,3 +20,13 @@ export const beaufort = (kn: number) => {
 }
 
 export const knToKmh = (kn: number) => kn * 1.852
+
+/** Display unit. Data and thresholds stay in knots; only what is shown is converted. */
+export type Unit = 'kn' | 'kmh'
+export const UNIT_LABEL: Record<Unit, string> = { kn: 'kn', kmh: 'km/h' }
+
+/** A speed in knots, converted and rounded for display; '–' when missing. */
+export function fmtSpeed(kn: number, unit: Unit): string {
+  if (Number.isNaN(kn)) return '–'
+  return String(Math.round(unit === 'kmh' ? knToKmh(kn) : kn))
+}

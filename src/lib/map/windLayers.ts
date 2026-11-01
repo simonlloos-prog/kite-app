@@ -5,6 +5,7 @@ import { rateSpot } from '../spots/rating'
 import { SPOTS } from '../spots/spots'
 import { windAt, type Grid, type Hour } from '../wind/arome'
 import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bounds, type Kind } from '../wind/field'
+import { fmtSpeed, type Unit } from '../wind/units'
 import { BINS } from '../wind/windColor'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
@@ -20,6 +21,7 @@ export interface Layers {
   values: boolean
   arrows: boolean
   spots: boolean
+  land: boolean
 }
 
 /** Open arrowhead pointing east: line-placed symbols align their x axis with the line. */
@@ -51,7 +53,7 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
-  for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
+  for (const id of ['wind-bands', 'land', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
 
   // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
@@ -70,6 +72,17 @@ export function addWindLayers(map: MlMap) {
       type: 'line',
       source: 'wind-bands',
       paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7 },
+    },
+    firstLabel,
+  )
+  // Optional: wash out the land so the water stands out.
+  map.addLayer(
+    {
+      id: 'land-dim',
+      type: 'fill',
+      source: 'land',
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.65 },
     },
     firstLabel,
   )
@@ -186,18 +199,33 @@ export function setBandsData(map: MlMap, g: Grid, run: string, time: string, h: 
   ;(map.getSource('wind-bands') as GeoJSONSource).setData(fc)
 }
 
-export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, zoom: number, bounds: Bounds) {
+export interface View {
+  zoom: number
+  bounds: Bounds
+  unit: Unit
+  /** Land mask when the land is dimmed: no values or lines there. */
+  land?: Float32Array
+}
+
+export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) {
   const lines = empty<LineString>()
-  for (const coords of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, zoom), bounds)) {
+  for (const coords of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds, v.land)) {
     lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
   }
   ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
 
   const values = empty()
-  for (const l of labels(g, valuesOf(h, kind), strideFor(g, zoom, LABEL_PX), bounds)) {
-    values.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: String(l.value) } })
+  for (const l of labels(g, valuesOf(h, kind), strideFor(g, v.zoom, LABEL_PX), v.bounds, v.land)) {
+    values.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmtSpeed(l.value, v.unit) } })
   }
   ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
+}
+
+/** Land shape from the AROME mask, for the optional wash-out. */
+export function setLandData(map: MlMap, g: Grid, mask: Float32Array) {
+  const fc = empty<MultiPolygon>()
+  for (const b of isobands(g, mask, [0.5])) fc.features.push({ type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: b.polygons }, properties: {} })
+  ;(map.getSource('land') as GeoJSONSource).setData(fc)
 }
 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined) {
@@ -220,5 +248,6 @@ export function setLayerVisibility(map: MlMap, l: Layers) {
   for (const id of ['wind-bands', 'wind-band-edges']) map.setLayoutProperty(id, 'visibility', vis(l.field))
   for (const id of ['wind-lines', 'wind-heads']) map.setLayoutProperty(id, 'visibility', vis(l.arrows))
   map.setLayoutProperty('wind-values', 'visibility', vis(l.values))
+  map.setLayoutProperty('land-dim', 'visibility', vis(l.land))
   for (const id of ['spots-circle', 'spots-label']) map.setLayoutProperty(id, 'visibility', vis(l.spots))
 }

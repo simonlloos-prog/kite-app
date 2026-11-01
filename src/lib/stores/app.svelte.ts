@@ -1,7 +1,8 @@
 import type { Map as MlMap } from 'maplibre-gl'
-import { decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
+import { decodeHour, decodeMask, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
 import type { Bounds, Kind } from '../wind/field'
 import { parisHourKey } from '../wind/time'
+import type { Unit } from '../wind/units'
 
 /** Spots sheet position. Closed by default: the time dial lives on its own. */
 export type Snap = 'closed' | 'half' | 'full'
@@ -11,6 +12,18 @@ export interface Picked extends LatLon {
 }
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`
+const PREFS_KEY = 'kite-prefs'
+
+/** Per-phone preferences. Storage may be unavailable (private mode): fall back to defaults. */
+function loadPrefs(): { unit?: Unit; land?: boolean } {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+const prefs = loadPrefs()
 
 class AppState {
   meta = $state.raw<Meta | null>(null)
@@ -25,7 +38,9 @@ class AppState {
   snap = $state<Snap>('closed')
   /** Bottom padding of the map: what the time dial or the sheet covers. */
   mapPadBottom = $state(0)
-  layers = $state({ field: true, values: true, arrows: true, spots: true })
+  /** `land`: dim the land and drop values and lines there (experimental, off by default). */
+  layers = $state({ field: true, values: true, arrows: true, spots: true, land: prefs.land ?? false })
+  unit = $state<Unit>(prefs.unit ?? 'kn')
   zoom = $state(11)
   bounds = $state.raw<Bounds | null>(null)
   /** Bumped when an hour arrives: `hours` itself is not reactive. */
@@ -34,6 +49,8 @@ class AppState {
 
   /** Plain properties: the map instance and the decoded arrays must never be proxied. */
   map: MlMap | null = null
+  /** Land fraction per cell (0 sea … 1 land), from the AROME land-sea mask. */
+  mask: Float32Array | null = null
   private hours = new Map<string, Hour>()
   private fileOf = new Map<string, string>()
 
@@ -50,6 +67,14 @@ class AppState {
     this.setTimeIndex(this.timeIndex + n)
   }
 
+  savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ unit: this.unit, land: this.layers.land }))
+    } catch {
+      // Not remembered, but still applied for this visit.
+    }
+  }
+
   /** Decoded data of the selected hour, once downloaded. */
   get hour(): Hour | undefined {
     void this.dataVersion
@@ -58,6 +83,18 @@ class AppState {
 
   windAt(p: LatLon): WindAt | null {
     return this.meta ? windAt(this.meta.grid, this.hour, p) : null
+  }
+
+  /** Land-sea mask: optional, only used when dimming the land. */
+  private async loadMask(meta: Meta) {
+    try {
+      const res = await fetch(DATA_URL + meta.mask)
+      if (!res.ok) return
+      this.mask = decodeMask(await res.arrayBuffer(), meta.grid)
+      this.dataVersion++
+    } catch {
+      // Without a mask the land simply isn't dimmed.
+    }
   }
 
   /** Latest run: the selected hour first, then the others in order. */
@@ -82,6 +119,7 @@ class AppState {
     this.times = keys.filter((k) => k >= now)
     if (!this.times.includes(this.selectedTime)) this.selectedTime = this.times[0] ?? now
     this.loaded = 0
+    if (meta.mask && !this.mask) this.loadMask(meta)
 
     const order = [this.selectedTime, ...this.times.filter((t) => t !== this.selectedTime)]
     for (const key of order) {

@@ -2,6 +2,7 @@
 
 Output, read by the app (see src/lib/wind/arome.ts):
   <out>/meta.json          run, grid, validity times (UTC) and file list
+  <out>/mask.bin           land mask, uint8 per cell (0 sea, 255 land), same layout
   <out>/<run>/hNN.bin      one file per forecast hour, rows*cols cells each,
                            row 0 = south, col 0 = west:
                              int8  u    (eastward wind, SCALE kn per unit)
@@ -29,6 +30,8 @@ import eccodes
 import numpy as np
 
 BUCKET = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt"
+# "Champs CONSTANT EURW1S100" of the same dataset: orography and land-sea mask (lsm).
+CONSTANT_URL = "https://www.data.gouv.fr/fr/datasets/r/37ea8891-7ea8-48c2-8761-d94b84a73eba"
 MODEL = "AROME 0.01°"
 MAX_STEP = 51
 # Lacanau → Mimizan and well offshore, like Meteociel's AROME zoom on the Bassin.
@@ -73,9 +76,8 @@ def download(url: str, dest: Path) -> Path:
     raise RuntimeError(f"download failed: {url}")
 
 
-def read_fields(path: Path) -> dict[str, np.ndarray]:
-    """10 m wind and gust components, cropped to BOX, row 0 = south."""
-    wanted = {"10u", "10v", "max_10efg", "max_10nfg"}
+def read_fields(path: Path, wanted: frozenset[str] = frozenset({"10u", "10v", "max_10efg", "max_10nfg"})) -> dict[str, np.ndarray]:
+    """Wanted fields, cropped to BOX, row 0 = south."""
     out: dict[str, np.ndarray] = {}
     with open(path, "rb") as f:
         while (h := eccodes.codes_grib_new_from_file(f)) is not None:
@@ -113,6 +115,22 @@ def encode(fields: dict[str, np.ndarray], shape: tuple[int, int]) -> bytes:
     return u.tobytes() + v.tobytes() + gust.tobytes()
 
 
+def write_mask(out: Path, tmp: str) -> str | None:
+    """Land-sea mask of the area, from the orography. Optional: the app works without it.
+
+    The file's own `lsm` field decodes to garbage (values -256..253), so land is taken as
+    ground above 0.5 m. Inland lakes (Cazaux, Lacanau, Hourtin) therefore count as land.
+    """
+    try:
+        path = download(CONSTANT_URL, Path(tmp) / "constant.grib2")
+        height = read_fields(path, frozenset({"h"}))["h"]
+    except (RuntimeError, KeyError) as e:
+        print(f"  no land-sea mask: {e}", file=sys.stderr)
+        return None
+    (out / "mask.bin").write_bytes(np.where(height > 0.5, 255, 0).astype(np.uint8).tobytes())
+    return "mask.bin"
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path, required=True)
@@ -136,6 +154,7 @@ def main() -> None:
     steps = list(range(args.max_step + 1))
     times, files = [], []
     with tempfile.TemporaryDirectory() as tmp, ThreadPoolExecutor(6) as pool:
+        mask = write_mask(args.out, tmp)
         downloads = {s: pool.submit(download, file_url(run, s), Path(tmp) / f"{s:02d}.grib2") for s in steps}
         for s in steps:
             path = downloads[s].result()
@@ -155,6 +174,8 @@ def main() -> None:
         "times": times,
         "files": files,
     }
+    if mask:
+        meta["mask"] = mask
     (args.out / "meta.json").write_text(json.dumps(meta, indent=1))
     print(f"wrote {len(files)} hours, {rows}x{cols} cells, to {args.out}")
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
+import { cellOf, decodeHour, decodeMask, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
 import { isobands, labels, sample, streamlines, strideFor, valuesOf } from './field'
 import { formatHour, parisHourKey } from './time'
-import { angleDiff, beaufort, sector } from './units'
+import { angleDiff, beaufort, fmtSpeed, sector } from './units'
 import { BINS, binOf, windColor } from './windColor'
 
 const grid: Grid = { south: 44.1, west: -1.9, step: 0.01, rows: 101, cols: 111 }
@@ -32,6 +32,14 @@ describe('arome data', () => {
     expect(h.gust[0]).toBe(15)
     expect(h.gust[1]).toBeNaN()
     expect(() => decodeHour(new ArrayBuffer(10), grid, 0.5)).toThrow()
+  })
+
+  it('decodes the land mask', () => {
+    const bytes = new Uint8Array(n)
+    bytes[0] = 255
+    const m = decodeMask(bytes.buffer, grid)
+    expect([m[0], m[1]]).toEqual([1, 0])
+    expect(() => decodeMask(new ArrayBuffer(3), grid)).toThrow()
   })
 
   it('turns components into where the wind comes from', () => {
@@ -82,8 +90,27 @@ describe('field', () => {
     expect(labels(grid, v, 1, small)).toHaveLength(11 * 11)
     const coarse = labels(grid, v, 4, all)
     expect(coarse).toHaveLength(Math.ceil(grid.rows / 4) * Math.ceil(grid.cols / 4))
-    expect(coarse[0]).toEqual({ coord: [-1.9, 44.1], value: 12 })
+    expect(coarse[0].coord).toEqual([-1.9, 44.1])
+    expect(coarse[0].value).toBeCloseTo(12)
     expect(nodeAt(grid, 1, 1)).toEqual({ lat: 44.11, lon: -1.89 })
+  })
+
+  /** Land on the eastern half of the grid. */
+  const eastLand = () => {
+    const m = new Float32Array(n)
+    for (let k = 0; k < n; k++) m[k] = k % grid.cols >= grid.cols / 2 ? 1 : 0
+    return m
+  }
+
+  it('drops values and stops lines on land when a mask is given', () => {
+    const coast = -1.9 + (grid.cols / 2) * grid.step
+    const v = valuesOf(uniform(270, 12), 'speed')
+    const sea = labels(grid, v, 1, all, eastLand())
+    expect(sea.length).toBeGreaterThan(0)
+    for (const l of sea) expect(l.coord[0]).toBeLessThan(coast)
+    for (const line of streamlines(grid, uniform(270, 12), 2, all, eastLand())) {
+      for (const [lon] of line) expect(lon).toBeLessThan(coast + grid.step)
+    }
   })
 
   it('cuts vector bands at the thresholds, in lon/lat', () => {
@@ -125,6 +152,13 @@ describe('units, time & colours', () => {
     expect(angleDiff(350, 10)).toBe(20)
     expect(beaufort(15)).toBe(4)
     expect(beaufort(70)).toBe(12)
+  })
+
+  it('shows speeds in the chosen unit', () => {
+    expect(fmtSpeed(20, 'kn')).toBe('20')
+    expect(fmtSpeed(20, 'kmh')).toBe('37')
+    expect(fmtSpeed(11.6, 'kn')).toBe('12')
+    expect(fmtSpeed(NaN, 'kmh')).toBe('–')
   })
 
   it('formats Paris hours', () => {
