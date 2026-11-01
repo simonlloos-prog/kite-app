@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GeolocateControl, Map as MlMap, setWorkerUrl } from 'maplibre-gl'
+  import { AttributionControl, GeolocateControl, Map as MlMap, setWorkerUrl } from 'maplibre-gl'
   import 'maplibre-gl/dist/maplibre-gl.css'
   // MapLibre looks for its worker next to its own module, which Vite moves: give it the real URL.
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
@@ -35,15 +35,20 @@
       style: STYLE_URL,
       center: [-1.2, 44.66],
       zoom: 11,
-      attributionControl: { compact: true },
+      // Added below, top right: in the bottom corner it hid under the phone's rounded edge.
+      attributionControl: false,
     })
     map.dragRotate.disable()
     map.touchZoomRotate.disableRotation()
     map.keyboard.disableRotation()
     map.addControl(new GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), 'top-right')
+    // Basemap credits (OpenFreeMap / OpenStreetMap): required, under the locate button.
+    map.addControl(new AttributionControl({ compact: true }), 'top-right')
     app.map = map
 
     map.on('load', () => {
+      // Compact credits start expanded and would cover the legend: show only the ⓘ.
+      el.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
       styleReady = true
       trackView(map)
     })

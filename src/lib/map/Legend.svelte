@@ -14,12 +14,19 @@
 {#if app.layers.field}
   <div class="legend" aria-label="Échelle du vent en {UNIT_LABEL[app.unit]}">
     <span class="unit">{app.kind === 'gust' ? 'raf.' : 'moy.'} {UNIT_LABEL[app.unit]}</span>
+    <!-- Values sit under the bar, centred on the boundary where their bin starts: inside the
+         colour boxes they overflowed onto the next colour. -->
     <div class="scale">
-      {#each BINS as [min, color] (min)}
-        <div class="bin" style:background={color}>
-          {#if LABELED.has(min)}<span>{fmtSpeed(min, app.unit)}</span>{/if}
-        </div>
-      {/each}
+      <div class="bar">
+        {#each BINS as [min, color] (min)}
+          <div class="bin" style:background={color}></div>
+        {/each}
+      </div>
+      <div class="ticks">
+        {#each BINS as [min], i (min)}
+          {#if LABELED.has(min)}<span style:left="{(i / BINS.length) * 100}%">{fmtSpeed(min, app.unit)}</span>{/if}
+        {/each}
+      </div>
     </div>
     {#if app.meta}<span class="run">{app.meta.model} · run {runHour}</span>{/if}
   </div>
@@ -55,21 +62,28 @@
   }
   .scale {
     flex: 1;
+    min-width: 0;
+    padding: 0 6px;
+  }
+  .bar {
     display: flex;
-    height: 16px;
-    border-radius: 4px;
+    height: 10px;
+    border-radius: 3px;
     overflow: hidden;
     outline: 1px solid var(--border);
   }
   .bin {
     flex: 1;
-    position: relative;
   }
-  .bin span {
+  .ticks {
+    position: relative;
+    height: 13px;
+  }
+  .ticks span {
     position: absolute;
-    left: 1px;
-    top: 0;
-    font: 700 10px/16px var(--font);
-    color: #0b1320;
+    top: 1px;
+    transform: translateX(-50%);
+    font: 700 10px/12px var(--font);
+    color: var(--text);
   }
 </style>
