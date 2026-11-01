@@ -1,0 +1,132 @@
+<script lang="ts">
+  import { app, type Snap } from '../stores/app.svelte'
+  import SpotList from './SpotList.svelte'
+
+  /** Map area hidden by the floating time dial when the sheet is closed. */
+  const DIAL_PAD = 150
+
+  let vh = $state(window.innerHeight)
+  const heights = $derived<Record<Snap, number>>({
+    closed: 0,
+    half: Math.round(vh * 0.5),
+    full: Math.round(vh * 0.9),
+  })
+
+  /** Visible height while dragging, null otherwise. */
+  let dragH = $state<number | null>(null)
+  const visible = $derived(dragH ?? heights[app.snap])
+
+  // The full sheet covers the map: keep the half padding so the map doesn't jump.
+  $effect(() => {
+    app.mapPadBottom = app.snap === 'closed' ? DIAL_PAD : heights.half
+  })
+
+  let startY = 0
+  let startH = 0
+  let lastY = 0
+  let lastT = 0
+  let velocity = 0 // px/ms, positive = upwards
+
+  function down(e: PointerEvent) {
+    if ((e.target as HTMLElement).closest('button')) return
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    startY = lastY = e.clientY
+    lastT = e.timeStamp
+    startH = visible
+    velocity = 0
+    dragH = startH
+  }
+
+  function move(e: PointerEvent) {
+    if (dragH === null) return
+    const dt = e.timeStamp - lastT
+    if (dt > 0) velocity = (lastY - e.clientY) / dt
+    lastY = e.clientY
+    lastT = e.timeStamp
+    dragH = Math.min(heights.full, Math.max(0, startH + startY - e.clientY))
+  }
+
+  function up(e: PointerEvent) {
+    if (dragH === null) return
+    if (Math.abs(e.clientY - startY) < 6) {
+      app.snap = app.snap === 'half' ? 'full' : 'half'
+    } else {
+      const projected = dragH + velocity * 180
+      const order: Snap[] = ['closed', 'half', 'full']
+      app.snap = order.reduce((a, b) => (Math.abs(heights[b] - projected) < Math.abs(heights[a] - projected) ? b : a))
+    }
+    dragH = null
+  }
+</script>
+
+<svelte:window onresize={() => (vh = window.innerHeight)} />
+
+<section
+  class="sheet"
+  class:dragging={dragH !== null}
+  aria-hidden={app.snap === 'closed'}
+  style:height="{heights.full}px"
+  style:transform="translateY({heights.full - visible + (visible ? 0 : 24)}px)"
+>
+  <div class="grab" role="presentation" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
+    <div class="handle"></div>
+    <button type="button" class="close" aria-label="Fermer la liste" onclick={() => (app.snap = 'closed')}>✕</button>
+  </div>
+  <div class="body" class:scroll={app.snap === 'full'}>
+    <SpotList />
+  </div>
+</section>
+
+<style>
+  .sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -4px 24px rgb(0 0 0 / 0.18);
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+  .sheet.dragging {
+    transition: none;
+  }
+  .grab {
+    position: relative;
+    height: 28px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .handle {
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    margin: 10px auto 0;
+  }
+  .close {
+    position: absolute;
+    right: 8px;
+    top: 2px;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0 0 calc(16px + env(safe-area-inset-bottom));
+  }
+  .body.scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+</style>

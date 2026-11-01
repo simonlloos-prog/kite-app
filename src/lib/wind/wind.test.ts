@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { keyOf, loadPoints, snapPoint, WindCache } from './cache'
 import { COLS, domainPoints, nearestNode, ROWS } from './domain'
-import { bilinear, fieldAt } from './field'
+import { bilinear, fieldAt, streamlines } from './field'
 import { buildUrl, parseResponse, valueAt, type WindSeries } from './openMeteo'
 import { formatHour, parisHourKey } from './time'
 import { angleDiff, beaufort, sector } from './units'
-import { windColor } from './windColor'
+import { BINS, binOf, windColor } from './windColor'
 
 const raw = (speed: number) => ({
   hourly: {
@@ -108,6 +108,35 @@ describe('domain & field', () => {
     expect(bilinear([[NaN, 1], [1, 1]], 0.5, 0.5)).toBeNaN()
   })
 
+  /** Cache where every domain node has the same wind at 14:00. */
+  const uniform = (dirs: (r: number) => number) => {
+    const c = new WindCache()
+    domainPoints().forEach((p, i) => {
+      const [s] = parseResponse(raw(15), 1)
+      s.dir = [dirs(Math.floor(i / COLS)), 0]
+      c.set(keyOf(p), s)
+    })
+    return c
+  }
+
+  it('draws wind lines that go where the wind blows', () => {
+    const lines = streamlines('2026-11-01T14:00', uniform(() => 270))
+    expect(lines.some((l) => l.set === 0) && lines.some((l) => l.set === 1)).toBe(true)
+    for (const l of lines) {
+      const [first, last] = [l.coords[0], l.coords[l.coords.length - 1]]
+      expect(last[0]).toBeGreaterThan(first[0]) // westerly wind → lines head east
+      expect(last[1]).toBeCloseTo(first[1], 6)
+      expect(l.bearing).toBeCloseTo(90, 3)
+    }
+  })
+
+  it('averages directions as vectors and skips empty areas', () => {
+    const lines = streamlines('2026-11-01T14:00', uniform((r) => (r % 2 ? 350 : 10)))
+    const mid = lines.find((l) => l.set === 0)!
+    expect(Math.min(mid.bearing, 360 - mid.bearing)).toBeGreaterThan(170) // from ~N → heads ~S
+    expect(streamlines('2026-11-01T14:00', new WindCache())).toEqual([])
+  })
+
   it('reads a field from the cache', () => {
     const c = new WindCache()
     const [s] = parseResponse(raw(12), 1)
@@ -135,11 +164,12 @@ describe('units & time', () => {
     expect(formatHour('2026-11-01T14:00')).toBe('dim. 14h')
   })
 
-  it('colors by strength on a continuous scale', () => {
+  it('colors by strength in flat bins', () => {
     expect(windColor(0)).toBe('rgb(255 255 255)')
-    expect(windColor(10)).toBe('rgb(59 130 246)')
-    expect(windColor(12)).not.toBe(windColor(10))
-    expect(windColor(99)).toBe(windColor(45))
+    expect(windColor(10)).toBe(windColor(11.9))
+    expect(windColor(12)).not.toBe(windColor(11.9))
+    expect(binOf(99)).toBe(BINS.length - 1)
+    expect(binOf(NaN)).toBe(-1)
     expect(windColor(NaN)).toBe('rgb(148 163 184)')
   })
 })

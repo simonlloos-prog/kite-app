@@ -27,6 +27,13 @@
     aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
     onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
   >
+  <button
+    type="button"
+    class="list"
+    title="Liste des spots"
+    aria-label="Liste des spots"
+    onclick={() => (app.snap = app.snap === 'closed' ? 'half' : 'closed')}>☰</button
+  >
 </div>
 
 <style>
@@ -57,5 +64,12 @@
   }
   .kind {
     font-size: 13px;
+  }
+  .list {
+    margin-top: 8px;
+    background: var(--surface);
+    color: var(--text);
+    opacity: 1;
+    font-size: 20px;
   }
 </style>

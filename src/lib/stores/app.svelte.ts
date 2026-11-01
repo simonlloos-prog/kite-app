@@ -6,13 +6,15 @@ import type { LatLon, WindSeries } from '../wind/openMeteo'
 import { parisHourKey } from '../wind/time'
 import { SPOTS } from '../spots/spots'
 
-export type Snap = 'peek' | 'half' | 'full'
+/** Spots sheet position. Closed by default: the time dial lives on its own. */
+export type Snap = 'closed' | 'half' | 'full'
 
 export interface Picked extends LatLon {
   name?: string
 }
 
-const STORAGE_KEY = 'wind-cache-v1'
+/** Bump when the cached series change shape (v2: 3 forecast days). */
+const STORAGE_KEY = 'wind-cache-v2'
 
 class AppState {
   /** Forecast hours from the current one onwards. */
@@ -22,8 +24,8 @@ class AppState {
   error = $state<string | null>(null)
   kind = $state<Kind>('speed')
   picked = $state<Picked | null>(null)
-  snap = $state<Snap>('peek')
-  /** Bottom padding of the map, i.e. the sheet height that covers it. */
+  snap = $state<Snap>('closed')
+  /** Bottom padding of the map: what the time dial or the sheet covers. */
   mapPadBottom = $state(0)
   layers = $state({ field: true, values: true, arrows: true, spots: true })
   /** Bumped after each cache fill: windCache itself is not reactive. */
@@ -69,7 +71,8 @@ class AppState {
       this.loading = false
     }
     const now = parisHourKey()
-    this.times = windCache.get(keyOf(SPOTS[0]))?.times.filter((t) => t >= now) ?? []
+    const ref = windCache.get(keyOf(SPOTS[0]))
+    this.times = ref?.times.filter((t, i) => t >= now && !Number.isNaN(ref.speed[i])) ?? []
     if (!this.times.includes(this.selectedTime)) this.selectedTime = this.times[0] ?? now
     this.cacheVersion++
   }
@@ -86,9 +89,9 @@ class AppState {
     if (!map) return
     this.picked = p
     const fly = () => map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 12.5) })
-    if (this.snap === 'peek') return fly()
+    if (this.snap === 'closed') return fly()
     // Wait for the padding ease triggered by the snap change, or it would cancel the flight.
-    this.snap = 'peek'
+    this.snap = 'closed'
     map.once('moveend', fly)
   }
 }

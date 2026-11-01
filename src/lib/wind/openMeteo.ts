@@ -22,7 +22,8 @@ export function buildUrl(points: LatLon[]): string {
     models: MODEL,
     wind_speed_unit: 'kn',
     timezone: 'Europe/Paris',
-    forecast_days: '2',
+    // AROME HD stops after ~48 h: ask for 3 days and keep the hours that have data.
+    forecast_days: '3',
   })
   return `${BASE}?${params}`
 }

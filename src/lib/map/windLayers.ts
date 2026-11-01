@@ -1,17 +1,27 @@
-import type { FeatureCollection, Point } from 'geojson'
-import type { GeoJSONSource, ImageSource, Map as MlMap } from 'maplibre-gl'
+import type { FeatureCollection, Geometry, Point } from 'geojson'
+import type { ExpressionSpecification, GeoJSONSource, ImageSource, Map as MlMap } from 'maplibre-gl'
 import type { Picked } from '../stores/app.svelte'
 import { rateSpot } from '../spots/rating'
 import { SPOTS } from '../spots/spots'
 import { keyOf, windCache } from '../wind/cache'
-import { COLS, DOMAIN, domainPoints, ROWS } from '../wind/domain'
-import { bilinear, fieldAt, type Kind } from '../wind/field'
+import { COLS, DOMAIN, nodeAt, ROWS } from '../wind/domain'
+import { bilinear, fieldAt, levelOf, streamlines, type Kind } from '../wind/field'
 import { valueAt } from '../wind/openMeteo'
-import { windRgb } from '../wind/windColor'
+import { binOf, binRgb } from '../wind/windColor'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
-const FIELD_PX = 256
+const FIELD_PX = 512
+/** Dense values and the fine wind-line set take over from this (integer, GeoJSON tiles) zoom. */
+const DENSE_ZOOM = 12
+const LEVEL_FILTER: ExpressionSpecification = ['any', ['==', ['get', 'lvl'], 0], ['>=', ['zoom'], DENSE_ZOOM]]
+/** One wind-line set at a time: coarse when zoomed out, fine when zoomed in. */
+const SET_FILTER: ExpressionSpecification = [
+  'case',
+  ['>=', ['zoom'], DENSE_ZOOM],
+  ['==', ['get', 'set'], 1],
+  ['==', ['get', 'set'], 0],
+]
 
 export interface Layers {
   field: boolean
@@ -27,37 +37,52 @@ const CORNERS: [[number, number], [number, number], [number, number], [number, n
   [DOMAIN.west, DOMAIN.south],
 ]
 
-/** Upward arrow drawn once as an SDF image, so it can be tinted. */
-function arrowImage(size = 48) {
+const LINE_COLOR = '#0b1320'
+
+/** Small open arrowhead pointing up, drawn at the downwind end of each wind line. */
+function headImage() {
+  const s = 20
   const c = document.createElement('canvas')
-  c.width = c.height = size
+  c.width = c.height = s
   const g = c.getContext('2d')!
-  const s = size / 48
+  g.lineCap = g.lineJoin = 'round'
   g.beginPath()
-  for (const [x, y] of [[24, 4], [36, 22], [27.5, 20], [27.5, 44], [20.5, 44], [20.5, 20], [12, 22]]) g.lineTo(x * s, y * s)
-  g.closePath()
-  g.fill()
-  return g.getImageData(0, 0, size, size)
+  g.moveTo(4, 14)
+  g.lineTo(s / 2, 4)
+  g.lineTo(s - 4, 14)
+  g.strokeStyle = LINE_COLOR
+  g.lineWidth = 2.6
+  g.stroke()
+  return g.getImageData(0, 0, s, s)
 }
 
 /**
- * Smooth colour field over the domain, as a PNG data URL. The image is stretched linearly
- * between the corners: the Mercator error over 0.35° of latitude is under a pixel.
+ * Stepped colour field over the domain with a dark edge where the bin changes,
+ * like Meteociel's iso-lines. Stretched linearly between the corners: the Mercator
+ * error over 0.35° of latitude is under a pixel.
  */
 function renderField(grid: number[][]): string {
+  const n = FIELD_PX
+  const bins = new Int8Array(n * n)
+  for (let y = 0; y < n; y++) {
+    const fr = (1 - y / (n - 1)) * (ROWS - 1)
+    for (let x = 0; x < n; x++) bins[y * n + x] = binOf(bilinear(grid, fr, (x / (n - 1)) * (COLS - 1)))
+  }
   const c = document.createElement('canvas')
-  c.width = c.height = FIELD_PX
+  c.width = c.height = n
   const g = c.getContext('2d')!
-  const img = g.createImageData(FIELD_PX, FIELD_PX)
-  for (let y = 0; y < FIELD_PX; y++) {
-    const fr = (1 - y / (FIELD_PX - 1)) * (ROWS - 1)
-    for (let x = 0; x < FIELD_PX; x++) {
-      const v = bilinear(grid, fr, (x / (FIELD_PX - 1)) * (COLS - 1))
-      const o = (y * FIELD_PX + x) * 4
-      if (Number.isNaN(v)) continue
-      ;[img.data[o], img.data[o + 1], img.data[o + 2]] = windRgb(v)
-      img.data[o + 3] = 255
-    }
+  const img = g.createImageData(n, n)
+  for (let i = 0; i < n * n; i++) {
+    const b = bins[i]
+    if (b < 0) continue
+    const edge = (i % n < n - 1 && bins[i + 1] !== b) || (i < n * (n - 1) && bins[i + n] !== b)
+    const [r, gr, bl] = binRgb(b)
+    const k = edge ? 0.55 : 1
+    const o = i * 4
+    img.data[o] = r * k
+    img.data[o + 1] = gr * k
+    img.data[o + 2] = bl * k
+    img.data[o + 3] = 255
   }
   g.putImageData(img, 0, 0)
   return c.toDataURL()
@@ -78,14 +103,13 @@ function fieldUrl(version: number, time: string, kind: Kind): string {
   return url
 }
 
-const empty = (): FeatureCollection<Point> => ({ type: 'FeatureCollection', features: [] })
+const empty = <G extends Geometry = Point>(): FeatureCollection<G> => ({ type: 'FeatureCollection', features: [] })
 
 export function addWindLayers(map: MlMap) {
-  map.addImage('wind-arrow', arrowImage(), { sdf: true, pixelRatio: 2 })
+  map.addImage('wind-head', headImage(), { pixelRatio: 2 })
   map.addSource('wind-field', { type: 'image', url: renderField([[NaN, NaN], [NaN, NaN]]), coordinates: CORNERS })
-  map.addSource('wind-points', { type: 'geojson', data: empty() })
-  map.addSource('spots', { type: 'geojson', data: empty() })
-  map.addSource('picked', { type: 'geojson', data: empty() })
+  for (const id of ['wind-lines', 'wind-heads', 'wind-values', 'spots', 'picked'])
+    map.addSource(id, { type: 'geojson', data: empty() })
 
   // Under the basemap labels, so place names stay readable on top of the colours.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
@@ -94,34 +118,45 @@ export function addWindLayers(map: MlMap) {
       id: 'wind-field',
       type: 'raster',
       source: 'wind-field',
-      paint: { 'raster-opacity': 0.6, 'raster-resampling': 'linear', 'raster-fade-duration': 0 },
+      paint: { 'raster-opacity': 0.72, 'raster-resampling': 'linear', 'raster-fade-duration': 0 },
     },
     firstLabel,
   )
   map.addLayer({
-    id: 'wind-points',
+    id: 'wind-lines',
+    type: 'line',
+    source: 'wind-lines',
+    filter: SET_FILTER,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': LINE_COLOR, 'line-width': 1.3, 'line-opacity': 0.7 },
+  })
+  map.addLayer({
+    id: 'wind-heads',
     type: 'symbol',
-    source: 'wind-points',
+    source: 'wind-heads',
+    filter: SET_FILTER,
     layout: {
-      'icon-image': 'wind-arrow',
-      'icon-size': 0.55,
-      // `dir` is where the wind comes from: the arrow points where it goes.
-      'icon-rotate': ['+', ['get', 'dir'], 180],
+      'icon-image': 'wind-head',
+      'icon-rotate': ['get', 'bearing'],
       'icon-rotation-alignment': 'map',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+    paint: { 'icon-opacity': 0.75 },
+  })
+  map.addLayer({
+    id: 'wind-values',
+    type: 'symbol',
+    source: 'wind-values',
+    filter: LEVEL_FILTER,
+    layout: {
       'text-field': ['get', 'label'],
       'text-font': FONT,
-      'text-size': 12,
-      'text-offset': [0, 1.1],
-      // Collisions thin the grid out automatically when zooming out.
-      'symbol-sort-key': ['get', 'order'],
+      'text-size': 13,
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
     },
-    paint: {
-      'icon-color': '#0b1320',
-      'icon-opacity': 0.75,
-      'text-color': '#0b1320',
-      'text-halo-color': 'rgba(255,255,255,.75)',
-      'text-halo-width': 1.2,
-    },
+    paint: { 'text-color': '#0b1320', 'text-halo-color': 'rgba(255,255,255,.8)', 'text-halo-width': 1.4 },
   })
   map.addLayer({
     id: 'spots-circle',
@@ -164,22 +199,35 @@ export function setFieldData(map: MlMap, version: number, time: string, kind: Ki
   ;(map.getSource('wind-field') as ImageSource).updateImage({ url: fieldUrl(version, time, kind), coordinates: CORNERS })
 }
 
-export function setPointsData(map: MlMap, time: string, kind: Kind) {
-  const fc = empty()
-  domainPoints().forEach((p, i) => {
-    const w = valueAt(windCache.get(keyOf(p)), time)
-    if (!w) return
-    const v = kind === 'gust' ? w.gust : w.speed
-    // Every other row and column first, so zooming out keeps an even grid.
-    const r = Math.floor(i / COLS)
-    const order = (r % 2) + ((i % COLS) % 2)
-    fc.features.push({
+export function setGridData(map: MlMap, time: string, kind: Kind) {
+  const lines = empty<GeoJSON.LineString>()
+  const heads = empty()
+  for (const s of streamlines(time)) {
+    lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: s.coords }, properties: { set: s.set } })
+    heads.features.push({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: { dir: w.dir, label: Number.isNaN(v) ? '' : String(Math.round(v)), order },
+      geometry: { type: 'Point', coordinates: s.coords[s.coords.length - 1] },
+      properties: { bearing: s.bearing, set: s.set },
     })
-  })
-  ;(map.getSource('wind-points') as GeoJSONSource).setData(fc)
+  }
+  ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
+  ;(map.getSource('wind-heads') as GeoJSONSource).setData(heads)
+
+  const values = empty()
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const p = nodeAt(r, c)
+      const w = valueAt(windCache.get(keyOf(p)), time)
+      const v = w && (kind === 'gust' ? w.gust : w.speed)
+      if (v == null || Number.isNaN(v)) continue
+      values.features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+        properties: { label: String(Math.round(v)), lvl: levelOf(r, c) },
+      })
+    }
+  }
+  ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
 }
 
 export function setSpotsData(map: MlMap, time: string) {
@@ -204,11 +252,9 @@ export function setPickedData(map: MlMap, p: Picked | null) {
 export function setLayerVisibility(map: MlMap, l: Layers) {
   const vis = (on: boolean) => (on ? 'visible' : 'none')
   map.setLayoutProperty('wind-field', 'visibility', vis(l.field))
-  map.setLayoutProperty('wind-points', 'visibility', vis(l.values || l.arrows))
-  map.setLayoutProperty('wind-points', 'icon-image', l.arrows ? 'wind-arrow' : '')
-  map.setLayoutProperty('wind-points', 'text-field', l.values ? ['get', 'label'] : '')
-  // Values sit under the arrow, or on the point itself when arrows are hidden.
-  map.setLayoutProperty('wind-points', 'text-offset', l.arrows ? [0, 1.1] : [0, 0])
+  map.setLayoutProperty('wind-lines', 'visibility', vis(l.arrows))
+  map.setLayoutProperty('wind-heads', 'visibility', vis(l.arrows))
+  map.setLayoutProperty('wind-values', 'visibility', vis(l.values))
   map.setLayoutProperty('spots-circle', 'visibility', vis(l.spots))
   map.setLayoutProperty('spots-label', 'visibility', vis(l.spots))
 }

@@ -9,8 +9,8 @@
     addWindLayers,
     setFieldData,
     setLayerVisibility,
+    setGridData,
     setPickedData,
-    setPointsData,
     setSpotsData,
     STYLE_URL,
   } from './windLayers'
@@ -66,7 +66,7 @@
 
   $effect(() => {
     void app.cacheVersion
-    if (ready) setPointsData(app.map!, app.selectedTime, app.kind)
+    if (ready) setGridData(app.map!, app.selectedTime, app.kind)
   })
 
   $effect(() => {
