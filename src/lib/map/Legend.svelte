@@ -3,6 +3,11 @@
   import { BINS } from '../wind/windColor'
 
   const LABELED = new Set([4, 8, 12, 16, 20, 25, 31, 40])
+  const runHour = $derived(
+    app.meta
+      ? new Date(app.meta.run).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', hour: 'numeric' })
+      : '',
+  )
 </script>
 
 {#if app.layers.field}
@@ -15,6 +20,7 @@
         </div>
       {/each}
     </div>
+    {#if app.meta}<span class="run">{app.meta.model} · run {runHour}</span>{/if}
   </div>
 {/if}
 
@@ -26,8 +32,9 @@
     right: 60px;
     max-width: 360px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 2px 6px;
     padding: 4px 8px;
     border-radius: 10px;
     background: var(--surface);
@@ -39,6 +46,11 @@
     font: 600 11px var(--font);
     color: var(--muted);
     white-space: nowrap;
+  }
+  .run {
+    flex-basis: 100%;
+    font: 10px var(--font);
+    color: var(--muted);
   }
   .scale {
     flex: 1;

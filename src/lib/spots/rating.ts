@@ -1,4 +1,4 @@
-import type { WindAt } from '../wind/openMeteo'
+import type { WindAt } from '../wind/arome'
 import { angleDiff, sectorAngle } from '../wind/units'
 import type { Spot } from './spots'
 

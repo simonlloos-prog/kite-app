@@ -1,27 +1,17 @@
-import type { FeatureCollection, Geometry, Point } from 'geojson'
-import type { ExpressionSpecification, GeoJSONSource, ImageSource, Map as MlMap } from 'maplibre-gl'
+import type { FeatureCollection, Geometry, MultiLineString, Point } from 'geojson'
+import type { GeoJSONSource, ImageSource, Map as MlMap } from 'maplibre-gl'
 import type { Picked } from '../stores/app.svelte'
 import { rateSpot } from '../spots/rating'
 import { SPOTS } from '../spots/spots'
-import { keyOf, windCache } from '../wind/cache'
-import { COLS, DOMAIN, nodeAt, ROWS } from '../wind/domain'
-import { bilinear, fieldAt, levelOf, streamlines, type Kind } from '../wind/field'
-import { valueAt } from '../wind/openMeteo'
+import { windAt, type Grid, type Hour } from '../wind/arome'
+import { gridSymbols, sample, valuesOf, type Bounds, type Kind } from '../wind/field'
 import { binOf, binRgb } from '../wind/windColor'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
-const FIELD_PX = 512
-/** Dense values and the fine wind-line set take over from this (integer, GeoJSON tiles) zoom. */
-const DENSE_ZOOM = 12
-const LEVEL_FILTER: ExpressionSpecification = ['any', ['==', ['get', 'lvl'], 0], ['>=', ['zoom'], DENSE_ZOOM]]
-/** One wind-line set at a time: coarse when zoomed out, fine when zoomed in. */
-const SET_FILTER: ExpressionSpecification = [
-  'case',
-  ['>=', ['zoom'], DENSE_ZOOM],
-  ['==', ['get', 'set'], 1],
-  ['==', ['get', 'set'], 0],
-]
+const INK = '#0b1320'
+/** Field image pixels per grid cell. */
+const PX_PER_CELL = 6
 
 export interface Layers {
   field: boolean
@@ -30,86 +20,61 @@ export interface Layers {
   spots: boolean
 }
 
-const CORNERS: [[number, number], [number, number], [number, number], [number, number]] = [
-  [DOMAIN.west, DOMAIN.north],
-  [DOMAIN.east, DOMAIN.north],
-  [DOMAIN.east, DOMAIN.south],
-  [DOMAIN.west, DOMAIN.south],
-]
+type Corners = [[number, number], [number, number], [number, number], [number, number]]
 
-const LINE_COLOR = '#0b1320'
-
-/** Small open arrowhead pointing up, drawn at the downwind end of each wind line. */
-function headImage() {
-  const s = 20
-  const c = document.createElement('canvas')
-  c.width = c.height = s
-  const g = c.getContext('2d')!
-  g.lineCap = g.lineJoin = 'round'
-  g.beginPath()
-  g.moveTo(4, 14)
-  g.lineTo(s / 2, 4)
-  g.lineTo(s - 4, 14)
-  g.strokeStyle = LINE_COLOR
-  g.lineWidth = 2.6
-  g.stroke()
-  return g.getImageData(0, 0, s, s)
+function corners(g: Grid): Corners {
+  const north = g.south + (g.rows - 1) * g.step
+  const east = g.west + (g.cols - 1) * g.step
+  return [
+    [g.west, north],
+    [east, north],
+    [east, g.south],
+    [g.west, g.south],
+  ]
 }
 
+const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
+const invMercY = (y: number) => (360 / Math.PI) * Math.atan(Math.exp(y)) - 90
+
 /**
- * Stepped colour field over the domain with a dark edge where the bin changes,
- * like Meteociel's iso-lines. Stretched linearly between the corners: the Mercator
- * error over 0.35° of latitude is under a pixel.
+ * Stepped colour field with a dark edge where the bin changes, like Meteociel's iso-lines.
+ * MapLibre stretches the image linearly in Mercator space, so rows are spaced in Mercator Y.
  */
-function renderField(grid: number[][]): string {
-  const n = FIELD_PX
-  const bins = new Int8Array(n * n)
-  for (let y = 0; y < n; y++) {
-    const fr = (1 - y / (n - 1)) * (ROWS - 1)
-    for (let x = 0; x < n; x++) bins[y * n + x] = binOf(bilinear(grid, fr, (x / (n - 1)) * (COLS - 1)))
+function renderField(g: Grid, values: Float32Array): string {
+  const w = (g.cols - 1) * PX_PER_CELL + 1
+  const h = (g.rows - 1) * PX_PER_CELL + 1
+  const north = g.south + (g.rows - 1) * g.step
+  const [yN, yS] = [mercY(north), mercY(g.south)]
+  const bins = new Int8Array(w * h)
+  for (let y = 0; y < h; y++) {
+    const fr = (invMercY(yN + ((yS - yN) * y) / (h - 1)) - g.south) / g.step
+    for (let x = 0; x < w; x++) bins[y * w + x] = binOf(sample(g, values, fr, x / PX_PER_CELL))
   }
   const c = document.createElement('canvas')
-  c.width = c.height = n
-  const g = c.getContext('2d')!
-  const img = g.createImageData(n, n)
-  for (let i = 0; i < n * n; i++) {
+  c.width = w
+  c.height = h
+  const ctx = c.getContext('2d')!
+  const img = ctx.createImageData(w, h)
+  for (let i = 0; i < w * h; i++) {
     const b = bins[i]
     if (b < 0) continue
-    const edge = (i % n < n - 1 && bins[i + 1] !== b) || (i < n * (n - 1) && bins[i + n] !== b)
+    const edge = (i % w < w - 1 && bins[i + 1] !== b) || (i < w * (h - 1) && bins[i + w] !== b)
     const [r, gr, bl] = binRgb(b)
     const k = edge ? 0.55 : 1
-    const o = i * 4
-    img.data[o] = r * k
-    img.data[o + 1] = gr * k
-    img.data[o + 2] = bl * k
-    img.data[o + 3] = 255
+    img.data.set([r * k, gr * k, bl * k, 255], i * 4)
   }
-  g.putImageData(img, 0, 0)
+  ctx.putImageData(img, 0, 0)
   return c.toDataURL()
 }
 
-// One image per (cache version, hour, kind): swiping back and forth costs nothing.
+// One image per (run, hour, kind): swiping back and forth costs nothing.
 const fieldMemo = new Map<string, string>()
-let memoVersion = -1
-
-function fieldUrl(version: number, time: string, kind: Kind): string {
-  if (version !== memoVersion) {
-    fieldMemo.clear()
-    memoVersion = version
-  }
-  const key = `${time}|${kind}`
-  let url = fieldMemo.get(key)
-  if (!url) fieldMemo.set(key, (url = renderField(fieldAt(time, kind))))
-  return url
-}
 
 const empty = <G extends Geometry = Point>(): FeatureCollection<G> => ({ type: 'FeatureCollection', features: [] })
 
-export function addWindLayers(map: MlMap) {
-  map.addImage('wind-head', headImage(), { pixelRatio: 2 })
-  map.addSource('wind-field', { type: 'image', url: renderField([[NaN, NaN], [NaN, NaN]]), coordinates: CORNERS })
-  for (const id of ['wind-lines', 'wind-heads', 'wind-values', 'spots', 'picked'])
-    map.addSource(id, { type: 'geojson', data: empty() })
+export function addWindLayers(map: MlMap, g: Grid) {
+  map.addSource('wind-field', { type: 'image', url: renderField({ ...g, rows: 2, cols: 2 }, new Float32Array(4).fill(NaN)), coordinates: corners(g) })
+  for (const id of ['wind-strokes', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
 
   // Under the basemap labels, so place names stay readable on top of the colours.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
@@ -123,40 +88,24 @@ export function addWindLayers(map: MlMap) {
     firstLabel,
   )
   map.addLayer({
-    id: 'wind-lines',
+    id: 'wind-strokes',
     type: 'line',
-    source: 'wind-lines',
-    filter: SET_FILTER,
+    source: 'wind-strokes',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': LINE_COLOR, 'line-width': 1.3, 'line-opacity': 0.7 },
-  })
-  map.addLayer({
-    id: 'wind-heads',
-    type: 'symbol',
-    source: 'wind-heads',
-    filter: SET_FILTER,
-    layout: {
-      'icon-image': 'wind-head',
-      'icon-rotate': ['get', 'bearing'],
-      'icon-rotation-alignment': 'map',
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-    },
-    paint: { 'icon-opacity': 0.75 },
+    paint: { 'line-color': INK, 'line-width': 1.2, 'line-opacity': 0.75 },
   })
   map.addLayer({
     id: 'wind-values',
     type: 'symbol',
     source: 'wind-values',
-    filter: LEVEL_FILTER,
     layout: {
       'text-field': ['get', 'label'],
       'text-font': FONT,
-      'text-size': 13,
+      'text-size': 11,
       'text-allow-overlap': true,
       'text-ignore-placement': true,
     },
-    paint: { 'text-color': '#0b1320', 'text-halo-color': 'rgba(255,255,255,.8)', 'text-halo-width': 1.4 },
+    paint: { 'text-color': INK, 'text-halo-color': 'rgba(255,255,255,.7)', 'text-halo-width': 1 },
   })
   map.addLayer({
     id: 'spots-circle',
@@ -180,7 +129,7 @@ export function addWindLayers(map: MlMap) {
       'text-anchor': 'left',
       'text-offset': [0.9, 0],
     },
-    paint: { 'text-color': '#0b1320', 'text-halo-color': '#fff', 'text-halo-width': 1.6 },
+    paint: { 'text-color': INK, 'text-halo-color': '#fff', 'text-halo-width': 1.6 },
   })
   map.addLayer({
     id: 'picked',
@@ -189,56 +138,37 @@ export function addWindLayers(map: MlMap) {
     paint: {
       'circle-radius': 9,
       'circle-color': 'rgba(255,255,255,.25)',
-      'circle-stroke-color': '#0b1320',
+      'circle-stroke-color': INK,
       'circle-stroke-width': 3,
     },
   })
 }
 
-export function setFieldData(map: MlMap, version: number, time: string, kind: Kind) {
-  ;(map.getSource('wind-field') as ImageSource).updateImage({ url: fieldUrl(version, time, kind), coordinates: CORNERS })
+export function setFieldData(map: MlMap, g: Grid, run: string, time: string, h: Hour, kind: Kind) {
+  const key = `${run}|${time}|${kind}`
+  let url = fieldMemo.get(key)
+  if (!url) {
+    if (fieldMemo.size > 120) fieldMemo.clear()
+    fieldMemo.set(key, (url = renderField(g, valuesOf(h, kind))))
+  }
+  ;(map.getSource('wind-field') as ImageSource).updateImage({ url, coordinates: corners(g) })
 }
 
-export function setGridData(map: MlMap, time: string, kind: Kind) {
-  const lines = empty<GeoJSON.LineString>()
-  const heads = empty()
-  for (const s of streamlines(time)) {
-    lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: s.coords }, properties: { set: s.set } })
-    heads.features.push({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: s.coords[s.coords.length - 1] },
-      properties: { bearing: s.bearing, set: s.set },
-    })
-  }
-  ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
-  ;(map.getSource('wind-heads') as GeoJSONSource).setData(heads)
-
+export function setGridData(map: MlMap, g: Grid, h: Hour, kind: Kind, stride: number, bounds: Bounds) {
+  const { labels, strokes } = gridSymbols(g, h, valuesOf(h, kind), stride, bounds)
+  const lines = empty<MultiLineString>()
+  for (const s of strokes) lines.features.push({ type: 'Feature', geometry: { type: 'MultiLineString', coordinates: [s.shaft, s.head] }, properties: {} })
   const values = empty()
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const p = nodeAt(r, c)
-      const w = valueAt(windCache.get(keyOf(p)), time)
-      const v = w && (kind === 'gust' ? w.gust : w.speed)
-      if (v == null || Number.isNaN(v)) continue
-      values.features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-        properties: { label: String(Math.round(v)), lvl: levelOf(r, c) },
-      })
-    }
-  }
+  for (const l of labels) values.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: String(l.value) } })
+  ;(map.getSource('wind-strokes') as GeoJSONSource).setData(lines)
   ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
 }
 
-export function setSpotsData(map: MlMap, time: string) {
+export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined) {
   const fc = empty()
   for (const s of SPOTS) {
-    const r = rateSpot(s, valueAt(windCache.get(keyOf(s)), time))
-    fc.features.push({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
-      properties: { name: s.name, color: r.color },
-    })
+    const r = rateSpot(s, windAt(g, h, s))
+    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { name: s.name, color: r.color } })
   }
   ;(map.getSource('spots') as GeoJSONSource).setData(fc)
 }
@@ -252,8 +182,7 @@ export function setPickedData(map: MlMap, p: Picked | null) {
 export function setLayerVisibility(map: MlMap, l: Layers) {
   const vis = (on: boolean) => (on ? 'visible' : 'none')
   map.setLayoutProperty('wind-field', 'visibility', vis(l.field))
-  map.setLayoutProperty('wind-lines', 'visibility', vis(l.arrows))
-  map.setLayoutProperty('wind-heads', 'visibility', vis(l.arrows))
+  map.setLayoutProperty('wind-strokes', 'visibility', vis(l.arrows))
   map.setLayoutProperty('wind-values', 'visibility', vis(l.values))
   map.setLayoutProperty('spots-circle', 'visibility', vis(l.spots))
   map.setLayoutProperty('spots-label', 'visibility', vis(l.spots))

@@ -2,19 +2,16 @@
   import { rateSpot } from '../spots/rating'
   import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
-  import { keyOf, windCache } from '../wind/cache'
-  import { valueAt } from '../wind/openMeteo'
   import { formatHour } from '../wind/time'
   import { sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
 
-  const rows = $derived.by(() => {
-    void app.cacheVersion
-    return SPOTS.map((spot) => {
-      const w = valueAt(windCache.get(keyOf(spot)), app.selectedTime)
+  const rows = $derived(
+    SPOTS.map((spot) => {
+      const w = app.windAt(spot)
       return { spot, w, rating: rateSpot(spot, w) }
-    }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0))
-  })
+    }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
+  )
 </script>
 
 <div class="list">

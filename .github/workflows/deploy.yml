@@ -1,0 +1,79 @@
+# Fetch the latest AROME 0.01° run, cut the kite area, build the app and publish it on GitHub Pages.
+# Runs on every push and every hour; a run already published is skipped (AROME runs every 3 h).
+name: Données AROME + déploiement
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "25 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      skipped: ${{ steps.data.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: Données AROME
+        id: data
+        env:
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          # On the hourly schedule, skip when the published run is still the latest.
+          published=""
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            published=$(curl -sf "$PAGES_URL/data/meta.json" | python -c "import json,sys; print(json.load(sys.stdin)['run'])" || true)
+          fi
+          python pipeline/fetch_arome.py --out public/data ${published:+--skip-if-run "$published"}
+          if [ -f public/data/meta.json ]; then echo "skipped=false" >> "$GITHUB_OUTPUT"; else echo "skipped=true" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/setup-node@v4
+        if: steps.data.outputs.skipped == 'false'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Build
+        if: steps.data.outputs.skipped == 'false'
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.data.outputs.skipped == 'false'
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.skipped == 'false'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

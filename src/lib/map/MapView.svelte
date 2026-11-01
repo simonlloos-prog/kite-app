@@ -5,27 +5,36 @@
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
   import { onMount } from 'svelte'
   import { app } from '../stores/app.svelte'
+  import { strideFor } from '../wind/field'
   import {
     addWindLayers,
     setFieldData,
-    setLayerVisibility,
     setGridData,
+    setLayerVisibility,
     setPickedData,
     setSpotsData,
     STYLE_URL,
   } from './windLayers'
 
   let el: HTMLDivElement
+  let styleReady = $state(false)
+  /** Wind layers exist: the style is loaded and the grid is known. */
   let ready = $state(false)
 
   setWorkerUrl(workerUrl)
+
+  function trackView(map: MlMap) {
+    const b = map.getBounds()
+    app.zoom = map.getZoom()
+    app.bounds = { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }
+  }
 
   onMount(() => {
     const map = new MlMap({
       container: el,
       style: STYLE_URL,
-      center: [-1.15, 44.68],
-      zoom: 10.8,
+      center: [-1.2, 44.66],
+      zoom: 11,
       attributionControl: { compact: true },
     })
     map.dragRotate.disable()
@@ -35,10 +44,10 @@
     app.map = map
 
     map.on('load', () => {
-      addWindLayers(map)
-      ready = true
-      app.loadData()
+      styleReady = true
+      trackView(map)
     })
+    map.on('moveend', () => trackView(map))
     map.on('click', (e) => {
       const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
       if (spot) {
@@ -48,6 +57,7 @@
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
       }
     })
+    app.loadData()
 
     return () => {
       map.remove()
@@ -56,22 +66,30 @@
   })
 
   $effect(() => {
+    if (styleReady && app.meta && !ready) {
+      addWindLayers(app.map!, app.meta.grid)
+      ready = true
+    }
+  })
+
+  $effect(() => {
     const bottom = app.mapPadBottom
-    if (ready) app.map!.easeTo({ padding: { top: 0, left: 0, right: 0, bottom }, duration: 250 })
+    if (styleReady) app.map!.easeTo({ padding: { top: 0, left: 0, right: 0, bottom }, duration: 250 })
   })
 
   $effect(() => {
-    if (ready && app.layers.field) setFieldData(app.map!, app.cacheVersion, app.selectedTime, app.kind)
+    const { meta, hour } = app
+    if (ready && meta && hour && app.layers.field) setFieldData(app.map!, meta.grid, meta.run, app.selectedTime, hour, app.kind)
   })
 
   $effect(() => {
-    void app.cacheVersion
-    if (ready) setGridData(app.map!, app.selectedTime, app.kind)
+    const { meta, hour, bounds } = app
+    if (ready && meta && hour && bounds) setGridData(app.map!, meta.grid, hour, app.kind, strideFor(meta.grid, app.zoom), bounds)
   })
 
   $effect(() => {
-    void app.cacheVersion
-    if (ready) setSpotsData(app.map!, app.selectedTime)
+    const { meta, hour } = app
+    if (ready && meta) setSpotsData(app.map!, meta.grid, hour)
   })
 
   $effect(() => {

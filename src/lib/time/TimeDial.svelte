@@ -1,6 +1,5 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
-  import { valueAt } from '../wind/openMeteo'
   import { formatHour } from '../wind/time'
   import { sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -11,11 +10,7 @@
   const SLOP = 8
 
   const idx = $derived(app.timeIndex)
-  const picked = $derived.by(() => {
-    void app.cacheVersion
-    const p = app.picked
-    return p ? { name: p.name, w: valueAt(app.seriesAt(p), app.selectedTime) } : null
-  })
+  const picked = $derived(app.picked ? { name: app.picked.name, w: app.windAt(app.picked) } : null)
 
   let el: HTMLDivElement
   let mode: 'idle' | 'pending' | 'swipe' = 'idle'
@@ -123,8 +118,10 @@
   <div class="info">
     {#if app.error}
       <span class="error">{app.error}</span>
-    {:else if app.loading && !app.times.length}
-      <span class="muted">Chargement AROME HD…</span>
+    {:else if !app.meta}
+      <span class="muted">Chargement AROME…</span>
+    {:else if !app.hour}
+      <span class="muted">Chargement de cette heure… ({app.loaded}/{app.times.length})</span>
     {:else if picked?.w}
       {@const w = picked.w}
       <span class="pill" style:background={windColor(w.speed)}>{Math.round(w.speed)}</span>
@@ -138,6 +135,9 @@
       <span class="muted">Hors de la zone chargée</span>
     {:else}
       <span class="muted">Glisse → pour avancer · touche la carte</span>
+    {/if}
+    {#if app.meta && app.loaded < app.times.length}
+      <span class="progress">{app.loaded}/{app.times.length} h</span>
     {/if}
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
@@ -242,6 +242,11 @@
   }
   .error {
     color: #ef4444;
+  }
+  .progress {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 11px;
   }
   .badge {
     margin-left: auto;

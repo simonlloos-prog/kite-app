@@ -28,3 +28,7 @@ dev-dist
 
 # Claude Code (local)
 .claude/settings.local.json
+
+# AROME data, produced by pipeline/fetch_arome.py (CI or `npm run data`)
+public/data/
+__pycache__/

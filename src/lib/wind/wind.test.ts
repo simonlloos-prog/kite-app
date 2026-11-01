@@ -1,154 +1,111 @@
-import { describe, expect, it, vi } from 'vitest'
-import { keyOf, loadPoints, snapPoint, WindCache } from './cache'
-import { COLS, domainPoints, nearestNode, ROWS } from './domain'
-import { bilinear, fieldAt, streamlines } from './field'
-import { buildUrl, parseResponse, valueAt, type WindSeries } from './openMeteo'
+import { describe, expect, it } from 'vitest'
+import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
+import { gridSymbols, sample, strideFor, valuesOf } from './field'
 import { formatHour, parisHourKey } from './time'
 import { angleDiff, beaufort, sector } from './units'
 import { BINS, binOf, windColor } from './windColor'
 
-const raw = (speed: number) => ({
-  hourly: {
-    time: ['2026-11-01T14:00', '2026-11-01T15:00'],
-    wind_speed_10m: [speed, null],
-    wind_direction_10m: [270, 280],
-    wind_gusts_10m: [speed + 5, null],
-  },
-})
+const grid: Grid = { south: 44.1, west: -1.9, step: 0.01, rows: 101, cols: 111 }
+const n = grid.rows * grid.cols
 
-describe('openMeteo', () => {
-  it('builds a multi-point URL for AROME HD in knots', () => {
-    const url = new URL(buildUrl([{ lat: 44.675, lon: -1.175 }, { lat: 44.65, lon: -1.25 }]))
-    expect(url.searchParams.get('latitude')).toBe('44.6750,44.6500')
-    expect(url.searchParams.get('longitude')).toBe('-1.1750,-1.2500')
-    expect(url.searchParams.get('models')).toBe('meteofrance_arome_france_hd')
-    expect(url.searchParams.get('wind_speed_unit')).toBe('kn')
-  })
-
-  it('parses single object and arrays, nulls become NaN', () => {
-    const [one] = parseResponse(raw(12), 1)
-    expect(one.speed[0]).toBe(12)
-    expect(one.speed[1]).toBeNaN()
-    expect(parseResponse([raw(1), raw(2)], 2).map((s) => s.speed[0])).toEqual([1, 2])
-    expect(() => parseResponse([raw(1)], 2)).toThrow()
-  })
-
-  it('reads the value at a given hour', () => {
-    const [s] = parseResponse(raw(18), 1)
-    expect(valueAt(s, '2026-11-01T14:00')).toEqual({ speed: 18, gust: 23, dir: 270 })
-    expect(valueAt(s, '2026-11-01T15:00')).toBeNull()
-    expect(valueAt(s, '2030-01-01T00:00')).toBeNull()
-  })
-})
-
-describe('cache', () => {
-  it('snaps to the AROME HD mesh', () => {
-    expect(keyOf({ lat: 44.68, lon: -1.17 })).toBe('44.6750,-1.1750')
-    expect(keyOf({ lat: 44.6751, lon: -1.1749 })).toBe(keyOf(snapPoint({ lat: 44.68, lon: -1.17 })))
-  })
-
-  it('expires entries and dedupes missing points', () => {
-    const c = new WindCache()
-    const s = {} as WindSeries
-    c.set(keyOf({ lat: 44.68, lon: -1.17 }), s, 0)
-    expect(c.missing([{ lat: 44.68, lon: -1.17 }], 1000)).toEqual([])
-    expect(c.missing([{ lat: 44.68, lon: -1.17 }], 31 * 60_000)).toHaveLength(1)
-    expect(c.missing([{ lat: 44.7, lon: -1.2 }, { lat: 44.7001, lon: -1.2001 }], 0)).toHaveLength(1)
-  })
-
-  it('survives a serialize/restore round trip, NaN included', () => {
-    const c = new WindCache()
-    const [s] = parseResponse(raw(12), 1)
-    c.set('k', s, 1000)
-    const back = new WindCache()
-    back.restore(c.serialize(), 2000)
-    expect(back.get('k', 2000)?.speed[0]).toBe(12)
-    expect(back.get('k', 2000)?.speed[1]).toBeNaN()
-    const stale = new WindCache()
-    stale.restore(c.serialize(), 1000 + 31 * 60_000)
-    expect(stale.get('k', 1000 + 31 * 60_000)).toBeUndefined()
-  })
-
-  it('only fetches missing points', async () => {
-    const c = new WindCache()
-    const fetchMock = vi.fn(async (url: string) => {
-      const n = new URL(url).searchParams.get('latitude')!.split(',').length
-      return new Response(JSON.stringify(n === 1 ? raw(10) : Array.from({ length: n }, () => raw(10))))
-    })
-    vi.stubGlobal('fetch', fetchMock)
-    await loadPoints([{ lat: 44.68, lon: -1.17 }], undefined, c)
-    await loadPoints([{ lat: 44.68, lon: -1.17 }, { lat: 44.7, lon: -1.2 }], undefined, c)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('latitude')).toBe('44.7000')
-    vi.unstubAllGlobals()
-  })
-})
-
-describe('domain & field', () => {
-  it('covers the Bassin with distinct cache keys, within the API quota', () => {
-    const pts = domainPoints()
-    expect(pts).toHaveLength(ROWS * COLS)
-    expect(pts.length).toBeLessThanOrEqual(300)
-    expect(new Set(pts.map(keyOf)).size).toBe(pts.length)
-  })
-
-  it('finds the nearest node, or nothing outside', () => {
-    expect(nearestNode({ lat: 44.6761, lon: -1.1739 })).toEqual(domainPoints()[7 * COLS + 7])
-    expect(nearestNode({ lat: 46, lon: -1.1 })).toBeNull()
-  })
-
-  it('interpolates bilinearly', () => {
-    const g = [
-      [0, 10],
-      [20, 30],
-    ]
-    expect(bilinear(g, 0, 0)).toBe(0)
-    expect(bilinear(g, 1, 1)).toBe(30)
-    expect(bilinear(g, 0.5, 0.5)).toBe(15)
-    expect(bilinear([[NaN, 1], [1, 1]], 0.5, 0.5)).toBeNaN()
-  })
-
-  /** Cache where every domain node has the same wind at 14:00. */
-  const uniform = (dirs: (r: number) => number) => {
-    const c = new WindCache()
-    domainPoints().forEach((p, i) => {
-      const [s] = parseResponse(raw(15), 1)
-      s.dir = [dirs(Math.floor(i / COLS)), 0]
-      c.set(keyOf(p), s)
-    })
-    return c
+/** Same wind everywhere, from `from` degrees at `kn` knots. */
+function uniform(from: number, kn: number): Hour {
+  const rad = (from * Math.PI) / 180
+  return {
+    u: new Float32Array(n).fill(-Math.sin(rad) * kn),
+    v: new Float32Array(n).fill(-Math.cos(rad) * kn),
+    gust: new Float32Array(n).fill(kn + 5),
   }
+}
 
-  it('draws wind lines that go where the wind blows', () => {
-    const lines = streamlines('2026-11-01T14:00', uniform(() => 270))
-    expect(lines.some((l) => l.set === 0) && lines.some((l) => l.set === 1)).toBe(true)
-    for (const l of lines) {
-      const [first, last] = [l.coords[0], l.coords[l.coords.length - 1]]
-      expect(last[0]).toBeGreaterThan(first[0]) // westerly wind → lines head east
-      expect(last[1]).toBeCloseTo(first[1], 6)
-      expect(l.bearing).toBeCloseTo(90, 3)
-    }
+describe('arome data', () => {
+  it('decodes the binary hour format written by the pipeline', () => {
+    const buf = new ArrayBuffer(3 * n)
+    const i8 = new Int8Array(buf)
+    const u8 = new Uint8Array(buf)
+    i8[0] = -20 // u = -10 kn
+    i8[n] = 0
+    u8[2 * n] = 30 // gust 15 kn
+    u8[2 * n + 1] = 255 // missing
+    const h = decodeHour(buf, grid, 0.5)
+    expect(h.u[0]).toBe(-10)
+    expect(h.gust[0]).toBe(15)
+    expect(h.gust[1]).toBeNaN()
+    expect(() => decodeHour(new ArrayBuffer(10), grid, 0.5)).toThrow()
   })
 
-  it('averages directions as vectors and skips empty areas', () => {
-    const lines = streamlines('2026-11-01T14:00', uniform((r) => (r % 2 ? 350 : 10)))
-    const mid = lines.find((l) => l.set === 0)!
-    expect(Math.min(mid.bearing, 360 - mid.bearing)).toBeGreaterThan(170) // from ~N → heads ~S
-    expect(streamlines('2026-11-01T14:00', new WindCache())).toEqual([])
+  it('turns components into where the wind comes from', () => {
+    expect(dirFrom(-10, 0)).toBeCloseTo(90) // blowing west → from the east
+    expect(dirFrom(0, -10)).toBeCloseTo(0) // blowing south → from the north
+    expect(dirFrom(10, 0)).toBeCloseTo(270)
   })
 
-  it('reads a field from the cache', () => {
-    const c = new WindCache()
-    const [s] = parseResponse(raw(12), 1)
-    c.set(keyOf(domainPoints()[0]), s)
-    const f = fieldAt('2026-11-01T14:00', 'gust', c)
-    expect(f).toHaveLength(ROWS)
-    expect(f[0][0]).toBe(17)
-    expect(f[1][1]).toBeNaN()
+  it('finds the nearest cell and its wind', () => {
+    expect(cellOf(grid, { lat: 44.1, lon: -1.9 })).toBe(0)
+    expect(cellOf(grid, { lat: 45.1, lon: -0.8 })).toBe(n - 1)
+    expect(cellOf(grid, { lat: 46, lon: -1 })).toBeNull()
+    const w = windAt(grid, uniform(270, 12), { lat: 44.68, lon: -1.17 })!
+    expect(w.speed).toBeCloseTo(12)
+    expect(w.dir).toBeCloseTo(270)
+    expect(w.gust).toBe(17)
+    expect(windAt(grid, undefined, { lat: 44.68, lon: -1.17 })).toBeNull()
   })
 })
 
-describe('units & time', () => {
+describe('field', () => {
+  it('interpolates bilinearly and clamps to the grid', () => {
+    const g: Grid = { south: 0, west: 0, step: 1, rows: 2, cols: 2 }
+    const a = Float32Array.from([0, 10, 20, 30])
+    expect(sample(g, a, 0, 0)).toBe(0)
+    expect(sample(g, a, 0.5, 0.5)).toBe(15)
+    expect(sample(g, a, 5, 5)).toBe(30)
+  })
+
+  it('computes speed or gust per cell', () => {
+    const h = uniform(45, 10)
+    expect(valuesOf(h, 'speed')[3]).toBeCloseTo(10)
+    expect(valuesOf(h, 'gust')[3]).toBe(15)
+  })
+
+  it('picks a denser stride when zooming in', () => {
+    expect(strideFor(grid, 14)).toBe(1)
+    expect(strideFor(grid, 11)).toBe(1) // ~29 px per cell
+    expect(strideFor(grid, 10)).toBe(2)
+    expect(strideFor(grid, 8)).toBe(8)
+  })
+
+  const all = { west: -2, south: 44, east: -0.7, north: 45.2 }
+
+  it('alternates values and arrows on the lattice', () => {
+    const { labels, strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 2, all)
+    const lattice = Math.ceil(grid.rows / 2) * Math.ceil(grid.cols / 2)
+    expect(labels.length + strokes.length).toBe(lattice)
+    expect(labels.length).toBe(Math.floor(grid.rows / 4 + 0.5) * Math.floor(grid.cols / 4 + 0.5))
+    expect(labels[0].value).toBe(12)
+  })
+
+  it('points arrows where the wind goes', () => {
+    const { strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 4, all)
+    for (const { shaft } of strokes) {
+      const [[lon0, lat0], [lon1, lat1]] = shaft
+      expect(lon1).toBeGreaterThan(lon0) // westerly → heads east
+      expect(lat1).toBeCloseTo(lat0, 9)
+    }
+    const north = gridSymbols(grid, uniform(180, 12), valuesOf(uniform(180, 12), 'speed'), 4, all).strokes[0].shaft
+    expect(north[1][1]).toBeGreaterThan(north[0][1]) // southerly → heads north
+  })
+
+  it('only emits what is on screen and skips calm cells', () => {
+    const small = { west: -1.2, south: 44.6, east: -1.1, north: 44.7 }
+    const { labels, strokes } = gridSymbols(grid, uniform(270, 12), valuesOf(uniform(270, 12), 'speed'), 1, small)
+    expect(labels.length + strokes.length).toBe(11 * 11)
+    for (const s of strokes) expect(s.shaft[0][0]).toBeGreaterThan(small.west - 0.01)
+    expect(gridSymbols(grid, uniform(0, 0), new Float32Array(n), 1, small).strokes).toHaveLength(0)
+    expect(nodeAt(grid, 1, 1)).toEqual({ lat: 44.11, lon: -1.89 })
+  })
+})
+
+describe('units, time & colours', () => {
   it('converts directions and Beaufort', () => {
     expect(sector(270)).toBe('O')
     expect(sector(-10)).toBe('N')
@@ -161,6 +118,7 @@ describe('units & time', () => {
   it('formats Paris hours', () => {
     expect(parisHourKey(new Date('2026-11-01T13:30:00Z'))).toBe('2026-11-01T14:00')
     expect(parisHourKey(new Date('2026-07-01T13:30:00Z'))).toBe('2026-07-01T15:00')
+    expect(parisHourKey(new Date('2026-11-01T20:00Z'))).toBe('2026-11-01T21:00')
     expect(formatHour('2026-11-01T14:00')).toBe('dim. 14h')
   })
 

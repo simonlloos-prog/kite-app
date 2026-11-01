@@ -4,16 +4,19 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // GitHub Pages serves the app under /<repo>/: the deploy workflow sets BASE_PATH.
+  base: process.env.BASE_PATH ?? '/',
   plugins: [
     svelte(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Kite Bassin — vent AROME HD',
+        name: 'Kite Bassin — vent AROME',
         short_name: 'Kite Bassin',
-        description: "Vent AROME HD sur le Bassin d'Arcachon",
+        description: "Vent AROME 0,01° sur le Bassin d'Arcachon",
         lang: 'fr',
-        start_url: '/',
+        start_url: '.',
+        scope: '.',
         display: 'standalone',
         orientation: 'portrait',
         theme_color: '#0b1320',
@@ -24,7 +27,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // .mjs: the MapLibre worker, needed for the map to work offline.
+        // .mjs: the MapLibre worker, needed for the map to work offline. Data files are cached at runtime.
         globPatterns: ['**/*.{js,mjs,css,html,svg}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
@@ -38,13 +41,16 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: ({ url }) => url.origin === 'https://api.open-meteo.com',
+            // Points to the latest run: always ask the network first.
+            urlPattern: ({ url }) => url.pathname.endsWith('/data/meta.json'),
             handler: 'NetworkFirst',
-            options: {
-              cacheName: 'open-meteo',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 200, maxAgeSeconds: 3600 },
-            },
+            options: { cacheName: 'arome-meta', networkTimeoutSeconds: 4 },
+          },
+          {
+            // Hour files live under a per-run folder, so they never change once published.
+            urlPattern: ({ url }) => /\/data\/.+\.bin$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'arome-hours', expiration: { maxEntries: 120, maxAgeSeconds: 2 * 24 * 3600 } },
           },
         ],
       },

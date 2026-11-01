@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
-    "dev:phone": "vite --host"
+    "dev:phone": "vite --host",
+    "data": "python pipeline/fetch_arome.py --out public/data --max-step 12"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

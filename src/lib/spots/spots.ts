@@ -1,4 +1,4 @@
-import type { LatLon } from '../wind/openMeteo'
+import type { LatLon } from '../wind/arome'
 import type { Sector } from '../wind/units'
 
 export interface Spot extends LatLon {
