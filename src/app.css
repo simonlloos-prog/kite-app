@@ -47,4 +47,7 @@ body {
 
 button {
   cursor: pointer;
+  /* Long press (⟳ diagnostics) must not open the iOS selection callout. */
+  -webkit-touch-callout: none;
+  user-select: none;
 }

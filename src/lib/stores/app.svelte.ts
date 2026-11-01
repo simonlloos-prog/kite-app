@@ -65,6 +65,8 @@ class AppState {
   dataVersion = $state(0)
   online = $state(navigator.onLine)
   refreshing = $state(false)
+  /** Hidden screen diagnostics (long press on ⟳). */
+  showDiagnostics = $state(false)
 
   /** Plain properties: the map instance and the decoded arrays must never be proxied. */
   map: MlMap | null = null

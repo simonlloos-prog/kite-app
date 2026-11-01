@@ -8,6 +8,18 @@
     { key: 'arrows', label: '➚', title: 'Flèches de vent' },
     { key: 'spots', label: '●', title: 'Spots' },
   ] as const
+
+  // ⟳: tap = refresh; long press = screen diagnostics, for layout issues seen only on a phone.
+  let pressTimer = 0
+  let longPressed = false
+  function pressStart() {
+    longPressed = false
+    pressTimer = window.setTimeout(() => {
+      longPressed = true
+      app.showDiagnostics = true
+    }, 700)
+  }
+  const pressEnd = () => clearTimeout(pressTimer)
 </script>
 
 <div class="toggles">
@@ -49,9 +61,16 @@
     type="button"
     class="list"
     class:spinning={app.refreshing}
-    title="Recharger : nouvelle version de l'app et dernières données"
+    title="Recharger : nouvelle version de l'app et dernières données (appui long : diagnostic écran)"
     aria-label="Recharger l'app et les données"
-    onclick={() => app.refresh()}>⟳</button
+    onpointerdown={pressStart}
+    onpointerup={pressEnd}
+    onpointerleave={pressEnd}
+    onpointercancel={pressEnd}
+    oncontextmenu={(e) => e.preventDefault()}
+    onclick={() => {
+      if (!longPressed) app.refresh()
+    }}>⟳</button
   >
 </div>
 

@@ -78,6 +78,7 @@ src/
 - **La page ne zoome jamais**, seule la carte zoome : `touch-action: pan-x pan-y` sur `html`/`body`, `user-scalable=no` (Android), et `gesturestart` bloqué hors carte (iOS Safari ignore `user-scalable`).
 - Frise du module de temps : un grand tick avec le nom du jour marque minuit, un petit marque midi, le bleu marque l'heure choisie.
 - **Mises à jour** : le service worker est enregistré dans `lib/pwa.ts` (`autoUpdate`). Une nouvelle version s'installe et recharge la page toute seule. Elle est vérifiée au retour sur l'app, toutes les 30 min, et avec le bouton ⟳ (`app.refresh()` : nouvelle version, puis nouvelles données).
+- **Diagnostic écran** : un appui long sur ⟳ ouvre `lib/Diagnostics.svelte`, qui affiche les tailles d'écran (innerHeight, vh/lvh/dvh, zones de sécurité, mode installé, position de la carte…). Ça sert à déboguer depuis une capture du téléphone ce qu'on ne reproduit pas sur ordinateur.
 
 ## Règles données et rendu
 - Vitesses en **nœuds**. La direction indique **d'où vient** le vent (convention météo). Les flèches pointent **là où il va**.

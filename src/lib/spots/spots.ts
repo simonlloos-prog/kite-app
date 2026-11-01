@@ -19,33 +19,38 @@ export interface Spot extends LatLon {
 
 /**
  * Spots, orientations, levels and restrictions from the "Trouve ton spot autour de Bordeaux"
- * table (KitesurfBordeaux.com, updated 06/07/2018), plus L'Aérium. Positions come from the
- * table's addresses (OSM Nominatim): street level, to be moved onto the beach where needed.
- * L'Aérium is not in the table: its orientations are a guess, to be checked.
+ * table (KitesurfBordeaux.com, updated 06/07/2018), plus L'Aérium, Taussat and Soulac.
+ * Positions: given by the user on the beach for most spots; the others (Bonne Anse,
+ * Biscarrosse, the Cazaux and Biscarrosse lakes) still come from the table's
+ * street addresses (OSM Nominatim). Spots not in the table have guessed orientations.
  */
 export const SPOTS: Spot[] = [
   // Gironde estuary
   { id: 'bonne-anse', name: 'Bonne Anse', area: 'Estuaire', lat: 45.6927, lon: -1.1883, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant' },
-  { id: 'chambrette', name: 'La Chambrette', area: 'Estuaire', lat: 45.5467, lon: -1.0549, good: ['N', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé' },
+  { id: 'chambrette', name: 'La Chambrette', area: 'Estuaire', lat: 45.55004, lon: -1.057843, good: ['N', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé' },
+  // Ocean, Médoc: not in the table, orientations copied from the ocean beaches below.
+  { id: 'soulac', name: 'Soulac', area: 'Océan nord', lat: 45.516681, lon: -1.127357, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Orientations à vérifier' },
   // Lac d'Hourtin
-  { id: 'hourtin-port', name: 'Hourtin Port', area: "Lac d'Hourtin", lat: 45.1846, lon: -1.0639, good: ['O', 'SO', 'S'], ok: ['N', 'NO'], level: 'Débutant' },
-  { id: 'lachanau', name: 'Lachanau', area: "Lac d'Hourtin", lat: 45.1648, lon: -1.0713, good: ['O', 'SO', 'S'], ok: ['N', 'NO'], level: 'Confirmé' },
+  { id: 'hourtin-port', name: 'Hourtin Port', area: "Lac d'Hourtin", lat: 45.17877, lon: -1.085813, good: ['O', 'SO', 'S'], ok: ['N', 'NO'], level: 'Débutant' },
+  { id: 'lachanau', name: 'Lachanau', area: "Lac d'Hourtin", lat: 45.165521, lon: -1.078767, good: ['O', 'SO', 'S'], ok: ['N', 'NO'], level: 'Confirmé' },
   // Lac de Lacanau
-  { id: 'lacanau-lac', name: 'Lacanau Lac', area: 'Lac de Lacanau', lat: 44.9806, lon: -1.0956, good: ['NO', 'O', 'SO', 'S'], ok: ['N'], level: 'Débutant', note: 'Pas avant 19 h l\'été' },
+  { id: 'lacanau-lac', name: 'Lacanau Lac', area: 'Lac de Lacanau', lat: 44.982395, lon: -1.101469, good: ['NO', 'O', 'SO', 'S'], ok: ['N'], level: 'Débutant', note: 'Pas avant 19 h l\'été' },
   // Ocean, north of the Bassin
-  { id: 'lacanau-sud', name: 'Lacanau Sud', area: 'Océan nord', lat: 44.9944, lon: -1.1993, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: "Interdit l'été" },
-  { id: 'super-sud', name: 'Super Sud', area: 'Océan nord', lat: 44.9942, lon: -1.1982, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
-  { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.8843, lon: -1.1682, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
-  { id: 'grand-crohot', name: 'Le Grand Crohot', area: 'Océan nord', lat: 44.795, lon: -1.235, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
+  // Replaces the table's Lacanau Sud and Super Sud, same orientations and restrictions.
+  { id: 'lacanau-ocean', name: 'Lacanau Océan', area: 'Océan nord', lat: 45.000973, lon: -1.202472, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: "Interdit l'été" },
+  { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.892134, lon: -1.219553, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
+  { id: 'grand-crohot', name: 'Le Grand Crohot', area: 'Océan nord', lat: 44.797919, lon: -1.235184, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Bassin d'Arcachon
-  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.7478, lon: -1.1771, good: ['SO', 'S', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé', note: "Interdit l'été" },
-  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.7629, lon: -1.1328, good: ['NO', 'O', 'SO', 'S'], ok: [], level: 'Confirmé', note: 'Orientations à vérifier' },
-  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.7326, lon: -1.09, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', note: "Interdit l'été" },
-  { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.6442, lon: -1.1137, good: ['N', 'NO', 'O', 'E', 'NE'], ok: [], level: 'Débutant', note: 'Période de chasse' },
-  { id: 'arbousiers', name: 'Les Arbousiers', area: "Bassin d'Arcachon", lat: 44.6451, lon: -1.1979, good: ['N', 'NO', 'O', 'SO'], ok: ['NE'], level: 'Confirmé', note: "Inaccessible l'été" },
+  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, good: ['SO', 'S', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé', note: "Interdit l'été" },
+  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, good: ['NO', 'O', 'SO', 'S'], ok: [], level: 'Confirmé', note: 'Orientations à vérifier' },
+  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', note: "Interdit l'été" },
+  // Not in the table: orientations copied from Le Betey, its neighbour on the same shore.
+  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', note: 'Orientations à vérifier' },
+  { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, good: ['N', 'NO', 'O', 'E', 'NE'], ok: [], level: 'Débutant', note: 'Période de chasse' },
+  { id: 'arbousiers', name: 'Les Arbousiers', area: "Bassin d'Arcachon", lat: 44.64641, lon: -1.200347, good: ['N', 'NO', 'O', 'SO'], ok: ['NE'], level: 'Confirmé', note: "Inaccessible l'été" },
   // Ocean, south of the Bassin
-  { id: 'lagune-sud', name: 'La Lagune Sud', area: 'Océan sud', lat: 44.5469, lon: -1.2499, good: ['N', 'NO', 'O', 'SO'], ok: [], level: 'Expert', note: 'Réserve naturelle' },
-  { id: 'la-salie', name: 'La Salie', area: 'Océan sud', lat: 44.5292, lon: -1.2563, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert +', note: 'Panneaux Abeilles' },
+  { id: 'lagune-sud', name: 'La Lagune Sud', area: 'Océan sud', lat: 44.548778, lon: -1.249725, good: ['N', 'NO', 'O', 'SO'], ok: [], level: 'Expert', note: 'Réserve naturelle' },
+  { id: 'la-salie', name: 'La Salie', area: 'Océan sud', lat: 44.521294, lon: -1.255038, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert +', note: 'Panneaux Abeilles' },
   { id: 'biscarrosse', name: 'Biscarrosse', area: 'Océan sud', lat: 44.4417, lon: -1.2526, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Lac de Cazaux-Sanguinet and Lac de Biscarrosse
   { id: 'laouga', name: 'Laouga', area: 'Lac de Cazaux', lat: 44.5219, lon: -1.1782, good: ['S', 'SE', 'E'], ok: [], level: 'Débutant', note: "Interdit l'été" },
