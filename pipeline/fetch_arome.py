@@ -2,7 +2,7 @@
 
 Output, read by the app (see src/lib/wind/arome.ts):
   <out>/meta.json          run, grid, validity times (UTC) and file list
-  <out>/<run>/hNN.bin      one file per forecast hour, rows*cols cells each,
+  <out>/<run>_<grid>/hNN.bin  one file per forecast hour, rows*cols cells each,
                            row 0 = south, col 0 = west:
                              int8  u    (eastward wind, SCALE kn per unit)
                              int8  v    (northward wind)
@@ -15,6 +15,7 @@ Source: https://www.data.gouv.fr/datasets/paquets-arome-resolution-0-01deg
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -113,6 +114,17 @@ def encode(fields: dict[str, np.ndarray], shape: tuple[int, int]) -> bytes:
     return u.tobytes() + v.tobytes() + gust.tobytes()
 
 
+def data_folder(run: str, grid: dict) -> str:
+    """Folder of the hour files: run + grid fingerprint.
+
+    Phones cache hour files forever (they never change once published), so a file whose
+    content changes must get a new name: republishing a run on another area once served
+    old-size files from the cache ("Fichier AROME inattendu").
+    """
+    fingerprint = hashlib.sha1(json.dumps(grid, sort_keys=True).encode()).hexdigest()[:8]
+    return f"{run.replace(':', '')}_{fingerprint}"
+
+
 def reuse_published(base: str, run: str, grid: dict, out: Path) -> bool:
     """Copy the published hour files when they are already this run on this grid.
 
@@ -124,7 +136,8 @@ def reuse_published(base: str, run: str, grid: dict, out: Path) -> bool:
             meta = json.load(r)
     except (urllib.error.URLError, ValueError):
         return False
-    if meta.get("run") != run or meta.get("grid") != grid:
+    folder = data_folder(run, grid)
+    if meta.get("run") != run or meta.get("grid") != grid or not all(f.startswith(f"{folder}/") for f in meta["files"]):
         return False
     for name in meta["files"]:
         dest = out / name
@@ -155,7 +168,7 @@ def main() -> None:
     grid = {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols}
     if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out):
         return
-    run_dir = args.out / run.replace(":", "")
+    run_dir = args.out / data_folder(run, grid)
     run_dir.mkdir(parents=True, exist_ok=True)
     run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 

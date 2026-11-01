@@ -26,6 +26,21 @@ function loadPrefs(): { unit?: Unit } {
 
 const prefs = loadPrefs()
 
+/**
+ * A data file, re-fetched past the cache when its size is wrong. The service worker keeps
+ * hour files forever, so a file republished under the same name with another grid would
+ * otherwise stay stale: the query string gives a cache key it has never seen.
+ */
+async function fetchBin(url: string, bytes: number): Promise<ArrayBuffer> {
+  for (const u of [url, `${url}?fresh=${Date.now()}`]) {
+    const res = await fetch(u)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const buf = await res.arrayBuffer()
+    if (buf.byteLength === bytes) return buf
+  }
+  throw new Error(`taille inattendue (${bytes} octets attendus)`)
+}
+
 class AppState {
   meta = $state.raw<Meta | null>(null)
   /** Forecast hours from the current one onwards, as Paris hour keys. */
@@ -105,10 +120,10 @@ class AppState {
 
   private async loadPi(meta: Meta) {
     const pi = meta.pi!
+    const n = meta.grid.rows * meta.grid.cols
     try {
-      const res = await fetch(DATA_URL + pi.file)
-      if (!res.ok) return
-      const hours = decodePi(await res.arrayBuffer(), meta.grid, pi.times.length, meta.scale)
+      const buf = await fetchBin(DATA_URL + pi.file, pi.times.length * n)
+      const hours = decodePi(buf, meta.grid, pi.times.length, meta.scale)
       this.pi = new Map(pi.times.map((t, i) => [parisHourKey(new Date(t)), hours[i]]))
       this.piRun = pi.run
       this.dataVersion++
@@ -131,7 +146,8 @@ class AppState {
     this.error = null
     // AROME-PI runs every hour, AROME every 3 h: refresh it even when the AROME run is the same.
     if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
-    if (meta.run === this.meta?.run) return
+    // File names carry the run and a grid fingerprint: same first file, same data.
+    if (meta.files[0] === this.meta?.files[0]) return
 
     const now = parisHourKey()
     const keys = meta.times.map((t) => parisHourKey(new Date(t)))
@@ -145,9 +161,8 @@ class AppState {
     const order = [this.selectedTime, ...this.times.filter((t) => t !== this.selectedTime)]
     for (const key of order) {
       try {
-        const res = await fetch(DATA_URL + this.fileOf.get(key))
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        this.hours.set(key, decodeHour(await res.arrayBuffer(), meta.grid, meta.scale))
+        const buf = await fetchBin(DATA_URL + this.fileOf.get(key), 3 * meta.grid.rows * meta.grid.cols)
+        this.hours.set(key, decodeHour(buf, meta.grid, meta.scale))
         this.loaded++
         this.dataVersion++
       } catch (e) {

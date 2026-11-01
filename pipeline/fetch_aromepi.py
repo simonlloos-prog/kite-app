@@ -6,7 +6,7 @@ exactly what AROME 0.01° gives as gust. The app compares the two to say whether
 run expects stronger or weaker gusts.
 
 Output, next to the AROME files:
-  <out>/pi-<run>.bin   uint8 per cell and hour (SCALE kn per unit, 255 = missing),
+  <out>/pi-<run>_<grid>.bin  uint8 per cell and hour (SCALE kn per unit, 255 = missing),
                        hours one after another, same grid and layout as the AROME hours
   <out>/meta.json      gains a "pi" entry: run, validity times (UTC) and file name
 
@@ -30,7 +30,7 @@ from pathlib import Path
 import eccodes
 import numpy as np
 
-from fetch_arome import MS_TO_KN, SCALE
+from fetch_arome import MS_TO_KN, SCALE, data_folder
 
 WCS = "https://public-api.meteofrance.fr/public/aromepi/1.0/wcs/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WCS"
 LAYER = "WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND"
@@ -134,7 +134,8 @@ def main() -> None:
 
     stacked = np.stack(hours)
     data = np.where(np.isnan(stacked), 255, np.clip(np.round(stacked / SCALE), 0, 254)).astype(np.uint8)
-    name = f"pi-{run.replace('.', '')}.bin"
+    # Grid fingerprint in the name: phones cache these files forever.
+    name = f"pi-{data_folder(run.replace('.', ':'), grid)}.bin"
     (args.out / name).write_bytes(data.tobytes())
     meta["pi"] = {"run": f"{run_time:%Y-%m-%dT%H:%M:%SZ}", "times": times, "file": name}
     meta_path.write_text(json.dumps(meta, indent=1))
