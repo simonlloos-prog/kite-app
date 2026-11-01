@@ -19,6 +19,12 @@ export const SPOTS: Spot[] = [
   { id: 'moulleau', name: 'Le Moulleau', lat: 44.648, lon: -1.215, sectors: ['N', 'NO'] },
   { id: 'pyla', name: 'Pyla / Dune', lat: 44.59, lon: -1.215, sectors: ['O', 'NO', 'SO'] },
   { id: 'grand-crohot', name: 'Grand Crohot', lat: 44.795, lon: -1.235, sectors: ['O', 'NO', 'SO'] },
+  // North Médoc: Gironde estuary side and ocean side.
+  { id: 'chambrette', name: 'La Chambrette', lat: 45.555, lon: -1.055, sectors: ['N', 'NO', 'NE'] },
+  { id: 'soulac', name: 'Soulac', lat: 45.512, lon: -1.131, sectors: ['O', 'NO', 'SO'] },
+  // Médoc lakes: spots on the east shore, westerlies blow across the lake.
+  { id: 'hourtin', name: "Lac d'Hourtin", lat: 45.18, lon: -1.08, sectors: ['O', 'NO', 'SO'] },
+  { id: 'lacanau-lac', name: 'Lac de Lacanau', lat: 45.025, lon: -1.115, sectors: ['O', 'NO', 'SO'] },
 ]
 
 export function distanceKm(a: LatLon, b: LatLon): number {

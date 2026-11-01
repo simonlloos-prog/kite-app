@@ -32,8 +32,9 @@ import numpy as np
 BUCKET = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt"
 MODEL = "AROME 0.01°"
 MAX_STEP = 51
-# Gironde and Landes coast, Soulac → Capbreton, and well offshore: 206 × 111 points, ~68 KB per hour.
-BOX = {"south": 43.55, "north": 45.60, "west": -2.00, "east": -0.90}
+# Gironde and Landes coast, Gironde estuary → Capbreton, well offshore and inland to the edge of
+# Bordeaux: 231 × 141 points, ~98 KB per hour.
+BOX = {"south": 43.55, "north": 45.85, "west": -2.00, "east": -0.60}
 STEP = 0.01
 SCALE = 0.5  # kn per stored unit: int8 covers ±63.5 kn
 MS_TO_KN = 1.943844
