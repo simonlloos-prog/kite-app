@@ -21,7 +21,10 @@ npm run build     # build prod + service worker
 npm run preview   # sert le build (tester la PWA / le hors-ligne)
 npm test          # vitest
 npm run check     # svelte-check + tsc
+npm run dev:phone # serveur accessible depuis le téléphone sur le Wi-Fi local (sans HTTPS)
 ```
+
+Déploiement : Netlify build `main` à chaque push (`netlify.toml`). Le HTTPS de Netlify est nécessaire pour tester sur téléphone la géolocalisation et l'installation de la PWA.
 
 ## Arborescence
 ```
