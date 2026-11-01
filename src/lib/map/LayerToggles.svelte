@@ -1,0 +1,50 @@
+<script lang="ts">
+  import { app } from '../stores/app.svelte'
+
+  const toggles = [
+    { key: 'values', label: '12', title: 'Valeurs de vent' },
+    { key: 'arrows', label: '➚', title: 'Flèches de vent' },
+    { key: 'spots', label: '●', title: 'Spots' },
+  ] as const
+</script>
+
+<div class="toggles">
+  {#each toggles as t (t.key)}
+    <button
+      type="button"
+      title={t.title}
+      aria-label={t.title}
+      aria-pressed={app.layers[t.key]}
+      class:on={app.layers[t.key]}
+      onclick={() => (app.layers[t.key] = !app.layers[t.key])}>{t.label}</button
+    >
+  {/each}
+</div>
+
+<style>
+  .toggles {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 2;
+  }
+  button {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--muted);
+    font: 700 15px var(--font);
+    box-shadow: var(--shadow);
+    opacity: 0.85;
+  }
+  button.on {
+    background: var(--accent);
+    color: #fff;
+    opacity: 1;
+  }
+</style>
