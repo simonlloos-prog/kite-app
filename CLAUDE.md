@@ -1,6 +1,6 @@
 # Kite App — vent AROME sur le Bassin d'Arcachon
 
-PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de l'estuaire de la Gironde à Capbreton, loin au large et jusqu'aux portes de Bordeaux (spots de La Chambrette au Pyla, lacs d'Hourtin et de Lacanau compris) :
+PWA mobile-first pour kitesurfeurs, rendu **façon Meteociel** (lecture rapide plutôt que finesse graphique). La carte MapLibre affiche le vent AROME 0,01° (~1,3 km) de Météo-France, de l'estuaire de la Gironde à Capbreton, loin au large et jusqu'aux portes de Bordeaux (les 22 spots du tableau KitesurfBordeaux, de Bonne Anse aux lacs de Cazaux et Biscarrosse, plus l'Aérium) :
 - des **zones de couleur vectorielles** par paliers de 2–3 kn, nettes à tous les zooms, avec un liseré et le trait de côte redessiné par-dessus ;
 - une **grille régulière de petites valeurs en nœuds** ;
 - de **longues lignes de vent continues, régulièrement espacées, avec des pointes de flèche intégrées** le long de chaque ligne.
@@ -61,7 +61,9 @@ src/
     wind/                  arome.ts (format des données, décodage, vent en un point),
                            field.ts (valeurs, interpolation, isobandes, lignes de vent, grille de valeurs), pi.ts (AROME-PI),
                            units.ts, time.ts, windColor.ts (paliers)
-    spots/                 spots.ts (données statiques), rating.ts (note d'un spot)
+    spots/                 spots.ts (spots : orientations 🤙 `good` / 👍 `ok` sur 8 directions, niveau, restrictions,
+                           d'après le tableau KitesurfBordeaux ; positions géocodées depuis ses adresses, à affiner),
+                           rating.ts (note : direction bonne / moyenne (−1 cran) / défavorable, puis force)
     stores/app.svelte.ts   état global (run, heures chargées, heure choisie, point touché, couches, vue)
 ```
 

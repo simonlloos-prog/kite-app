@@ -16,7 +16,12 @@ document.addEventListener('gesturestart', (e) => {
 // band. There, measure the physical screen instead: --screen-h is its height, --bottom-gap how
 // far below the layout bottom it goes (0 everywhere else), for bottom-anchored elements.
 function trackScreenHeight() {
-  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const installed =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    matchMedia('(display-mode: standalone)').matches ||
+    matchMedia('(display-mode: fullscreen)').matches
+  const standalone = ios && installed
   const portrait = matchMedia('(orientation: portrait)').matches
   const physical = standalone ? (portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)) : 0
   const root = document.documentElement.style

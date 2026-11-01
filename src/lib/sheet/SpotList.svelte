@@ -36,8 +36,11 @@
           <span class="name">
             {spot.name}
             <small>
-              {rating.label} · {spot.sectors.join(' ')}
+              {rating.label}
               {#if trend}<PiBadge {trend} />{/if}
+            </small>
+            <small class="meta">
+              {spot.level}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>
           </span>
           {#if w}
@@ -101,6 +104,11 @@
     gap: 6px;
     color: var(--muted);
     font-size: 12px;
+  }
+  .meta {
+    display: block;
+    font-size: 11px;
+    opacity: 0.85;
   }
   .note {
     margin: -4px 0 6px;
