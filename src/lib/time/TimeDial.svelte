@@ -158,7 +158,8 @@
   .dial {
     position: fixed;
     left: 50%;
-    bottom: calc(12px + env(safe-area-inset-bottom));
+    /* --bottom-gap: installed iPhone app, see main.ts. */
+    bottom: calc(12px + env(safe-area-inset-bottom) - var(--bottom-gap, 0px));
     transform: translateX(-50%);
     width: min(calc(100vw - 24px), 440px);
     box-sizing: border-box;

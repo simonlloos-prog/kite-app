@@ -119,10 +119,10 @@
     top: 0;
     left: 0;
     right: 0;
-    /* Down to the very bottom of the screen, under the gesture bar / home indicator:
-       `inset: 0` stopped at the safe area on phones and left a dark strip. */
+    /* Down to the very bottom of the screen, under the home indicator. On an installed iPhone
+       app, 100lvh stops a status-bar height short: --screen-h (main.ts) is the physical screen. */
     height: 100vh;
-    height: 100lvh;
+    height: max(100lvh, var(--screen-h, 0px));
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);

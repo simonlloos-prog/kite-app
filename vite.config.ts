@@ -17,7 +17,10 @@ export default defineConfig({
         lang: 'fr',
         start_url: '.',
         scope: '.',
+        // Full screen where supported (Android): the map uses the whole screen. iOS ignores it
+        // and stays standalone; main.ts handles its shortened viewport.
         display: 'standalone',
+        display_override: ['fullscreen', 'standalone'],
         orientation: 'portrait',
         theme_color: '#0b1320',
         background_color: '#0b1320',
