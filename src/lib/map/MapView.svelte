@@ -42,8 +42,9 @@
     map.touchZoomRotate.disableRotation()
     map.keyboard.disableRotation()
     map.addControl(new GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), 'top-right')
-    // Basemap credits (OpenFreeMap / OpenStreetMap): required, under the locate button.
-    map.addControl(new AttributionControl({ compact: true }), 'top-right')
+    // Basemap credits (OpenFreeMap / OpenStreetMap): required. Bottom right, lifted above the
+    // time dial (see CSS) so the phone's rounded corner no longer cuts it.
+    map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
     app.map = map
 
     map.on('load', () => {
@@ -127,5 +128,9 @@
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);
+  }
+  /* Just above the time dial (~120 px high, 12 px from the bottom), away from the corner. */
+  .map :global(.maplibregl-ctrl-bottom-right) {
+    margin: 0 4px calc(env(safe-area-inset-bottom) + 140px) 0;
   }
 </style>
