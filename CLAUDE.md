@@ -31,6 +31,7 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
 - **Note d'un spot** (`spots/rating.ts`) :
   - **Direction** : bonne, moyenne (un cran de moins) ou défavorable. Chacune des 8 directions couvre ±22,5°.
   - **Force** : sous 12 kn trop faible, 12–15 léger, 15–25 bon, 25–32 fort, au-delà trop fort.
+  - **Marée** (`tide` dans `spots.ts`, créneaux de windspot.fr) : un spot du Bassin ne se navigue en kite qu'à ±N h de la pleine mer (Claouey, l'Aérium, Le Betey, Taussat ±2 h ; La Hume ±3 h). Hors créneau, un vent bon devient « Marée trop basse » (note 0). Un vent trop faible ou défavorable garde son propre libellé. Les Arbousiers, Bonne Anse, La Chambrette et Le Grand Crohot se naviguent à toute marée, et les lacs n'en ont pas. L'heure de pleine mer vient de la série de marée au large du Cap Ferret (sommet d'une parabole sur 3 heures, `highWaters`). Au fond du Bassin, la pleine mer arrive un peu plus tard (à vérifier sur le terrain).
   - **Tri** : la liste est triée par note, puis par force.
 - **Zone** (`BOX`, 43,55–45,85 N, 2,00–0,60 O) : elle couvre tous les spots, avec du large pour voir le vent arriver. La carte est **bloquée sur cette zone** (`maxBounds`) pour qu'on ne dézoome jamais sur un bord sans données.
 - **Changer d'heure doit rester le geste le plus simple** : un module flottant indépendant, qui ne s'ouvre pas, et qu'on swipe **vers la droite pour avancer**. Changer d'heure ne fait aucune requête : toutes les heures sont chargées en arrière-plan.
@@ -141,7 +142,7 @@ src/
 - Un réveil externe qui lance le workflow (`workflow_dispatch`) à heure fixe : Cloudflare Worker planifié, cron-job.org, ou `pg_cron` de Supabase. Il faut un jeton GitHub limité au dépôt, à créer par l'utilisateur.
 
 **Idées évoquées, non décidées**
-- Marée par spot (colonnes B / MM / H du tableau) : noter un spot du Bassin selon la marée, et pas seulement griser tout le Bassin.
+- Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : orientations idéal / navigable / **offshore** (alerte de sécurité), niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), balises de vent en direct (Holfuy), spots manquants (Cercle Voile Arcachon, Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
 - Ne griser que l'estran (zones découvrantes) plutôt que tout le Bassin, si on trouve un contour (OSM `wetland=tidalflat` via Overpass, ou SHOM).
 - Restrictions saisonnières (griser un spot « Interdit l'été » en été).
 - Dessiner AROME-PI sur la carte si Météo-France publie un jour son vent moyen.

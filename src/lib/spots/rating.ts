@@ -1,4 +1,5 @@
 import type { WindAt } from '../wind/arome'
+import type { Tide } from '../wind/tide'
 import { angleDiff, sectorAngle } from '../wind/units'
 import type { Spot } from './spots'
 
@@ -24,8 +25,18 @@ export function dirQuality(spot: Spot, dir: number): DirQuality {
   return 'bad'
 }
 
-export function rateSpot(spot: Spot, w: WindAt | null): Rating {
+/** Outside the spot's window around high water, when both are known. */
+export const tooDry = (spot: Spot, tide: Tide | null) =>
+  spot.tide !== undefined && tide !== null && Math.abs(tide.fromHigh) > spot.tide
+
+export function rateSpot(spot: Spot, w: WindAt | null, tide: Tide | null = null): Rating {
   if (!w) return NO
+  // The wind first: a light day stays "too light", whatever the tide.
+  const r = rateWind(spot, w)
+  return r.score > 0 && tooDry(spot, tide) ? { ...NO, label: 'Marée trop basse' } : r
+}
+
+function rateWind(spot: Spot, w: WindAt): Rating {
   const dir = dirQuality(spot, w.dir)
   if (dir === 'bad') return { ...NO, label: 'Direction défavorable' }
   let r: Rating

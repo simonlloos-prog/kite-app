@@ -97,8 +97,8 @@
   })
 
   $effect(() => {
-    const { meta, hour } = app
-    if (ready && meta) setSpotsData(app.map!, meta.grid, hour)
+    const { meta, hour, tide } = app
+    if (ready && meta) setSpotsData(app.map!, meta.grid, hour, tide)
   })
 
   $effect(() => {

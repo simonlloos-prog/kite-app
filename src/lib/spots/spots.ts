@@ -20,12 +20,17 @@ export interface Spot extends LatLon {
    * wind down (land friction) and rated spots "too light" by mistake. Defaults to the spot.
    */
   windPoint?: LatLon
+  /**
+   * Kite window around high water, hours either side (windspot.fr): outside it, the spot is too
+   * dry. Absent: no tide, or sailable at any tide.
+   */
+  tide?: number
 }
 
 /**
  * Spots, orientations, levels and restrictions from the "Trouve ton spot autour de Bordeaux"
  * table (KitesurfBordeaux.com, updated 06/07/2018), plus L'Aérium, Taussat and Soulac.
- * Positions and wind points given by the user. Les Aigrettes (Lac de Cazaux, "Interdit") is
+ * Tide windows from windspot.fr (2026). Positions and wind points given by the user. Les Aigrettes (Lac de Cazaux, "Interdit") is
  * left out. Spots not in the table have guessed orientations.
  */
 export const SPOTS: Spot[] = [
@@ -45,12 +50,12 @@ export const SPOTS: Spot[] = [
   { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.892134, lon: -1.219553, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
   { id: 'grand-crohot', name: 'Le Grand Crohot', area: 'Océan nord', lat: 44.797919, lon: -1.235184, windPoint: { lat: 44.797487, lon: -1.236964 }, good: ['N', 'NO', 'SO'], ok: ['O'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Bassin d'Arcachon
-  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, windPoint: { lat: 44.746823, lon: -1.17116 }, good: ['SO', 'S', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé', note: "Interdit l'été" },
-  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, windPoint: { lat: 44.754918, lon: -1.135271 }, good: ['NO', 'O', 'SO', 'S'], ok: [], level: 'Confirmé', note: 'Orientations à vérifier' },
-  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, windPoint: { lat: 44.732001, lon: -1.093669 }, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', note: "Interdit l'été" },
+  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, windPoint: { lat: 44.746823, lon: -1.17116 }, good: ['SO', 'S', 'SE', 'E', 'NE'], ok: [], level: 'Confirmé', tide: 2, note: "Interdit l'été" },
+  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, windPoint: { lat: 44.754918, lon: -1.135271 }, good: ['NO', 'O', 'SO', 'S'], ok: [], level: 'Confirmé', tide: 2, note: 'Orientations à vérifier' },
+  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, windPoint: { lat: 44.732001, lon: -1.093669 }, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', tide: 2, note: "Interdit l'été" },
   // Not in the table: orientations copied from Le Betey, its neighbour on the same shore.
-  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', note: 'Orientations à vérifier' },
-  { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, windPoint: { lat: 44.647832, lon: -1.113052 }, good: ['N', 'NO', 'O', 'E', 'NE'], ok: [], level: 'Débutant', note: 'Période de chasse' },
+  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['NO', 'O', 'SO', 'S', 'SE'], ok: [], level: 'Débutant', tide: 2, note: 'Orientations à vérifier' },
+  { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, windPoint: { lat: 44.647832, lon: -1.113052 }, good: ['N', 'NO', 'O', 'E', 'NE'], ok: [], level: 'Débutant', tide: 3, note: 'Période de chasse' },
   { id: 'arbousiers', name: 'Les Arbousiers', area: "Bassin d'Arcachon", lat: 44.64641, lon: -1.200347, windPoint: { lat: 44.647148, lon: -1.200423 }, good: ['N', 'NO', 'O', 'SO'], ok: ['NE'], level: 'Confirmé', note: "Inaccessible l'été" },
   // Ocean, south of the Bassin
   { id: 'lagune-sud', name: 'La Lagune Sud', area: 'Océan sud', lat: 44.548778, lon: -1.249725, windPoint: { lat: 44.549675, lon: -1.250783 }, good: ['N', 'NO', 'O', 'SO'], ok: [], level: 'Expert', note: 'Réserve naturelle' },

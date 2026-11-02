@@ -242,10 +242,10 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
   ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
 }
 
-export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined) {
+export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null) {
   const fc = empty()
   for (const s of SPOTS) {
-    const r = rateSpot(s, windAt(g, h, windPointOf(s)))
+    const r = rateSpot(s, windAt(g, h, windPointOf(s)), tide)
     fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { id: s.id, color: r.color, name: s.name } })
   }
   ;(map.getSource('spots') as GeoJSONSource).setData(fc)

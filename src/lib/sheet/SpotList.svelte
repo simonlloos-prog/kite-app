@@ -10,7 +10,7 @@
   const rows = $derived(
     SPOTS.map((spot) => {
       const w = app.windAt(windPointOf(spot))
-      return { spot, w, rating: rateSpot(spot, w), trend: app.gustTrendAt(windPointOf(spot)) }
+      return { spot, w, rating: rateSpot(spot, w, app.tide), trend: app.gustTrendAt(windPointOf(spot)) }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
   )
   const piHour = $derived(
@@ -40,7 +40,7 @@
               {#if trend}<PiBadge {trend} />{/if}
             </small>
             <small class="meta">
-              {spot.level}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
+              {spot.level}{spot.tide ? ` · PM ±${spot.tide} h` : ''}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>
           </span>
           {#if w}
