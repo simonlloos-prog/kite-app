@@ -92,7 +92,7 @@ src/
 - **Barre d'état iOS opaque (`black`), jamais `black-translucent`** : choix de l'utilisateur après essai. En app installée (iOS 18, iPhone 393 × 852), la barre translucide met la carte sous l'heure, mais iOS raccourcit quand même la page de la hauteur de la barre (`innerHeight` 793). Les 59 px du bas ne sont alors **jamais dessinés**, quoi qu'on mette en CSS (diagnostic sur le téléphone). On ne peut pas avoir les deux. La carte est en `position: fixed; inset: 0`, pas en `100vh`/`100lvh` (852 dans ce mode). iOS lit ce réglage à l'ajout sur l'écran d'accueil : il faut réinstaller l'app après un changement. Le manifeste demande `fullscreen` (Android) ; iOS l'ignore.
 - **Pas de `padding.bottom` pour le module de temps** : `maxBounds` ignore le padding, et un padding laissait le bas de l'écran déborder des données. Seul le panneau des spots ouvert met la moitié de l'écran en padding.
 - **La page ne zoome jamais**, seule la carte zoome : `touch-action: pan-x pan-y` sur `html`/`body`, `user-scalable=no` (Android), et `gesturestart` bloqué hors carte (iOS ignore `user-scalable`).
-- **Trait de côte** : seulement la classe `ocean` de la couche `water`, en ligne sombre sur un liseré clair. Les « lakes » OSM incluent les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau.
+- **Trait de côte** : la classe `ocean` de la couche `water`, plus les **grands lacs** choisis par leur identifiant OSM (`BIG_LAKES` dans `windLayers.ts` : Hourtin, Lacanau, Cazaux, Parentis-Biscarrosse, Petit étang de Biscarrosse, Aureilhan, Léon, Soustons, Hossegor), en ligne sombre sur un liseré clair. Tous les « lakes » OSM incluraient les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau, et les tuiles ne donnent pas la surface. Les identifiants ont été relevés en décodant les tuiles OpenFreeMap (z10) : si un lac disparaît après une mise à jour du fond de carte, revérifier son identifiant.
 - **Rotation de la carte désactivée** : nord en haut.
 - **Mises à jour** : une nouvelle version s'installe et recharge la page toute seule (`lib/pwa.ts`). Elle est vérifiée au retour sur l'app, toutes les 30 min, et avec ⟳ (`app.refresh()` : nouvelle version, puis nouvelles données).
 - **Diagnostic écran** (appui long sur ⟳) : il affiche innerHeight, vh/lvh/dvh, les zones de sécurité, le mode installé, la barre d'état, la position de la carte… Ça sert à déboguer depuis une capture du téléphone ce qu'on ne reproduit pas sur ordinateur.
@@ -138,7 +138,6 @@ src/
 - Un réveil externe qui lance le workflow (`workflow_dispatch`) à heure fixe : Cloudflare Worker planifié, cron-job.org, ou `pg_cron` de Supabase. Il faut un jeton GitHub limité au dépôt, à créer par l'utilisateur.
 
 **Idées évoquées, non décidées**
-- Contour des grands lacs (Hourtin, Lacanau, Cazaux), sans les petits « lakes » OSM.
 - Marées (colonnes B / MM / H du tableau) et restrictions saisonnières (griser un spot « Interdit l'été » en été).
 - Dessiner AROME-PI sur la carte si Météo-France publie un jour son vent moyen.
 

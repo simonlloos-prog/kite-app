@@ -11,7 +11,23 @@ import { BINS } from '../wind/windColor'
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
 const INK = '#0b1320'
-const COAST_FILTER: FilterSpecification = ['==', ['get', 'class'], 'ocean']
+/** Large lakes by OSM id: OSM "lakes" also cover fish ponds and reservoirs, and tiles carry no area. */
+const BIG_LAKES = [
+  1450359, // Hourtin-Carcans
+  4848920, // Lacanau
+  12092675, // Cazaux-Sanguinet
+  2208673, // Parentis-Biscarrosse
+  5872322, // Petit étang de Biscarrosse
+  161453, // Aureilhan
+  1708556, // Léon
+  1705749, // Soustons
+  301878862, // Hossegor
+]
+const COAST_FILTER: FilterSpecification = [
+  'any',
+  ['==', ['get', 'class'], 'ocean'],
+  ['all', ['==', ['get', 'class'], 'lake'], ['in', ['get', 'id'], ['literal', BIG_LAKES]]],
+]
 /** Screen distance between wind lines: tight, so local bends show up. */
 const LINE_SEP_PX = 14
 /** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
@@ -76,8 +92,8 @@ export function addWindLayers(map: MlMap) {
     firstLabel,
   )
   // Coastline: a light casing under a dark line, so it stands out on every band colour.
-  // Sea and Bassin only: OSM "lake" polygons include the Piraillan fish ponds on the shore,
-  // which drew a stray rectangle in the water.
+  // Sea, Bassin and the large lakes only: all OSM "lake" polygons include the Piraillan fish
+  // ponds on the shore, which drew a stray rectangle in the water.
   map.addLayer(
     {
       id: 'coastline-casing',
