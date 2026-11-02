@@ -6,6 +6,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // GitHub Pages serves the app under /<repo>/: the deploy workflow sets BASE_PATH.
   base: process.env.BASE_PATH ?? '/',
+  // ios-test.html: the iPhone status-bar test app (src/lib/iosTest.ts), next to the real one.
+  build: { rollupOptions: { input: { main: 'index.html', iosTest: 'ios-test.html' } } },
   plugins: [
     svelte(),
     VitePWA({
@@ -59,6 +61,16 @@ export default defineConfig({
         ],
       },
     }),
+    {
+      // The test page brings its own manifest (start_url ios-test.html, "Kite test"): drop the
+      // one vite-plugin-pwa adds to every page.
+      name: 'ios-test-manifest',
+      enforce: 'post',
+      generateBundle(_, bundle) {
+        const page = bundle['ios-test.html']
+        if (page?.type === 'asset') page.source = String(page.source).replace(/<link rel="manifest" href="[^"]*\/manifest\.webmanifest">/, '')
+      },
+    },
   ],
   test: {
     include: ['src/**/*.test.ts'],

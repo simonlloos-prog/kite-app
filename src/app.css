@@ -51,3 +51,32 @@ button {
   -webkit-touch-callout: none;
   user-select: none;
 }
+
+/* iPhone status-bar test page (ios-test.html, src/lib/iosTest.ts): page heights to try with
+   the translucent bar. The map is position: fixed, so it gets the same height. */
+html[data-layout='vh'],
+html[data-layout='vh'] body,
+html[data-layout='vh'] #app,
+html[data-layout='vh'] .map {
+  height: 100vh;
+}
+html[data-layout='barre'],
+html[data-layout='barre'] body,
+html[data-layout='barre'] #app {
+  min-height: calc(100% + env(safe-area-inset-top));
+}
+html[data-layout='barre'] .map {
+  height: calc(100% + env(safe-area-inset-top));
+}
+html[data-layout='ecran'],
+html[data-layout='ecran'] body,
+html[data-layout='ecran'] #app,
+html[data-layout='ecran'] .map {
+  height: var(--screen-h);
+}
+html[data-layout] .map {
+  bottom: auto;
+}
+html[data-layout='actuelle'] .map {
+  bottom: 0;
+}

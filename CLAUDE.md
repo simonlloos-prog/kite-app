@@ -130,7 +130,9 @@ src/
 
 ## À faire
 **Carte sur tout l'écran de l'iPhone (souhaité, peut-être impossible)**
-- L'utilisateur voudrait la carte partout : sous l'heure en haut **et** jusqu'en bas. Aujourd'hui, c'est l'un ou l'autre (voir « Barre d'état iOS » dans les règles UX). Pistes à essayer, en réinstallant l'app à chaque fois, et à vérifier avec le diagnostic (appui long sur ⟳) :
+- L'utilisateur voudrait la carte partout : sous l'heure en haut **et** jusqu'en bas. Aujourd'hui, c'est l'un ou l'autre (voir « Barre d'état iOS » dans les règles UX).
+- **App de test en place** : `ios-test.html` (https://simonlloos-prog.github.io/kite-app/ios-test.html), à installer comme seconde icône « Kite test ». C'est la même app avec la barre `black-translucent` et son propre manifeste (`public/ios-test.webmanifest`, `start_url` sur la page de test ; le plugin `ios-test-manifest` de `vite.config.ts` retire celui de vite-plugin-pwa). Dans son diagnostic (appui long sur ⟳), des boutons changent la hauteur de page sans réinstaller (`src/lib/iosTest.ts`, styles `html[data-layout]` dans `app.css`, choix mémorisé) : actuelle (inset 0), 100vh, + hauteur de la barre, hauteur de l'écran en px. En attente du retour de l'utilisateur. Si une variante marche, la passer dans `index.html`/`app.css` et lui faire réinstaller la vraie app.
+- Pistes d'origine, à vérifier avec le diagnostic :
   - revérifier `black-translucent` après chaque mise à jour d'iOS : c'est peut-être un bug corrigé un jour ;
   - avec `black-translucent`, essayer `html`/`body` à `height: 100vh` (852) ou `min-height: calc(100% + env(safe-area-inset-top))`, au cas où iOS dessinerait alors le bas ;
   - en dernier recours, garder la barre translucide et coller le module de temps au bas de l'écran, sa couleur remplissant les 59 px non dessinés : plus de bande vide, mais un module « barre du bas » (proposé et refusé pour l'instant).
