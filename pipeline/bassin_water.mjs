@@ -2,7 +2,8 @@
 // The basemap has no tidal flats here and its "ocean" polygon runs into the open sea, so the
 // Bassin is cut out of it: the OpenFreeMap tiles' water (z12), clipped by a hand-drawn mask
 // whose west side follows the middle of the Cap Ferret peninsula and whose south side crosses
-// the inlet from the tip of the Cap to Le Moulleau. Run again only to redraw the shape:
+// from Bélisaire (Cap Ferret) to the Jetée Thiers (Arcachon): the passes and the Arcachon front
+// (Les Arbousiers), which still sail at low tide, stay clear. Run again only to redraw the shape:
 //   node pipeline/bassin_water.mjs
 import { VectorTile } from '@mapbox/vector-tile'
 import { PbfReader } from 'pbf'
@@ -14,11 +15,10 @@ const Z = 12
 const OUT = new URL('../src/lib/map/bassin.json', import.meta.url)
 /** Simplification tolerance, degrees (~10 m). */
 const TOLERANCE = 1e-4
-// Lon/lat. Every edge runs over land or across the inlet; peninsula midline from the tiles' shorelines.
+// Lon/lat. Every edge runs over land or across the water; peninsula midline from the tiles' shorelines.
 const MASK = [[
-  [-1.256, 44.618], [-1.2536, 44.64], [-1.2518, 44.65], [-1.2492, 44.66], [-1.2471, 44.68], [-1.2413, 44.7],
-  [-1.2273, 44.72], [-1.2152, 44.74], [-1.2098, 44.76], [-1.205, 44.8], [-0.95, 44.8], [-0.95, 44.6],
-  [-1.2, 44.6], [-1.2, 44.618], [-1.256, 44.618],
+  [-1.2485, 44.665], [-1.2471, 44.68], [-1.2413, 44.7], [-1.2273, 44.72], [-1.2152, 44.74], [-1.2098, 44.76],
+  [-1.205, 44.8], [-0.95, 44.8], [-0.95, 44.6], [-1.167, 44.6], [-1.167, 44.662], [-1.2485, 44.665],
 ]]
 
 const n = 2 ** Z
