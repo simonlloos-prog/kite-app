@@ -27,7 +27,7 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
   - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier » ;
   - **Les Aigrettes** (lac de Cazaux, « Interdit ») est retiré.
 
-  Chaque spot a ses directions 🤙 bonnes (`good`), 👍 moyennes (`ok`) et ⚠ **offshore** (`offshore`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur. **Les orientations viennent de windspot.fr (2026)** pour les 17 spots qu'il décrit (idéal = `good`, navigable = `ok`, offshore), relevées sur sa rose des vents. Elles remplacent celles du tableau de 2018. Les plages océanes qu'il n'a pas (Soulac, Lacanau Océan, Le Porge, La Lagune, La Salie, Biscarrosse) gardent les directions du tableau et prennent les secteurs offshore du Grand Crohot (NE, E, SE, S), sur la même côte rectiligne.
+  Chaque spot a ses directions 🤙 bonnes (`good`), 👍 moyennes (`ok`) et ⚠ **offshore** (`offshore`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur. **Les orientations viennent de windspot.fr (2026)** pour les 17 spots qu'il décrit (idéal = `good`, navigable = `ok`, offshore), relevées sur sa rose des vents. Elles remplacent celles du tableau de 2018. Lacanau Océan et Le Porge marchent comme Le Grand Crohot (dit par l'utilisateur) et en prennent les orientations. Les autres plages océanes qu'il n'a pas (Soulac, La Lagune, La Salie, Biscarrosse) gardent les directions du tableau et prennent les secteurs offshore du Grand Crohot (NE, E, SE, S), sur la même côte rectiligne.
 - **Note d'un spot** (`spots/rating.ts`) :
   - **Direction** : bonne, moyenne (un cran de moins), offshore ou défavorable. Chacune des 8 directions couvre ±22,5°. **Offshore** (vent de terre, qui emporte vers le large) : dès 12 kn, le spot est noté « Offshore ⚠ dangereux », avec un point **rouge** sur la carte et dans la liste. En dessous, il reste « Trop faible ».
   - **Force** : sous 12 kn trop faible, 12–15 léger, 15–25 bon, 25–32 fort, au-delà trop fort.
@@ -136,7 +136,7 @@ src/
   - en dernier recours, garder la barre translucide et coller le module de temps au bas de l'écran, sa couleur remplissant les 59 px non dessinés : plus de bande vide, mais un module « barre du bas » (proposé et refusé pour l'instant).
 
 **Données des spots à compléter**
-- Points de mesure manquants : Le Porge, Taussat. Bonne Anse a son point sur sa position.
+- Point de mesure manquant : Taussat. Bonne Anse a son point sur sa position.
 - Orientations devinées à confirmer : Soulac (absent de windspot.fr).
 
 **Mises à jour fiables (si les quarts d'heure ne suffisent pas)**

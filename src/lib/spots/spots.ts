@@ -49,9 +49,10 @@ export const SPOTS: Spot[] = [
   // Lac de Lacanau
   { id: 'lacanau-lac', name: 'Lacanau Lac', area: 'Lac de Lacanau', lat: 44.981246, lon: -1.098291, windPoint: { lat: 44.980405, lon: -1.100349 }, good: ['SO', 'O', 'NO'], ok: ['N', 'S'], offshore: ['NE', 'E', 'SE'], level: 'Débutant', note: 'Pas avant 19 h l\'été' },
   // Ocean, north of the Bassin
-  // Replaces the table's Lacanau Sud and Super Sud, same orientations and restrictions.
-  { id: 'lacanau-ocean', name: 'Lacanau Océan', area: 'Océan nord', lat: 45.000973, lon: -1.202472, windPoint: { lat: 45.003279, lon: -1.206235 }, good: ['N', 'NO', 'SO'], ok: ['O'], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: "Interdit l'été" },
-  { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.892134, lon: -1.219553, good: ['N', 'NO', 'SO'], ok: ['O'], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
+  // Lacanau Océan replaces the table's Lacanau Sud and Super Sud, same restrictions. Lacanau Océan
+  // and Le Porge work like Le Grand Crohot (user).
+  { id: 'lacanau-ocean', name: 'Lacanau Océan', area: 'Océan nord', lat: 45.000973, lon: -1.202472, windPoint: { lat: 45.003279, lon: -1.206235 }, good: ['N', 'SO', 'O', 'NO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: "Interdit l'été" },
+  { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.892182, lon: -1.218879, windPoint: { lat: 44.892612, lon: -1.224644 }, good: ['N', 'SO', 'O', 'NO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
   { id: 'grand-crohot', name: 'Le Grand Crohot', area: 'Océan nord', lat: 44.797919, lon: -1.235184, windPoint: { lat: 44.797487, lon: -1.236964 }, good: ['N', 'SO', 'O', 'NO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Bassin d'Arcachon
   { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, windPoint: { lat: 44.746823, lon: -1.17116 }, good: ['NE', 'E', 'SE', 'S'], ok: ['SO'], offshore: ['N', 'O', 'NO'], level: 'Confirmé', tide: 2, note: "Interdit l'été" },
