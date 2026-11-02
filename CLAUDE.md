@@ -17,7 +17,7 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
   
   L'échelle est en bleus de plus en plus foncés jusqu'à 12 kn, puis vert, jaune, orange, rouge et violet.
 - **Données AROME 0,01°**, le même modèle que l'« AROME 1.3 km » de Meteociel. Les fichiers GRIB open data de Météo-France sont préparés par un serveur (GitHub Actions) plutôt qu'appelés depuis le téléphone : il y a assez de points pour la pleine résolution, sans quota ni clé côté app. L'utilisateur accepte quelques minutes de préparation par run, puisque Meteociel n'est pas plus frais.
-- **Fraîcheur** : un run AROME toutes les 3 h, publié 3 à 4 h après. La légende affiche le run en heure de Paris (« run dim. 16 h » = 15 UTC).
+- **Fraîcheur** : un run AROME toutes les 3 h, publié 3 à 4 h après. La légende affiche le run en heure de Paris (« run dim. 16 h » = 15 UTC). Au-delà de 8 h après l'heure du run, au moins un run plus récent manque : la légende ajoute « en retard (N h) » en orange (`staleHours`).
 - **AROME-PI** (run horaire, environ 1 h de retard) ne donne que des **rafales** via l'API, pas de vent moyen : il n'est pas dessiné. Il sert d'**indicateur de tendance** : pour chaque spot, un badge « PI ↑ +3 / ↓ −2 / = » donne l'écart moyen des rafales AROME-PI − AROME sur les heures communes (+1 à +6 h), avec un seuil de 1,5 kn. Le badge **ne dépend pas de l'heure choisie**. Le point touché affiche aussi « raf. 18 (PI 18) ».
 - **Unités** : tout est calculé en **nœuds**. Le bouton kn ↔ km/h ne convertit que l'affichage (`fmtSpeed`) ; Meteociel affiche en km/h. Le choix est mémorisé (`localStorage`, `kite-prefs`).
 - **Direction** : on parle d'où vient le vent (convention météo), et les flèches pointent là où il va.
@@ -43,7 +43,7 @@ API Météo-France ─────────► pipeline/fetch_aromepi.py ┘ 
 - **Source AROME** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a 52 échéances (0 à 51 h), environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
 - **Pipeline AROME** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (231 × 141 points) et écrit un fichier binaire par heure (~98 Ko, ~5 Mo par run). Le format, documenté en tête de `fetch_arome.py`, est `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud. **Les noms de fichiers portent une empreinte de la grille** (`data_folder`). Le téléphone garde les fichiers en cache indéfiniment, et republier un run sur une autre grille sous les mêmes noms avait servi d'anciens fichiers (« Fichier AROME inattendu »). L'app recharge aussi depuis le réseau un fichier de taille inattendue (`fetchBin`). Au-delà de ~3 fois la surface actuelle, il faudra découper en tuiles.
 - **Pipeline AROME-PI** (`fetch_aromepi.py`) : `WIND_SPEED_GUST` à 10 m sur toute `BOX`, en 6 requêtes WCS GetCoverage en GRIB. La clé est le secret GitHub `METEOFRANCE_API_KEY`, ou `.env.local` en local (ignoré par git, jamais affiché). Sans clé ou si l'API échoue, AROME-PI est simplement absent.
-- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et toutes les heures (`:25`). Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
+- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et tous les quarts d'heure, à des minutes décalées (`:07`, `:22`, `:37`, `:52`). GitHub retarde ou saute les tâches planifiées quand il est chargé, surtout à l'heure pile : avec un seul passage par heure, il n'y a eu que 3 lancements en 18 h et le site est resté bloqué sur un vieux run. Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres (CacheFirst). Aucun appel API côté client.
 
 ## Stack (décisions figées)
@@ -134,6 +134,9 @@ src/
 - Positions encore tirées des adresses du tableau (à remplacer par des positions sur la plage) : Bonne Anse, Biscarrosse, Laouga, Les Aigrettes, Port de l'Estey, Mayotte, Navarrosse, Ispe.
 - Orientations devinées à confirmer : l'Aérium, Taussat, Soulac.
 
+**Mises à jour fiables (si les quarts d'heure ne suffisent pas)**
+- Un réveil externe qui lance le workflow (`workflow_dispatch`) à heure fixe : Cloudflare Worker planifié, cron-job.org, ou `pg_cron` de Supabase. Il faut un jeton GitHub limité au dépôt, à créer par l'utilisateur.
+
 **Idées évoquées, non décidées**
 - Contour des grands lacs (Hourtin, Lacanau, Cazaux), sans les petits « lakes » OSM.
 - Marées (colonnes B / MM / H du tableau) et restrictions saisonnières (griser un spot « Interdit l'été » en été).
@@ -141,6 +144,7 @@ src/
 
 **Après le POC**
 - Refaire l'app avec une structure pensée à l'avance, en reprenant les choix ci-dessus et les essais rejetés.
+- Back-end envisagé : GitHub Actions pour le traitement AROME, GitHub Pages (ou Cloudflare Pages) pour l'app et les fichiers de prévision, **Supabase** (gratuit) seulement le jour où il faut des comptes, des favoris synchronisés ou des **alertes push** (fonction jugée la plus utile). Le pipeline enverrait les alertes après chaque nouveau run. Vercel n'apporte rien à une app statique et ne peut pas décoder les GRIB. Alternative : un VPS à ~5 €/mois (Hetzner, OVH), tout au même endroit, mais à maintenir.
 
 ## Conventions
 - La logique pure va dans `lib/**/*.ts` et a ses tests `*.test.ts` à côté. Les composants `.svelte` restent minces.

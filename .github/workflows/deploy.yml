@@ -1,14 +1,15 @@
 # Fetch the latest AROME 0.01° run and AROME-PI gusts, build the app and publish it on GitHub Pages.
-# Runs on every push and every hour. AROME runs every 3 h: an unchanged run is copied from the
-# published site instead of downloaded again. AROME-PI runs every hour. On the hourly schedule,
-# nothing is published when neither run changed.
+# Runs on every push and every 15 min, at odd minutes: GitHub delays or drops scheduled runs when
+# busy, worst on the hour (a single hourly slot once gave 3 runs in 18 h). AROME runs every 3 h:
+# an unchanged run is copied from the published site instead of downloaded again. AROME-PI runs
+# every hour. On the schedule, nothing is published when neither run changed.
 name: Données AROME + déploiement
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "25 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:

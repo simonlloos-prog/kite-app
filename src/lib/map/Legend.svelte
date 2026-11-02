@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
+  import { staleHours } from '../wind/time'
   import { fmtSpeed, UNIT_LABEL } from '../wind/units'
   import { BINS } from '../wind/windColor'
 
@@ -9,6 +10,14 @@
       ? new Date(app.meta.run).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', hour: 'numeric' })
       : '',
   )
+
+  // Clock for the "late" warning: the app may stay open for hours.
+  let now = $state(Date.now())
+  $effect(() => {
+    const id = setInterval(() => (now = Date.now()), 60_000)
+    return () => clearInterval(id)
+  })
+  const late = $derived(app.meta ? staleHours(app.meta.run, now) : null)
 </script>
 
 {#if app.layers.field}
@@ -28,7 +37,11 @@
         {/each}
       </div>
     </div>
-    {#if app.meta}<span class="run">{app.meta.model} · run {runHour}</span>{/if}
+    {#if app.meta}
+      <span class="run">
+        {app.meta.model} · run {runHour}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
+      </span>
+    {/if}
   </div>
 {/if}
 
@@ -59,6 +72,9 @@
     flex-basis: 100%;
     font: 10px var(--font);
     color: var(--muted);
+  }
+  .late {
+    color: #ea580c;
   }
   .scale {
     flex: 1;

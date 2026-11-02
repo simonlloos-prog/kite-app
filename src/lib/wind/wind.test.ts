@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
 import { isobands, labels, sample, streamlines, strideFor, valuesOf } from './field'
-import { formatHour, parisHourKey } from './time'
+import { formatHour, parisHourKey, staleHours } from './time'
 import { angleDiff, beaufort, fmtSpeed, sector } from './units'
 import { BINS, binOf, windColor } from './windColor'
 
@@ -134,6 +134,12 @@ describe('units, time & colours', () => {
     expect(fmtSpeed(20, 'kmh')).toBe('37')
     expect(fmtSpeed(11.6, 'kn')).toBe('12')
     expect(fmtSpeed(NaN, 'kmh')).toBe('–')
+  })
+
+  it('flags a run older than the next expected one', () => {
+    const run = '2026-11-02T06:00:00Z'
+    expect(staleHours(run, Date.parse('2026-11-02T13:30:00Z'))).toBeNull()
+    expect(staleHours(run, Date.parse('2026-11-02T16:36:00Z'))).toBe(10)
   })
 
   it('formats Paris hours', () => {
