@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
+  import { tideLabel } from '../wind/tide'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -104,7 +105,9 @@
     <button type="button" class="chev" disabled={idx <= 0} aria-label="Heure précédente" use:repeat={-1}>‹</button>
     <div class="label">
       <strong>{formatHour(app.selectedTime)}</strong>
-      <small>{idx <= 0 ? 'maintenant' : `dans ${idx} h`}</small>
+      <small
+        >{idx <= 0 ? 'maintenant' : `dans ${idx} h`}{#if app.tide}{` · ${tideLabel(app.tide)}`}{/if}</small
+      >
     </div>
     <button type="button" class="chev" disabled={idx >= app.times.length - 1} aria-label="Heure suivante" use:repeat={1}
       >›</button

@@ -5,8 +5,10 @@ import { rateSpot } from '../spots/rating'
 import { SPOTS } from '../spots/spots'
 import { windAt, type Grid, type Hour } from '../wind/arome'
 import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bounds, type Kind } from '../wind/field'
+import { LOW_TIDE, type Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
 import { BINS } from '../wind/windColor'
+import bassin from './bassin.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
@@ -88,6 +90,18 @@ export function addWindLayers(map: MlMap) {
       type: 'line',
       source: 'wind-bands',
       paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7 },
+    },
+    firstLabel,
+  )
+  // Bassin greyed at low tide, over the bands: too dry to sail, whatever the wind.
+  map.addSource('bassin', { type: 'geojson', data: bassin as MultiPolygon, attribution: 'Marée : <a href="https://open-meteo.com/">Open-Meteo</a>' })
+  map.addLayer(
+    {
+      id: 'bassin-low',
+      type: 'fill',
+      source: 'bassin',
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': '#9ca3af', 'fill-opacity': 0.9 },
     },
     firstLabel,
   )
@@ -241,6 +255,10 @@ export function setPickedData(map: MlMap, p: Picked | null) {
   const fc = empty()
   if (p) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: {} })
   ;(map.getSource('picked') as GeoJSONSource).setData(fc)
+}
+
+export function setTideData(map: MlMap, tide: Tide | null) {
+  map.setLayoutProperty('bassin-low', 'visibility', tide && tide.level < LOW_TIDE ? 'visible' : 'none')
 }
 
 export function setLayerVisibility(map: MlMap, l: Layers) {

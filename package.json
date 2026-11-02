@@ -10,13 +10,14 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "dev:phone": "vite --host",
-    "data": "python pipeline/fetch_arome.py --out public/data --max-step 12 && python pipeline/fetch_aromepi.py --out public/data"
+    "data": "python pipeline/fetch_arome.py --out public/data --max-step 12 && python pipeline/fetch_aromepi.py --out public/data && python pipeline/fetch_tide.py --out public/data"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tsconfig/svelte": "^5.0.8",
     "@types/d3-contour": "^3.0.6",
     "@types/node": "^24.19.2",
+    "polygon-clipping": "^0.15.7",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.7",
     "typescript": "~6.0.3",

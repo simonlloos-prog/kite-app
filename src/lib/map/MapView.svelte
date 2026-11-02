@@ -13,6 +13,7 @@
     setLinesData,
     setPickedData,
     setSpotsData,
+    setTideData,
     STYLE_URL,
   } from './windLayers'
 
@@ -97,6 +98,11 @@
   $effect(() => {
     const { meta, hour } = app
     if (ready && meta) setSpotsData(app.map!, meta.grid, hour)
+  })
+
+  $effect(() => {
+    const { tide } = app
+    if (ready) setTideData(app.map!, tide)
   })
 
   $effect(() => {

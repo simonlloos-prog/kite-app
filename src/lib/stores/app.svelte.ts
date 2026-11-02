@@ -3,6 +3,7 @@ import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type Win
 import { checkForUpdate } from '../pwa'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
+import { tideByTime, type Tide } from '../wind/tide'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
 
@@ -74,6 +75,8 @@ class AppState {
   private fileOf = new Map<string, string>()
   /** AROME-PI gusts per Paris hour key. */
   private pi = new Map<string, Float32Array>()
+  /** Tide at the Bassin inlet per Paris hour key. */
+  private tides = new Map<string, Tide>()
 
   get timeIndex() {
     return this.times.indexOf(this.selectedTime)
@@ -100,6 +103,12 @@ class AppState {
   get hour(): Hour | undefined {
     void this.dataVersion
     return this.hours.get(this.selectedTime)
+  }
+
+  /** Tide in the Bassin at the selected hour, when known. */
+  get tide(): Tide | null {
+    void this.dataVersion
+    return this.tides.get(this.selectedTime) ?? null
   }
 
   windAt(p: LatLon): WindAt | null {
@@ -150,6 +159,9 @@ class AppState {
     this.error = null
     // AROME-PI runs every hour, AROME every 3 h: refresh it even when the AROME run is the same.
     if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
+    const tides = meta.tide ? tideByTime(meta.tide) : new Map<string, Tide>()
+    this.tides = new Map([...tides].map(([t, tide]) => [parisHourKey(new Date(t)), tide]))
+    this.dataVersion++
     // File names carry the run and a grid fingerprint: same first file, same data.
     if (meta.files[0] === this.meta?.files[0]) return
 

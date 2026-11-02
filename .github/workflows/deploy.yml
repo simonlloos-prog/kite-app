@@ -48,6 +48,7 @@ jobs:
           published=$(curl -sf "$PAGES_URL/data/meta.json" | runs || echo "none")
           python pipeline/fetch_arome.py --out public/data --reuse-from "$PAGES_URL/data"
           python pipeline/fetch_aromepi.py --out public/data
+          python pipeline/fetch_tide.py --out public/data
           fresh=$(runs < public/data/meta.json)
           echo "online: $published / new: $fresh"
           if [ "${{ github.event_name }}" = "schedule" ] && [ "$published" = "$fresh" ]; then
