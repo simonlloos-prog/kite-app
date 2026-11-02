@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { dirQuality, rateSpot } from './rating'
 import { distanceKm, nearestSpot, SPOTS, windPointOf, type Spot } from './spots'
 
-const spot: Spot = { id: 't', name: 'Test', area: 'Test', lat: 44.7, lon: -1.1, good: ['O', 'SO'], ok: ['NO'], level: 'Débutant' }
+const spot: Spot = { id: 't', name: 'Test', area: 'Test', lat: 44.7, lon: -1.1, good: ['O', 'SO'], ok: ['NO'], offshore: ['E'], level: 'Débutant' }
 
 describe('spots', () => {
   it('has unique ids and every spot inside the AROME area', () => {
@@ -13,6 +13,9 @@ describe('spots', () => {
       expect(s.lon).toBeGreaterThan(-2)
       expect(s.lon).toBeLessThan(-0.6)
       expect(s.good.length).toBeGreaterThan(0)
+      // A direction is in one list at most.
+      const all = [...s.good, ...s.ok, ...s.offshore]
+      expect(new Set(all).size).toBe(all.length)
     }
   })
 
@@ -33,12 +36,15 @@ describe('spots', () => {
     expect(dirQuality(spot, 230)).toBe('good')
     expect(dirQuality(spot, 315)).toBe('ok')
     expect(dirQuality(spot, 340)).toBe('bad')
-    expect(dirQuality(spot, 90)).toBe('bad')
+    expect(dirQuality(spot, 90)).toBe('offshore')
+    expect(dirQuality(spot, 180)).toBe('bad')
   })
 
   it('rates by direction then strength', () => {
     expect(rateSpot(spot, null).score).toBe(0)
-    expect(rateSpot(spot, { speed: 20, gust: 25, dir: 90 }).label).toBe('Direction défavorable')
+    expect(rateSpot(spot, { speed: 20, gust: 25, dir: 180 }).label).toBe('Direction défavorable')
+    expect(rateSpot(spot, { speed: 20, gust: 25, dir: 90 })).toMatchObject({ score: 0, label: 'Offshore ⚠ dangereux' })
+    expect(rateSpot(spot, { speed: 8, gust: 10, dir: 90 }).label).toBe('Trop faible')
     expect(rateSpot(spot, { speed: 20, gust: 25, dir: 250 }).label).toBe('Bon')
     expect(rateSpot(spot, { speed: 13, gust: 18, dir: 270 }).label).toBe('Léger')
     expect(rateSpot(spot, { speed: 28, gust: 35, dir: 270 }).label).toBe('Fort')

@@ -27,9 +27,9 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
   - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier » ;
   - **Les Aigrettes** (lac de Cazaux, « Interdit ») est retiré.
 
-  Chaque spot a ses directions 🤙 bonnes (`good`) et 👍 moyennes (`ok`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur.
+  Chaque spot a ses directions 🤙 bonnes (`good`), 👍 moyennes (`ok`) et ⚠ **offshore** (`offshore`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur. **Les orientations viennent de windspot.fr (2026)** pour les 17 spots qu'il décrit (idéal = `good`, navigable = `ok`, offshore), relevées sur sa rose des vents. Elles remplacent celles du tableau de 2018. Les plages océanes qu'il n'a pas (Soulac, Lacanau Océan, Le Porge, La Lagune, La Salie, Biscarrosse) gardent les directions du tableau et prennent les secteurs offshore du Grand Crohot (NE, E, SE, S), sur la même côte rectiligne.
 - **Note d'un spot** (`spots/rating.ts`) :
-  - **Direction** : bonne, moyenne (un cran de moins) ou défavorable. Chacune des 8 directions couvre ±22,5°.
+  - **Direction** : bonne, moyenne (un cran de moins), offshore ou défavorable. Chacune des 8 directions couvre ±22,5°. **Offshore** (vent de terre, qui emporte vers le large) : dès 12 kn, le spot est noté « Offshore ⚠ dangereux », avec un point **rouge** sur la carte et dans la liste. En dessous, il reste « Trop faible ».
   - **Force** : sous 12 kn trop faible, 12–15 léger, 15–25 bon, 25–32 fort, au-delà trop fort.
   - **Marée** (`tide` dans `spots.ts`, créneaux de windspot.fr) : un spot du Bassin ne se navigue en kite qu'à ±N h de la pleine mer (Claouey, l'Aérium, Le Betey, Taussat ±2 h ; La Hume ±3 h). Hors créneau, un vent bon devient « Marée trop basse » (note 0). Un vent trop faible ou défavorable garde son propre libellé. Les Arbousiers, Bonne Anse, La Chambrette et Le Grand Crohot se naviguent à toute marée, et les lacs n'en ont pas. L'heure de pleine mer vient de la série de marée au large du Cap Ferret (sommet d'une parabole sur 3 heures, `highWaters`). Au fond du Bassin, la pleine mer arrive un peu plus tard (à vérifier sur le terrain).
   - **Tri** : la liste est triée par note, puis par force.
@@ -136,13 +136,13 @@ src/
 
 **Données des spots à compléter**
 - Points de mesure manquants : Le Porge, Taussat. Bonne Anse a son point sur sa position.
-- Orientations devinées à confirmer : l'Aérium, Taussat, Soulac.
+- Orientations devinées à confirmer : Soulac (absent de windspot.fr).
 
 **Mises à jour fiables (si les quarts d'heure ne suffisent pas)**
 - Un réveil externe qui lance le workflow (`workflow_dispatch`) à heure fixe : Cloudflare Worker planifié, cron-job.org, ou `pg_cron` de Supabase. Il faut un jeton GitHub limité au dépôt, à créer par l'utilisateur.
 
 **Idées évoquées, non décidées**
-- Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : orientations idéal / navigable / **offshore** (alerte de sécurité), niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), balises de vent en direct (Holfuy), spots manquants (Cercle Voile Arcachon, Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
+- Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), balises de vent en direct (Holfuy), spots manquants (Cercle Voile Arcachon, Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
 - Ne griser que l'estran (zones découvrantes) plutôt que tout le Bassin, si on trouve un contour (OSM `wetland=tidalflat` via Overpass, ou SHOM).
 - Restrictions saisonnières (griser un spot « Interdit l'été » en été).
 - Dessiner AROME-PI sur la carte si Météo-France publie un jour son vent moyen.
