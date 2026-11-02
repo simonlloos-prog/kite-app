@@ -164,8 +164,10 @@
   .dial {
     position: fixed;
     left: 50%;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    /* From the top of the 100vh page, not from the viewport bottom: iOS may report a viewport
+       59 px short (app.css), which would lift the dial off the bottom. */
+    top: calc(100vh - 12px - env(safe-area-inset-bottom));
+    transform: translate(-50%, -100%);
     width: min(calc(100vw - 24px), 440px);
     box-sizing: border-box;
     padding: 6px 8px 10px;

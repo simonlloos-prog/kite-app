@@ -3,10 +3,6 @@
    * Hidden screen-size diagnostics, opened with a long press on ⟳: to debug layout issues
    * that only show on a real phone (iPhone home-screen app), from a screenshot.
    */
-  import { tick } from 'svelte'
-  import { applyLayout, IOS_TEST, LAYOUTS, savedLayout, type Layout } from './iosTest'
-  import { app } from './stores/app.svelte'
-
   let { onclose }: { onclose: () => void } = $props()
 
   /** Height in px of a probe element styled with `css`. */
@@ -40,7 +36,6 @@
       ['display-mode standalone', mm('(display-mode: standalone)')],
       ['display-mode fullscreen', mm('(display-mode: fullscreen)')],
       ['barre d\'état iOS', document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.getAttribute('content') ?? '—'],
-      ...(IOS_TEST ? [['variante', LAYOUTS[layout]] as [string, string]] : []),
       ['html', rect('html')],
       ['#app', rect('#app')],
       ['carte', rect('.map')],
@@ -51,16 +46,7 @@
     ] as [string, string | number][]
   }
 
-  let layout = $state<Layout>(savedLayout())
   let rows = $state(measure())
-
-  async function setLayout(l: Layout) {
-    layout = l
-    applyLayout(l)
-    await tick()
-    app.map?.resize()
-    requestAnimationFrame(() => (rows = measure()))
-  }
 </script>
 
 <div class="diag" role="dialog" aria-label="Diagnostic d'écran">
@@ -69,14 +55,6 @@
     <button type="button" onclick={() => (rows = measure())}>Remesurer</button>
     <button type="button" onclick={onclose}>✕</button>
   </div>
-  {#if IOS_TEST}
-    <p class="test">App de test : choisis une variante, regarde si la bande vide du bas disparaît.</p>
-    <div class="layouts">
-      {#each Object.entries(LAYOUTS) as [l, label] (l)}
-        <button type="button" class:on={l === layout} onclick={() => setLayout(l as Layout)}>{label}</button>
-      {/each}
-    </div>
-  {/if}
   <table>
     <tbody>
       {#each rows as [k, v] (k)}
@@ -119,19 +97,6 @@
     border-radius: 8px;
     background: #243247;
     color: #e2e8f0;
-  }
-  .test {
-    margin: 0 0 6px;
-    color: #e2e8f0;
-  }
-  .layouts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-  .layouts .on {
-    background: #0284c7;
   }
   th {
     text-align: left;

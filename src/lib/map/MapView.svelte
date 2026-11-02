@@ -127,10 +127,12 @@
 
 <style>
   .map {
-    /* The visible page, exactly. On an installed iPhone app, 100vh/lvh is taller than what iOS
-       draws: see the status-bar note in index.html. */
+    /* The whole screen, under the status bar too: see app.css and index.html. */
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100vh;
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);
