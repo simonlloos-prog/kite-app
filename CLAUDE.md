@@ -129,6 +129,14 @@ src/
 - **Barre d'état iOS opaque (`black`)** : carte jusqu'en bas mais pas sous l'heure. Remplacée par translucide + page à `100vh` (voir les règles UX).
 
 ## À faire
+**Prochaine étape : affichage dans le navigateur du téléphone (hors app installée)**
+- Dans Safari ou Chrome sur téléphone, le **bas du module de temps est caché**. La page fait `100vh`, et ce qui est en bas se place depuis `100vh`. Or dans un navigateur, `100vh` est la hauteur avec les barres d'outils repliées, si bien que le bas passe sous la barre d'adresse ou d'onglets. Piste : garder `100vh` en app installée (`display-mode: standalone` / `fullscreen`, ou `navigator.standalone` sur iOS), et repasser en `100dvh` ou `inset: 0` dans le navigateur. À vérifier sur le téléphone avec le diagnostic (appui long sur ⟳), dans les deux modes.
+
+**Android (à vérifier sur un téléphone)**
+- L'app s'installe déjà avec Chrome (menu ⋮ → « Installer l'application ») et s'ouvre en plein écran (`display_override: fullscreen` du manifeste). Pas encore testée sur un vrai Android.
+- Les icônes ne sont qu'en SVG. Si Chrome ne propose que « Ajouter à l'écran d'accueil » et que l'app s'ouvre avec la barre d'adresse, ajouter des icônes PNG 192 et 512 px (dont une `maskable`) au manifeste.
+- Le calage en bas sur `100vh` a été pensé pour iOS : le revérifier en plein écran Android (barre de navigation, encoche).
+
 **Données des spots à compléter**
 - Point de mesure manquant : Taussat. Bonne Anse a son point sur sa position.
 - Orientations devinées à confirmer : Soulac (absent de windspot.fr).
