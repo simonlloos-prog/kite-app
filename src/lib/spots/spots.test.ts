@@ -59,7 +59,7 @@ describe('spots', () => {
   it('needs the tide inside the window around high water', () => {
     const bassin = { ...spot, tide: 2 }
     const wind = { speed: 20, gust: 25, dir: 270 }
-    const at = (fromHigh: number) => ({ level: 0.5, rising: true, fromHigh })
+    const at = (fromHigh: number) => ({ level: 0.5, rising: true, fromHigh, height: 0 })
     expect(rateSpot(bassin, wind, at(-1.5)).label).toBe('Bon')
     expect(rateSpot(bassin, wind, at(2.5))).toMatchObject({ score: 0, label: 'Marée trop basse' })
     expect(rateSpot(bassin, { ...wind, speed: 8 }, at(5)).label).toBe('Trop faible')

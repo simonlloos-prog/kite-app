@@ -23,6 +23,12 @@ describe('tide', () => {
     expect(tide.get('h9')!.fromHigh).toBe(6)
   })
 
+  it('gives the water level above the mean', () => {
+    const mean = heights.reduce((s, h) => s + h, 0) / heights.length
+    expect(tide.get('h15')!.height).toBeCloseTo(1 - mean)
+    expect(tide.get('h9')!.height).toBeCloseTo(-1 - mean)
+  })
+
   it('leaves out the hours without a full cycle around them', () => {
     expect(tide.has('h5')).toBe(false)
     expect(tide.has('h6')).toBe(true)
@@ -31,8 +37,8 @@ describe('tide', () => {
   })
 
   it('names the tide', () => {
-    expect(tideLabel({ level: 0.1, rising: true, fromHigh: 5 })).toBe('marée basse ↑')
-    expect(tideLabel({ level: 0.5, rising: false, fromHigh: 3 })).toBe('mi-marée ↓')
-    expect(tideLabel({ level: 0.9, rising: true, fromHigh: -1 })).toBe('marée haute ↑')
+    expect(tideLabel({ level: 0.1, rising: true, fromHigh: 5, height: -1 })).toBe('marée basse ↑')
+    expect(tideLabel({ level: 0.5, rising: false, fromHigh: 3, height: 0 })).toBe('mi-marée ↓')
+    expect(tideLabel({ level: 0.9, rising: true, fromHigh: -1, height: 1 })).toBe('marée haute ↑')
   })
 })

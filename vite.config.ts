@@ -30,8 +30,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // .mjs: the MapLibre worker, needed for the map to work offline. Data files are cached at runtime.
-        globPatterns: ['**/*.{js,mjs,css,html,svg}'],
+        // .mjs: the MapLibre worker, needed for the map to work offline. assets/*.bin: the Bassin's relief.
+        // Data files (data/) are cached at runtime.
+        globPatterns: ['**/*.{js,mjs,css,html,svg}', 'assets/*.bin'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {

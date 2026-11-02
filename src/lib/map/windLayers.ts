@@ -5,10 +5,11 @@ import { rateSpot } from '../spots/rating'
 import { SPOTS, windPointOf } from '../spots/spots'
 import { windAt, type Grid, type Hour } from '../wind/arome'
 import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bounds, type Kind } from '../wind/field'
-import { LOW_TIDE, type Tide } from '../wind/tide'
+import type { Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
 import { BINS } from '../wind/windColor'
-import bassin from './bassin.json'
+import depthUrl from './bassin-depth.bin?url'
+import depthGrid from './bassin-depth.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
@@ -93,16 +94,14 @@ export function addWindLayers(map: MlMap) {
     },
     firstLabel,
   )
-  // Bassin greyed at low tide, over the bands: too dry to sail, whatever the wind.
-  map.addSource('bassin', { type: 'geojson', data: bassin as MultiPolygon, attribution: 'Marée : <a href="https://open-meteo.com/">Open-Meteo</a>' })
+  // What dries out in the Bassin at the selected hour, over the bands: no sailing there.
+  map.addSource('bassin-dry', {
+    type: 'geojson',
+    data: empty(),
+    attribution: 'Marée : <a href="https://open-meteo.com/">Open-Meteo</a> · Relief du Bassin : Shom (HOMONIM)',
+  })
   map.addLayer(
-    {
-      id: 'bassin-low',
-      type: 'fill',
-      source: 'bassin',
-      layout: { visibility: 'none' },
-      paint: { 'fill-color': '#9ca3af', 'fill-opacity': 0.9 },
-    },
+    { id: 'bassin-dry', type: 'fill', source: 'bassin-dry', paint: { 'fill-color': '#9ca3af', 'fill-opacity': 0.9 } },
     firstLabel,
   )
   // Coastline: a light casing under a dark line, so it stands out on every band colour.
@@ -257,8 +256,31 @@ export function setPickedData(map: MlMap, p: Picked | null) {
   ;(map.getSource('picked') as GeoJSONSource).setData(fc)
 }
 
-export function setTideData(map: MlMap, tide: Tide | null) {
-  map.setLayoutProperty('bassin-low', 'visibility', tide && tide.level < LOW_TIDE ? 'visible' : 'none')
+/** Ground height in the Bassin, metres above mean sea level (pipeline/bassin_depth.mjs); -99 outside, never dry. */
+let depth: Promise<Float32Array> | null = null
+const loadDepth = () =>
+  (depth ??= fetch(depthUrl)
+    .then((r) => r.arrayBuffer())
+    .then((b) => Float32Array.from(new Int8Array(b), (v) => (v === -128 ? -99 : v / 10))))
+/** Dry areas per water level, to the centimetre. */
+const dryMemo = new Map<string, FeatureCollection<MultiPolygon>>()
+let tideCall = 0
+
+export async function setTideData(map: MlMap, tide: Tide | null) {
+  const call = ++tideCall
+  let fc = empty<MultiPolygon>()
+  if (tide) {
+    const key = tide.height.toFixed(2)
+    const z = await loadDepth().catch(() => null)
+    if (!z || call !== tideCall) return
+    if (!dryMemo.has(key)) {
+      const [dry] = isobands(depthGrid, z, [tide.height])
+      const features = dry ? [{ type: 'Feature' as const, geometry: { type: 'MultiPolygon' as const, coordinates: dry.polygons }, properties: {} }] : []
+      dryMemo.set(key, { type: 'FeatureCollection', features })
+    }
+    fc = dryMemo.get(key)!
+  }
+  ;(map.getSource('bassin-dry') as GeoJSONSource).setData(fc)
 }
 
 export function setLayerVisibility(map: MlMap, l: Layers) {

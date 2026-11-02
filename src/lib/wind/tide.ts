@@ -12,6 +12,8 @@ export interface Tide {
   rising: boolean
   /** Hours from the nearest high water: negative before it, positive after. */
   fromHigh: number
+  /** Water level, metres above mean sea level (the series' own mean, so the model's datum drops out). */
+  height: number
 }
 
 /** Below this share of the range, the Bassin is too dry to sail: greyed on the map. */
@@ -33,13 +35,14 @@ export function highWaters(heights: number[]): number[] {
 export function tideByTime({ times, heights }: TideSeries): Map<string, Tide> {
   const out = new Map<string, Tide>()
   const highs = highWaters(heights)
+  const mean = heights.reduce((s, h) => s + h, 0) / heights.length
   for (let i = HALF_CYCLE_H; i < heights.length - HALF_CYCLE_H; i++) {
     const around = heights.slice(i - HALF_CYCLE_H, i + HALF_CYCLE_H + 1)
     const lo = Math.min(...around)
     const hi = Math.max(...around)
     if (hi - lo < 0.1 || !highs.length) continue
     const high = highs.reduce((best, h) => (Math.abs(h - i) < Math.abs(best - i) ? h : best))
-    out.set(times[i], { level: (heights[i] - lo) / (hi - lo), rising: heights[i + 1] > heights[i - 1], fromHigh: i - high })
+    out.set(times[i], { level: (heights[i] - lo) / (hi - lo), rising: heights[i + 1] > heights[i - 1], fromHigh: i - high, height: heights[i] - mean })
   }
   return out
 }
