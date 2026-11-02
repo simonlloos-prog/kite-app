@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
+  import { DRY_HATCH, DRY_SAND } from './windLayers'
   import { staleHours } from '../wind/time'
   import { fmtSpeed, UNIT_LABEL } from '../wind/units'
   import { BINS } from '../wind/windColor'
@@ -18,10 +19,14 @@
     return () => clearInterval(id)
   })
   const late = $derived(app.meta ? staleHours(app.meta.run, now) : null)
+
+  // The open map credits start below the legend, whose height varies (run line, tide line).
+  let height = $state(0)
+  $effect(() => document.documentElement.style.setProperty('--legend-h', `${height}px`))
 </script>
 
 {#if app.layers.field}
-  <div class="legend" aria-label="Échelle du vent en {UNIT_LABEL[app.unit]}">
+  <div class="legend" bind:clientHeight={height} aria-label="Échelle du vent en {UNIT_LABEL[app.unit]}">
     <span class="unit">{app.kind === 'gust' ? 'raf.' : 'moy.'} {UNIT_LABEL[app.unit]}</span>
     <!-- Values sit under the bar, centred on the boundary where their bin starts: inside the
          colour boxes they overflowed onto the next colour. -->
@@ -40,6 +45,11 @@
     {#if app.meta}
       <span class="run">
         {app.meta.model} · run {runHour}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
+      </span>
+    {/if}
+    {#if app.tide}
+      <span class="dry">
+        <i style:--sand={DRY_SAND} style:--hatch={DRY_HATCH}></i> à sec dans le Bassin (marée)
       </span>
     {/if}
   </div>
@@ -72,6 +82,21 @@
     flex-basis: 100%;
     font: 10px var(--font);
     color: var(--muted);
+  }
+  .dry {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font: 10px var(--font);
+    color: var(--muted);
+  }
+  /* Same sand and hatching as on the map. */
+  .dry i {
+    width: 16px;
+    height: 9px;
+    border-radius: 2px;
+    background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, var(--sand) 1px 4px);
   }
   .late {
     color: #ea580c;

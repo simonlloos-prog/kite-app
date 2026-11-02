@@ -136,12 +136,13 @@
     margin-top: env(safe-area-inset-top);
   }
   /* Open credits: the legend and the side buttons sit above the map, so keep the text clear of
-     them, right of the buttons (64 px) and below the legend. */
+     them, right of the buttons (64 px) and below the legend (--legend-h, set by Legend): the
+     legend starts 12 px down, the credits text 51 px down. */
   .map :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
     box-sizing: border-box;
     max-width: calc(100vw - 74px);
   }
   .map :global(.maplibregl-compact-show .maplibregl-ctrl-attrib-inner) {
-    padding-top: 18px;
+    padding-top: max(0px, calc(var(--legend-h, 0px) - 33px));
   }
 </style>

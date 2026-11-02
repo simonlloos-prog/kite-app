@@ -60,6 +60,30 @@ function chevronImage() {
   return g.getImageData(0, 0, s, s)
 }
 
+/** Dry sand, hatched: reads as "out of the water" rather than as one more wind colour. */
+export const DRY_SAND = '#e6d6a8'
+export const DRY_HATCH = '#a08a5c'
+
+/** Seamless tile of diagonal hatching on sand, for the Bassin's dry banks. */
+function dryPattern() {
+  const s = 16
+  const c = document.createElement('canvas')
+  c.width = c.height = s
+  const g = c.getContext('2d')!
+  g.fillStyle = DRY_SAND
+  g.fillRect(0, 0, s, s)
+  g.strokeStyle = DRY_HATCH
+  g.lineWidth = 2
+  g.beginPath()
+  // One diagonal and its two neighbours cut by the tile edges: lines continue across tiles.
+  for (const k of [0, s, 2 * s]) {
+    g.moveTo(k - s, s)
+    g.lineTo(k, 0)
+  }
+  g.stroke()
+  return g.getImageData(0, 0, s, s)
+}
+
 const empty = <G extends Geometry = Point>(): FeatureCollection<G> => ({ type: 'FeatureCollection', features: [] })
 
 /** The data area, so the map cannot leave it: no edge with nothing behind. */
@@ -72,6 +96,7 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
+  map.addImage('dry-hatch', dryPattern(), { pixelRatio: 2 })
   for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
 
   // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
@@ -101,7 +126,7 @@ export function addWindLayers(map: MlMap) {
     attribution: 'Marée : <a href="https://open-meteo.com/">Open-Meteo</a> · Relief du Bassin : Shom (HOMONIM)',
   })
   map.addLayer(
-    { id: 'bassin-dry', type: 'fill', source: 'bassin-dry', paint: { 'fill-color': '#9ca3af', 'fill-opacity': 0.9 } },
+    { id: 'bassin-dry', type: 'fill', source: 'bassin-dry', paint: { 'fill-pattern': 'dry-hatch', 'fill-opacity': 0.9 } },
     firstLabel,
   )
   // Coastline: a light casing under a dark line, so it stands out on every band colour.
