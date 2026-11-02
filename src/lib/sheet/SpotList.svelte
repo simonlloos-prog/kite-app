@@ -1,6 +1,6 @@
 <script lang="ts">
   import { rateSpot } from '../spots/rating'
-  import { SPOTS } from '../spots/spots'
+  import { SPOTS, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector } from '../wind/units'
@@ -9,8 +9,8 @@
 
   const rows = $derived(
     SPOTS.map((spot) => {
-      const w = app.windAt(spot)
-      return { spot, w, rating: rateSpot(spot, w), trend: app.gustTrendAt(spot) }
+      const w = app.windAt(windPointOf(spot))
+      return { spot, w, rating: rateSpot(spot, w), trend: app.gustTrendAt(windPointOf(spot)) }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
   )
   const piHour = $derived(

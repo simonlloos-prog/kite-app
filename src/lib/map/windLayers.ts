@@ -2,7 +2,7 @@ import type { FeatureCollection, Geometry, LineString, MultiPolygon, Point } fro
 import type { FilterSpecification, GeoJSONSource, Map as MlMap } from 'maplibre-gl'
 import type { Picked } from '../stores/app.svelte'
 import { rateSpot } from '../spots/rating'
-import { SPOTS } from '../spots/spots'
+import { SPOTS, windPointOf } from '../spots/spots'
 import { windAt, type Grid, type Hour } from '../wind/arome'
 import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bounds, type Kind } from '../wind/field'
 import { LOW_TIDE, type Tide } from '../wind/tide'
@@ -245,8 +245,8 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined) {
   const fc = empty()
   for (const s of SPOTS) {
-    const r = rateSpot(s, windAt(g, h, s))
-    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { name: s.name, color: r.color } })
+    const r = rateSpot(s, windAt(g, h, windPointOf(s)))
+    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { id: s.id, color: r.color, name: s.name } })
   }
   ;(map.getSource('spots') as GeoJSONSource).setData(fc)
 }

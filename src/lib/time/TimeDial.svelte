@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { tideLabel } from '../wind/tide'
   import { formatHour } from '../wind/time'
@@ -12,7 +13,9 @@
 
   const idx = $derived(app.timeIndex)
   const picked = $derived(
-    app.picked ? { name: app.picked.name, w: app.windAt(app.picked), piGust: app.piGustAt(app.picked) } : null,
+    app.picked
+      ? { name: app.picked.name, w: app.windAt(windPointOf(app.picked)), piGust: app.piGustAt(windPointOf(app.picked)) }
+      : null,
   )
 
   let el: HTMLDivElement

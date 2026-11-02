@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dirQuality, rateSpot } from './rating'
-import { distanceKm, nearestSpot, SPOTS, type Spot } from './spots'
+import { distanceKm, nearestSpot, SPOTS, windPointOf, type Spot } from './spots'
 
 const spot: Spot = { id: 't', name: 'Test', area: 'Test', lat: 44.7, lon: -1.1, good: ['O', 'SO'], ok: ['NO'], level: 'Débutant' }
 
@@ -14,6 +14,11 @@ describe('spots', () => {
       expect(s.lon).toBeLessThan(-0.6)
       expect(s.good.length).toBeGreaterThan(0)
     }
+  })
+
+  it('reads the wind just off each spot', () => {
+    for (const s of SPOTS) expect(distanceKm(s, windPointOf(s))).toBeLessThan(2)
+    expect(windPointOf(spot)).toBe(spot)
   })
 
   it('finds the nearest spot within range', () => {

@@ -12,6 +12,8 @@ export type Snap = 'closed' | 'half' | 'full'
 
 export interface Picked extends LatLon {
   name?: string
+  /** A spot's wind point, out on the water. */
+  windPoint?: LatLon
 }
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`

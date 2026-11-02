@@ -22,11 +22,12 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
 - **Marée du Bassin** : le Bassin d'Arcachon est **grisé quand la marée est trop basse** pour naviguer, et l'état de la marée s'affiche sous l'heure (« marée basse ↓ », « mi-marée ↑ »…). La hauteur vient d'Open-Meteo Marine (sans clé, CC BY 4.0, crédit dans ⓘ), au large du Cap Ferret. Le modèle est grossier, donc on ne garde que la **place de l'heure entre basse mer (0) et pleine mer (1)**, calculée sur ±6 h (`tideByTime`). Sous `LOW_TIDE` (1/3), c'est « marée basse » et le Bassin est grisé. Le grisé couvre tout le Bassin : le fond de carte n'a pas les zones découvrantes (estran). Seuil à ajuster avec l'expérience de l'utilisateur.
 - **Unités** : tout est calculé en **nœuds**. Le bouton kn ↔ km/h ne convertit que l'affichage (`fmtSpeed`) ; Meteociel affiche en km/h. Le choix est mémorisé (`localStorage`, `kite-prefs`).
 - **Direction** : on parle d'où vient le vent (convention météo), et les flèches pointent là où il va.
-- **Spots** (`spots/spots.ts`) : les 22 spots du tableau « Trouve ton spot autour de Bordeaux » (KitesurfBordeaux.com, 2018), avec quelques ajustements :
+- **Spots** (`spots/spots.ts`) : les spots du tableau « Trouve ton spot autour de Bordeaux » (KitesurfBordeaux.com, 2018), avec quelques ajustements :
   - Lacanau Sud et Super Sud sont fusionnés en **Lacanau Océan** ;
-  - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier ».
+  - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier » ;
+  - **Les Aigrettes** (lac de Cazaux, « Interdit ») est retiré.
 
-  Chaque spot a ses directions 🤙 bonnes (`good`) et 👍 moyennes (`ok`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). La plupart des positions ont été données par l'utilisateur sur la plage. Les autres sont géocodées depuis les adresses du tableau (voir « À faire »).
+  Chaque spot a ses directions 🤙 bonnes (`good`) et 👍 moyennes (`ok`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur.
 - **Note d'un spot** (`spots/rating.ts`) :
   - **Direction** : bonne, moyenne (un cran de moins) ou défavorable. Chacune des 8 directions couvre ±22,5°.
   - **Force** : sous 12 kn trop faible, 12–15 léger, 15–25 bon, 25–32 fort, au-delà trop fort.
@@ -108,7 +109,7 @@ src/
 - **Lignes de vent** : `streamlines` (Jobard & Lefer) trace de longues lignes espacées de 14 px à l'écran, de l'amont vers l'aval. Les pointes sont des symboles `symbol-placement: line` (chevron dessiné vers l'est, tous les 35 px). Elles sont calculées sur la zone visible, et recalculées à chaque `moveend` et à chaque changement d'heure (~50 ms).
 - **Valeurs** : `labels` sur un réseau de pas `k` cellules, où `strideFor` garde au moins 14 px entre deux valeurs (une valeur par point de grille dès que ça tient). **MapLibre compte ses zooms en tuiles de 512 px.**
 - **Légende** : les valeurs sont sous la barre de couleurs, centrées sur la limite de leur palier. Dans les cases, elles débordaient sur la couleur suivante.
-- **Vent d'un spot** : la cellule AROME la plus proche de sa position (`windAt` → `cellOf`). Voir « À faire » pour le point de mesure décalé vers le large.
+- **Vent d'un spot** : lu au **point de mesure** `windPoint`, un peu au large, donné par l'utilisateur (`windPointOf`, sinon la position du spot). Près du bord, le modèle ralentit le vent (frottement de la terre) et notait des spots « trop faible » à tort. Le point sert à la note, aux valeurs de la liste, au point touché et à la tendance AROME-PI. `lat`/`lon` restent l'emplacement affiché. On lit la cellule AROME la plus proche (`windAt` → `cellOf`, ~1,1 × 0,8 km) : un point à quelques centaines de mètres du spot tombe souvent dans la même cellule et ne change rien (gain constaté à La Chambrette, Lacanau Océan, Navarrosse, Ispe).
 
 ## Testé puis rejeté (voir l'historique git)
 - **Interface** :
@@ -126,9 +127,6 @@ src/
 - **Barre d'état iOS translucide** : bande vide en bas, voir les règles UX.
 
 ## À faire
-**Prochaine étape (prévue)**
-- **Point de mesure du vent décalé vers le large** pour chaque spot. Aujourd'hui, la note et les valeurs d'un spot viennent de la cellule AROME sous sa position, sur la plage. Or le vent utile est souvent quelques dizaines de mètres plus loin, sur l'eau. Près du bord, le modèle le ralentit (frottement de la terre), si bien que des spots sont notés « trop faible » à tort. Idée : un champ optionnel `windPoint` (lat/lon) par spot, utilisé par `windAt`, `rateSpot` et la tendance AROME-PI, en gardant `lat`/`lon` pour l'emplacement affiché. **L'utilisateur fournira ces coordonnées.**
-
 **Carte sur tout l'écran de l'iPhone (souhaité, peut-être impossible)**
 - L'utilisateur voudrait la carte partout : sous l'heure en haut **et** jusqu'en bas. Aujourd'hui, c'est l'un ou l'autre (voir « Barre d'état iOS » dans les règles UX). Pistes à essayer, en réinstallant l'app à chaque fois, et à vérifier avec le diagnostic (appui long sur ⟳) :
   - revérifier `black-translucent` après chaque mise à jour d'iOS : c'est peut-être un bug corrigé un jour ;
@@ -136,7 +134,7 @@ src/
   - en dernier recours, garder la barre translucide et coller le module de temps au bas de l'écran, sa couleur remplissant les 59 px non dessinés : plus de bande vide, mais un module « barre du bas » (proposé et refusé pour l'instant).
 
 **Données des spots à compléter**
-- Positions encore tirées des adresses du tableau (à remplacer par des positions sur la plage) : Bonne Anse, Biscarrosse, Laouga, Les Aigrettes, Port de l'Estey, Mayotte, Navarrosse, Ispe.
+- Points de mesure manquants : Le Porge, Taussat. Bonne Anse a son point sur sa position.
 - Orientations devinées à confirmer : l'Aérium, Taussat, Soulac.
 
 **Mises à jour fiables (si les quarts d'heure ne suffisent pas)**

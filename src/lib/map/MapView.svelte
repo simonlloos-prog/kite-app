@@ -4,6 +4,7 @@
   // MapLibre looks for its worker next to its own module, which Vite moves: give it the real URL.
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
   import { onMount } from 'svelte'
+  import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import {
     addWindLayers,
@@ -56,9 +57,9 @@
     map.on('moveend', () => trackView(map))
     map.on('click', (e) => {
       const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
-      if (spot) {
-        const [lon, lat] = (spot.geometry as GeoJSON.Point).coordinates
-        app.picked = { lat, lon, name: spot.properties.name }
+      const s = spot && SPOTS.find((s) => s.id === spot.properties.id)
+      if (s) {
+        app.picked = { lat: s.lat, lon: s.lon, name: s.name, windPoint: s.windPoint }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
       }
