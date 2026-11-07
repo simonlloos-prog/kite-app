@@ -3,7 +3,7 @@
 - Météo-France "Données Publiques Observation" API (DPObs, same key as AROME-PI): the last
   6-minute record of a few stations. Other stations in the area are inland, or have no
   anemometer (Lacanau, Soorts-Hossegor). Gusts are rarely filled in: kept when present.
-- Weameter, Andernos (private station, its owner agreed): its live file, no key. It also gives
+- Weameter, Andernos and Lachanau (private stations, Weameter agreed): their live file, no key. It also gives
   the instant wind; the 10-minute mean and max gust compare with Météo-France's 10-minute mean.
 - Holfuy beacons (their owners agreed): the file Holfuy's station page draws its graphs from,
   no key. Not an API: it may change without notice, and the beacon then just goes missing.
@@ -41,9 +41,12 @@ STATIONS = {
     "17306004": "Royan",
     "40065002": "Capbreton",
 }
-WEAMETER = "https://weameter.com/stations/andernos/windrtv2.json"
-# Position from the station page: not in its live file.
-ANDERNOS = (44.744, -1.102)
+WEAMETER = "https://weameter.com/stations/{}/windrtv2.json"
+# Station slug → name and position (from its page: not in the live file).
+WEAMETER_STATIONS = {
+    "andernos": ("Andernos", 44.744, -1.102),
+    "lachanau": ("Lachanau", 45.165, -1.076),
+}
 HOLFUY = "https://holfuy.com/dynamic/graphs/tdarr{}.js"
 # Beacon id → name and position (from its page's map link).
 BEACONS = {
@@ -81,28 +84,29 @@ def latest(key: str, station: str) -> dict | None:
     return None
 
 
-def andernos() -> dict | None:
+def weameter(slug: str) -> dict | None:
     """Weameter's live file: knots, epoch seconds; Average["0"] is the last 10 minutes.
     The server only answers compressed requests (406 otherwise)."""
-    req = urllib.request.Request(WEAMETER, headers={"Accept-Encoding": "gzip", "User-Agent": "kite-app"})
+    name, lat, lon = WEAMETER_STATIONS[slug]
+    req = urllib.request.Request(WEAMETER.format(slug), headers={"Accept-Encoding": "gzip", "User-Agent": "kite-app"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             body = r.read()
             d = json.loads(gzip.decompress(body) if r.headers.get("Content-Encoding") == "gzip" else body)
         last10 = d["Average"]["0"]
         return {
-            "id": "weameter-andernos",
-            "name": "Andernos",
+            "id": f"weameter-{slug}",
+            "name": name,
             "source": "Weameter",
-            "lat": ANDERNOS[0],
-            "lon": ANDERNOS[1],
+            "lat": lat,
+            "lon": lon,
             "time": datetime.fromtimestamp(d["current"]["epoch"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "speed": round(last10["wspeed"], 1),
             "dir": last10["wdir"],
             "gust": round(last10["gmax"], 1),
         }
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
-        print(f"  Andernos unavailable: {e}", file=sys.stderr)
+        print(f"  {name} unavailable: {e}", file=sys.stderr)
         return None
 
 
@@ -183,7 +187,7 @@ def main() -> None:
             o["gust"] = round(r["fxi10"] * MS_TO_KN, 1)
         obs.append(o)
         print(f"  {name} {o['time']}: {o['speed']} kn from {o['dir']} deg")
-    for o in [andernos(), *map(holfuy, BEACONS)]:
+    for o in [*map(weameter, WEAMETER_STATIONS), *map(holfuy, BEACONS)]:
         if o:
             obs.append(o)
             print(f"  {o['name']} {o['time']}: {o['speed']} kn from {o['dir']} deg")
