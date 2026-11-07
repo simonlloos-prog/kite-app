@@ -21,12 +21,13 @@ describe('obs', () => {
     expect(nearestObs({ lat: 44.797919, lon: -1.235184 }, [capFerret, cazaux])).toBeNull() // Le Grand Crohot, ~19 km
   })
 
-  it('spins the rotor faster with the wind, still when calm', () => {
+  it('spins the fan faster with the wind, still when calm', () => {
     expect(spinSeconds(0)).toBe(0)
-    expect(spinSeconds(1.9)).toBe(0)
-    expect(spinSeconds(2)).toBe(6)
-    expect(spinSeconds(12)).toBe(1)
-    expect(spinSeconds(40)).toBe(0.4)
+    expect(spinSeconds(0.9)).toBe(0)
+    expect(spinSeconds(1)).toBe(4)
+    expect(spinSeconds(4)).toBe(1.5)
+    expect(spinSeconds(12)).toBe(0.5)
+    expect(spinSeconds(40)).toBe(0.25)
     expect(spinSeconds(NaN)).toBe(0)
   })
 

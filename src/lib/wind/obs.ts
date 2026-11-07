@@ -18,12 +18,12 @@ export interface Obs extends LatLon {
 }
 
 /**
- * Seconds per turn of a station's rotor: faster with the wind, so strength reads at a glance.
- * Still under 2 kn; 6 s at 2 kn down to 0.4 s from 30 kn.
+ * Seconds per turn of a station's fan: faster with the wind, so strength reads at a glance.
+ * Still under 1 kn; 4 s at 1.5 kn, 1.5 s at 4 kn, 0.5 s at 12 kn, 0.25 s from 24 kn.
  */
 export function spinSeconds(kn: number): number {
-  if (!(kn >= 2)) return 0
-  return Math.max(0.4, Math.min(6, 12 / kn))
+  if (!(kn >= 1)) return 0
+  return Math.max(0.25, Math.min(4, 6 / kn))
 }
 
 /** Older than this, a record says nothing about now: the station stopped sending. */

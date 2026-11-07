@@ -152,8 +152,9 @@
     right: 0;
     height: var(--page-h);
   }
-  /* Stations (obsMarkers.ts): 44 px touch target, a 24 px disc of the wind colour with a white
-     edge and a dark ring (spots have no ring), the rotor inside, the arrow on the downwind side. */
+  /* Stations (obsMarkers.ts): 44 px touch target, a 32 px fan of the wind colour with white
+     edges and a soft dark outline (readable on every band), the arrow on the downwind side. Every
+     part is a block: an inline span cannot rotate, which once left the fan still. */
   /* No position here: MapLibre's markers are absolutely positioned, which also holds the parts. */
   .map :global(.obs-marker) {
     width: 44px;
@@ -165,6 +166,13 @@
   }
   .map :global(.obs-marker > span) {
     position: absolute;
+    display: block;
+  }
+  .map :global(.obs-marker svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
   }
   .map :global(.obs-dir) {
     inset: 0;
@@ -176,36 +184,30 @@
     stroke-linejoin: round;
     paint-order: stroke;
   }
-  .map :global(.obs-disc) {
-    left: 10px;
-    top: 10px;
-    width: 24px;
-    height: 24px;
-    box-sizing: border-box;
-    border: 2.5px solid #fff;
-    border-radius: 50%;
-    box-shadow: 0 0 0 1.5px #0b1320;
+  .map :global(.obs-fan) {
+    left: 6px;
+    top: 6px;
+    width: 32px;
+    height: 32px;
+    filter: drop-shadow(0 0 0.6px #0b1320) drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.35));
   }
-  .map :global(.obs-rotor) {
-    inset: 0;
-  }
-  .map :global(.obs-rotor.spin) {
+  .map :global(.obs-fan.spin) {
     animation: obs-spin linear infinite;
   }
-  .map :global(.obs-rotor svg) {
-    display: block;
-    width: 100%;
-    height: 100%;
+  .map :global(.obs-fan .edge path) {
+    fill: #fff;
+    stroke: #fff;
+    stroke-width: 3;
+    stroke-linejoin: round;
   }
-  .map :global(.obs-rotor path) {
+  .map :global(.obs-fan .body path) {
+    fill: var(--wind);
+  }
+  .map :global(.obs-fan circle) {
+    fill: #fff;
     stroke: #0b1320;
-    stroke-width: 2.6;
-    stroke-linecap: round;
+    stroke-width: 0.8;
   }
-  .map :global(.obs-rotor circle) {
-    fill: #0b1320;
-  }
-  /* Left of the disc: spot names sit to the right of their dot, and a station is often on a spot. */
   .map :global(.obs-val) {
     right: 37px;
     top: 50%;
@@ -230,7 +232,7 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .map :global(.obs-rotor.spin) {
+    .map :global(.obs-fan.spin) {
       animation: none;
     }
   }

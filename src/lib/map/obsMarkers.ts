@@ -4,24 +4,28 @@ import { fmtSpeed, sector, UNIT_LABEL, type Unit } from '../wind/units'
 import { windColor } from '../wind/windColor'
 
 /**
- * Stations as HTML markers: a rotor spinning faster with the wind, in a disc of the map's wind
- * colour (a station at 18 kn matches an 18 kn band), an arrow on the downwind side, the value
- * beside it. HTML rather than a map layer, for the CSS animation; there are only a dozen.
+ * Stations as HTML markers: a fan of four crescent blades in the map's wind colour (a station at
+ * 18 kn matches an 18 kn band), spinning faster with the wind, an arrow on the downwind side,
+ * the value beside it. The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
+ * own way. HTML rather than a map layer, for the CSS animation; there are only a dozen.
  * Off the current hour, they are greyed and still: a measurement says nothing about later.
  * Styles: MapView.svelte (.obs-marker).
  */
 
-const ROTOR = `<svg viewBox="-12 -12 24 24" aria-hidden="true">${[0, 120, 240]
-  .map((a) => `<path d="M0 0 L0 -8.5" transform="rotate(${a})"/>`)
-  .join('')}<circle r="2"/></svg>`
+/**
+ * Four thin crescent blades, hollowed on their trailing edge, around a white hub, filled with --wind (set per station). Drawn twice: a
+ * white outline under the whole fan, then the blades on top, so it reads as one solid shape
+ * (a stroke per blade drew white lines where they meet).
+ */
+const BLADES = [0, 90, 180, 270].map((a) => `<path d="M-3 -2 C-3.2 -8.5 0.8 -13 6.5 -14.5 C4.2 -11 3.4 -6 3 2" transform="rotate(${a})"/>`).join('')
+const FAN = `<svg viewBox="-16 -16 32 32" aria-hidden="true"><g class="edge">${BLADES}</g><g class="body">${BLADES}</g><circle r="2.8"/></svg>`
 const ARROW = `<svg viewBox="-22 -22 44 44" aria-hidden="true"><path d="M0 -21 L6 -13 L-6 -13 Z"/></svg>`
 
 interface Parts {
   marker: Marker
   el: HTMLButtonElement
   dir: HTMLElement
-  disc: HTMLElement
-  rotor: HTMLElement
+  fan: HTMLElement
   value: HTMLElement
   obs: Obs
 }
@@ -31,9 +35,9 @@ const shown = new Map<string, Parts>()
 function create(map: MlMap, o: Obs, onTap: (o: Obs) => void): Parts {
   const el = document.createElement('button')
   el.type = 'button'
-  el.innerHTML = `<span class="obs-dir">${ARROW}</span><span class="obs-disc"><span class="obs-rotor">${ROTOR}</span></span><span class="obs-val"></span>`
+  el.innerHTML = `<span class="obs-dir">${ARROW}</span><span class="obs-fan">${FAN}</span><span class="obs-val"></span>`
   const q = (c: string) => el.querySelector<HTMLElement>(c)!
-  const parts: Parts = { marker: new Marker({ element: el }).setLngLat([o.lon, o.lat]).addTo(map), el, dir: q('.obs-dir'), disc: q('.obs-disc'), rotor: q('.obs-rotor'), value: q('.obs-val'), obs: o }
+  const parts: Parts = { marker: new Marker({ element: el }).setLngLat([o.lon, o.lat]).addTo(map), el, dir: q('.obs-dir'), fan: q('.obs-fan'), value: q('.obs-val'), obs: o }
   // Marker replaces the element's classes with its own: ours go back on afterwards.
   el.classList.add('obs-marker')
   // The map's own click would pick the point under the station instead.
@@ -68,10 +72,12 @@ export function setObsMarkers(map: MlMap, obs: Obs[], opts: { live: boolean; vis
     p.marker.setLngLat([o.lon, o.lat])
     p.el.classList.toggle('dim', !opts.live)
     p.dir.style.transform = `rotate(${o.dir + 180}deg)`
-    p.disc.style.background = windColor(o.speed)
+    p.fan.style.setProperty('--wind', windColor(o.speed))
     const spin = opts.live ? spinSeconds(o.speed) : 0
-    p.rotor.style.animationDuration = spin ? `${spin}s` : ''
-    p.rotor.classList.toggle('spin', spin > 0)
+    // Only when it changes: rewriting the duration restarts the turn from zero.
+    const duration = spin ? `${spin}s` : ''
+    if (p.fan.style.animationDuration !== duration) p.fan.style.animationDuration = duration
+    p.fan.classList.toggle('spin', spin > 0)
     const gust = o.gust != null ? `<small>${fmtSpeed(o.gust, opts.unit)}</small>` : ''
     p.value.innerHTML = opts.live ? `${fmtSpeed(o.speed, opts.unit)}${gust}` : `<small>${obsClock(o.time)}</small>`
     p.el.setAttribute(
