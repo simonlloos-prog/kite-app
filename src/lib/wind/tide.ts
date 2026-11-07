@@ -1,5 +1,7 @@
 /** Hourly sea level at the Bassin inlet (see pipeline/fetch_tide.py). */
 export interface TideSeries {
+  /** Where the heights come from: "api-maree.fr (Eyrac)", or "Open-Meteo" as a fallback. */
+  source?: string
   /** ISO UTC hours. */
   times: string[]
   /** Metres above mean sea level. */

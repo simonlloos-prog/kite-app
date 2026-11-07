@@ -57,6 +57,7 @@ jobs:
         id: data
         env:
           METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
+          API_MAREE_KEY: ${{ secrets.API_MAREE_KEY }}
         run: |
           # Runs currently online, to reuse AROME and to tell whether anything changed.
           runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), (m.get('pi') or {}).get('run'))"; }

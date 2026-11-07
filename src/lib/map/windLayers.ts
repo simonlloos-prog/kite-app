@@ -146,7 +146,12 @@ export function addWindLayers(map: MlMap) {
   map.addSource('bassin-dry', {
     type: 'geojson',
     data: empty(),
-    attribution: 'Marée : <a href="https://open-meteo.com/">Open-Meteo</a> · Relief du Bassin : Shom (HOMONIM)',
+    // api-maree.fr's terms: its credit and its notice, wherever the data is shown. Open-Meteo is the fallback.
+    attribution:
+      'Marée : données fournies par <a href="https://api-maree.fr/">api-maree.fr</a> sous licence <a href="https://creativecommons.org/licenses/by/4.0/deed.fr">CC BY</a>, ' +
+      'calculées à partir de composantes harmoniques <a href="https://sextant.ifremer.fr/geonetwork/srv/api/records/1bc4a49d-d4cd-469e-827c-bd3bd0eeabba/formatters/xsl-view">Ifremer / PREVIMER</a> (CC BY) ; ' +
+      "l'utilisation et l'interprétation des données relèvent de la responsabilité de l'utilisateur (secours : " +
+      '<a href="https://open-meteo.com/">Open-Meteo</a>) · Relief du Bassin : Shom (HOMONIM)',
   })
   map.addLayer(
     { id: 'bassin-dry', type: 'fill', source: 'bassin-dry', paint: { 'fill-pattern': 'dry-hatch', 'fill-opacity': 0.9 } },
