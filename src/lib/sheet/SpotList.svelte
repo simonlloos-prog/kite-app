@@ -16,7 +16,7 @@
         w,
         rating: rateSpot(spot, w, app.tide),
         trend: app.gustTrendAt(windPointOf(spot)),
-        obs: nearestObs(windPointOf(spot), app.obs),
+        obs: app.obsLive ? nearestObs(windPointOf(spot), app.obs) : null,
       }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
   )

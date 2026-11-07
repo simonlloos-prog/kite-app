@@ -42,6 +42,7 @@ export interface Layers {
   values: boolean
   arrows: boolean
   spots: boolean
+  obs: boolean
 }
 
 /** Open arrowhead pointing east: line-placed symbols align their x axis with the line. */
@@ -58,27 +59,6 @@ function chevronImage() {
   g.strokeStyle = INK
   g.lineWidth = 3
   g.stroke()
-  return g.getImageData(0, 0, s, s)
-}
-
-/** Filled arrow pointing north, rotated to where the measured wind goes (16 px on screen). */
-function obsArrowImage() {
-  const s = 32
-  const c = document.createElement('canvas')
-  c.width = c.height = s
-  const g = c.getContext('2d')!
-  g.beginPath()
-  g.moveTo(16, 3)
-  g.lineTo(27, 27)
-  g.lineTo(16, 21)
-  g.lineTo(5, 27)
-  g.closePath()
-  g.fillStyle = INK
-  g.strokeStyle = '#fff'
-  g.lineWidth = 3
-  g.lineJoin = 'round'
-  g.stroke()
-  g.fill()
   return g.getImageData(0, 0, s, s)
 }
 
@@ -119,7 +99,6 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
   map.addImage('dry-hatch', dryPattern(), { pixelRatio: 2 })
-  map.addImage('obs-arrow', obsArrowImage(), { pixelRatio: 2 })
   for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
 
   // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
@@ -243,42 +222,10 @@ export function addWindLayers(map: MlMap) {
     },
     paint: { 'text-color': INK, 'text-halo-color': '#fff', 'text-halo-width': 1.6 },
   })
-  // Measured wind: a ringed white disc with the value, and an arrow on its downwind side. The
-  // ring tells it from the forecast values, which have none.
+  // Stations are drawn as animated HTML markers (obsMarkers.ts). This invisible layer only
+  // carries their credits: MapLibre lists the attribution of sources a visible layer uses.
   map.addSource('obs', { type: 'geojson', data: empty(), attribution: 'Stations : Météo-France · Balises : Holfuy (CVA, APCK, La Jenny) · Andernos, Lachanau : Weameter' })
-  map.addLayer({
-    id: 'obs-arrow',
-    type: 'symbol',
-    source: 'obs',
-    layout: {
-      'icon-image': 'obs-arrow',
-      'icon-rotate': ['+', ['get', 'dir'], 180],
-      'icon-rotation-alignment': 'map',
-      // Offsets turn with the icon: "up" is downwind, just past the disc.
-      'icon-offset': [0, -21],
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-    },
-  })
-  map.addLayer({
-    id: 'obs-circle',
-    type: 'circle',
-    source: 'obs',
-    paint: { 'circle-radius': 11, 'circle-color': '#fff', 'circle-stroke-color': INK, 'circle-stroke-width': 2.5 },
-  })
-  map.addLayer({
-    id: 'obs-value',
-    type: 'symbol',
-    source: 'obs',
-    layout: {
-      'text-field': ['get', 'label'],
-      'text-font': FONT,
-      'text-size': 12,
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
-    },
-    paint: { 'text-color': INK },
-  })
+  map.addLayer({ id: 'obs-credit', type: 'circle', source: 'obs', paint: { 'circle-radius': 1, 'circle-opacity': 0 } })
   map.addLayer({
     id: 'picked',
     type: 'circle',
@@ -339,11 +286,10 @@ export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tid
   ;(map.getSource('spots') as GeoJSONSource).setData(fc)
 }
 
-export function setObsData(map: MlMap, obs: Obs[], unit: Unit) {
+/** Station positions, for the credits layer only. */
+export function setObsData(map: MlMap, obs: Obs[]) {
   const fc = empty()
-  for (const o of obs) {
-    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [o.lon, o.lat] }, properties: { id: o.id, dir: o.dir, label: fmtSpeed(o.speed, unit) } })
-  }
+  for (const o of obs) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [o.lon, o.lat] }, properties: {} })
   ;(map.getSource('obs') as GeoJSONSource).setData(fc)
 }
 
@@ -385,5 +331,6 @@ export function setLayerVisibility(map: MlMap, l: Layers) {
   for (const id of ['wind-bands', 'wind-band-edges']) map.setLayoutProperty(id, 'visibility', vis(l.field))
   for (const id of ['wind-lines', 'wind-heads']) map.setLayoutProperty(id, 'visibility', vis(l.arrows))
   map.setLayoutProperty('wind-values', 'visibility', vis(l.values))
-  for (const id of ['spots-circle', 'spots-label', 'obs-arrow', 'obs-circle', 'obs-value']) map.setLayoutProperty(id, 'visibility', vis(l.spots))
+  for (const id of ['spots-circle', 'spots-label']) map.setLayoutProperty(id, 'visibility', vis(l.spots))
+  map.setLayoutProperty('obs-credit', 'visibility', vis(l.obs))
 }

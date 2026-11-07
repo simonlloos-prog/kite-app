@@ -7,6 +7,7 @@
     { key: 'values', label: '12', title: 'Valeurs de vent' },
     { key: 'arrows', label: '➚', title: 'Flèches de vent' },
     { key: 'spots', label: '●', title: 'Spots' },
+    { key: 'obs', label: '◉', title: 'Balises : vent mesuré en direct' },
   ] as const
 
   // ⟳: tap = refresh; long press = screen diagnostics, for layout issues seen only on a phone.

@@ -6,6 +6,8 @@
   import { onMount } from 'svelte'
   import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
+  import type { Obs } from '../wind/obs'
+  import { setObsMarkers } from './obsMarkers'
   import {
     addWindLayers,
     gridBounds,
@@ -57,13 +59,10 @@
     })
     map.on('moveend', () => trackView(map))
     map.on('click', (e) => {
+      // Stations are HTML markers: their taps never reach here (pickStation).
       const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
       const s = spot && SPOTS.find((s) => s.id === spot.properties.id)
-      const station = map.queryRenderedFeatures(e.point, { layers: ['obs-circle'] })[0]
-      const o = station && app.obs.find((o) => o.id === station.properties.id)
-      if (o) {
-        app.picked = { lat: o.lat, lon: o.lon, name: `station ${o.name}`, obs: o }
-      } else if (s) {
+      if (s) {
         app.picked = { lat: s.lat, lon: s.lon, name: s.name, windPoint: s.windPoint }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
@@ -111,9 +110,18 @@
     if (ready) setTideData(app.map!, tide)
   })
 
+  /** A greyed station (later hour) brings the dial back to now, where its measurement belongs. */
+  function pickStation(o: Obs) {
+    if (!app.obsLive) app.setTimeIndex(0)
+    app.picked = { lat: o.lat, lon: o.lon, name: `station ${o.name}`, obs: o }
+  }
+
   $effect(() => {
-    const { obs, unit } = app
-    if (ready) setObsData(app.map!, obs, unit)
+    const { obs, unit, obsLive } = app
+    const visible = app.layers.obs
+    if (!ready) return
+    setObsData(app.map!, obs)
+    setObsMarkers(app.map!, obs, { live: obsLive, visible, unit, onTap: pickStation })
   })
 
   $effect(() => {
@@ -143,6 +151,88 @@
     left: 0;
     right: 0;
     height: var(--page-h);
+  }
+  /* Stations (obsMarkers.ts): 44 px touch target, a 24 px disc of the wind colour with a white
+     edge and a dark ring (spots have no ring), the rotor inside, the arrow on the downwind side. */
+  /* No position here: MapLibre's markers are absolutely positioned, which also holds the parts. */
+  .map :global(.obs-marker) {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .map :global(.obs-marker > span) {
+    position: absolute;
+  }
+  .map :global(.obs-dir) {
+    inset: 0;
+  }
+  .map :global(.obs-dir path) {
+    fill: #0b1320;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    paint-order: stroke;
+  }
+  .map :global(.obs-disc) {
+    left: 10px;
+    top: 10px;
+    width: 24px;
+    height: 24px;
+    box-sizing: border-box;
+    border: 2.5px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px #0b1320;
+  }
+  .map :global(.obs-rotor) {
+    inset: 0;
+  }
+  .map :global(.obs-rotor.spin) {
+    animation: obs-spin linear infinite;
+  }
+  .map :global(.obs-rotor svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .map :global(.obs-rotor path) {
+    stroke: #0b1320;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+  }
+  .map :global(.obs-rotor circle) {
+    fill: #0b1320;
+  }
+  /* Left of the disc: spot names sit to the right of their dot, and a station is often on a spot. */
+  .map :global(.obs-val) {
+    right: 37px;
+    top: 50%;
+    transform: translateY(-50%);
+    font: 800 13px var(--font);
+    color: #0b1320;
+    white-space: nowrap;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
+  }
+  .map :global(.obs-val small) {
+    margin-left: 3px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .map :global(.obs-marker.dim) {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+  @keyframes -global-obs-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .map :global(.obs-rotor.spin) {
+      animation: none;
+    }
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);

@@ -55,6 +55,13 @@
         <i style:--sand={DRY_SAND} style:--hatch={DRY_HATCH}></i> à sec dans le Bassin (marée)
       </span>
     {/if}
+    {#if app.layers.obs && app.obs.length}
+      <!-- Off the current hour the stations are greyed: say why, they only measure now. -->
+      <span class="dry obs">
+        <i></i>
+        {app.obsLive ? 'balises : vent mesuré en direct' : 'balises grisées : vent mesuré maintenant'}
+      </span>
+    {/if}
   </div>
 {/if}
 
@@ -100,6 +107,16 @@
     height: 9px;
     border-radius: 2px;
     background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, var(--sand) 1px 4px);
+  }
+  /* Same ringed disc as the stations on the map (MapView.svelte). */
+  .obs i {
+    width: 9px;
+    height: 9px;
+    margin: 0 3px;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+    background: #5fd83a;
+    box-shadow: 0 0 0 1px #0b1320;
   }
   .late {
     color: #ea580c;

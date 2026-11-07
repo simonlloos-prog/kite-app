@@ -17,6 +17,15 @@ export interface Obs extends LatLon {
   gust?: number
 }
 
+/**
+ * Seconds per turn of a station's rotor: faster with the wind, so strength reads at a glance.
+ * Still under 2 kn; 6 s at 2 kn down to 0.4 s from 30 kn.
+ */
+export function spinSeconds(kn: number): number {
+  if (!(kn >= 2)) return 0
+  return Math.max(0.4, Math.min(6, 12 / kn))
+}
+
 /** Older than this, a record says nothing about now: the station stopped sending. */
 export const MAX_AGE_MIN = 75
 

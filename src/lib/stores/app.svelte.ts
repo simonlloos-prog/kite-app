@@ -64,7 +64,7 @@ class AppState {
   snap = $state<Snap>('closed')
   /** Bottom padding of the map: what the open spots sheet covers. */
   mapPadBottom = $state(0)
-  layers = $state({ field: true, values: true, arrows: true, spots: true })
+  layers = $state({ field: true, values: true, arrows: true, spots: true, obs: true })
   unit = $state<Unit>(prefs.unit ?? 'kn')
   zoom = $state(11)
   bounds = $state.raw<Bounds | null>(null)
@@ -123,10 +123,15 @@ class AppState {
     return this.tides.get(this.selectedTime) ?? null
   }
 
-  /** Measured wind, only on the current hour: a measurement says nothing about later. */
+  /** Latest measured wind at the stations, whatever the hour shown. */
   get obs(): Obs[] {
     void this.dataVersion
-    return this.timeIndex === 0 ? freshObs(mergeObs(this.liveObs, this.metaObs)) : []
+    return freshObs(mergeObs(this.liveObs, this.metaObs))
+  }
+
+  /** The hour shown is now: measurements compare with it. On later hours they are only greyed hints. */
+  get obsLive(): boolean {
+    return this.timeIndex === 0
   }
 
   windAt(p: LatLon): WindAt | null {
