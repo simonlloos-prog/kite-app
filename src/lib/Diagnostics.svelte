@@ -31,6 +31,7 @@
       ['100vh / lvh', `${probe('height:100vh')} / ${probe('height:100lvh')}`],
       ['100svh / dvh', `${probe('height:100svh')} / ${probe('height:100dvh')}`],
       ['inset: 0', probe('top:0;bottom:0')],
+      ['--page-h', `${probe('height:var(--page-h)')} (${document.documentElement.classList.contains('installed') ? 'app installée, 100vh' : 'navigateur, 100dvh'})`],
       ['safe top / bottom', `${probe('height:env(safe-area-inset-top)')} / ${probe('height:env(safe-area-inset-bottom)')}`],
       ['navigator.standalone', String((navigator as Navigator & { standalone?: boolean }).standalone)],
       ['display-mode standalone', mm('(display-mode: standalone)')],

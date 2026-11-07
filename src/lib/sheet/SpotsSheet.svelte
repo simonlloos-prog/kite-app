@@ -3,7 +3,7 @@
   import SpotList from './SpotList.svelte'
 
 
-  /** Page height: 100vh (app.css), which iOS may report taller than innerHeight. */
+  /** Page height: --page-h (app.css), which iOS may report taller than innerHeight. */
   const pageHeight = () => document.documentElement.getBoundingClientRect().height
   let vh = $state(pageHeight())
   const heights = $derived<Record<Snap, number>>({
@@ -68,7 +68,7 @@
   class:dragging={dragH !== null}
   aria-hidden={app.snap === 'closed'}
   style:height="{heights.full}px"
-  style:top="calc(100vh - {heights.full}px)"
+  style:top="calc(var(--page-h) - {heights.full}px)"
   style:transform="translateY({heights.full - visible + (visible ? 0 : 24)}px)"
 >
   <div class="grab" role="presentation" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
@@ -87,7 +87,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    /* top: set inline, from the 100vh page (app.css). */
+    /* top: set inline, from the page height --page-h (app.css). */
     z-index: 3;
     display: flex;
     flex-direction: column;

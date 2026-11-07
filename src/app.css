@@ -21,13 +21,23 @@
   }
 }
 
-/* 100vh, not 100%: with the translucent status bar, an installed iPhone app reports a page
-   59 px short (793 of 852) and leaves the rest blank; a 100vh page makes iOS draw it all.
-   Whatever is pinned to the bottom is placed from 100vh too, not from the viewport bottom. */
+/* Page height, --page-h. Installed app (.installed, main.ts): 100vh, not 100%: with the
+   translucent status bar, an installed iPhone app reports a page 59 px short (793 of 852) and
+   leaves the rest blank; a 100vh page makes iOS draw it all. In a phone browser, 100vh is the
+   height with the toolbars hidden and the bottom went under them: 100dvh is what is visible.
+   Whatever is pinned to the bottom is placed from --page-h, not from the viewport bottom. */
+:root {
+  --page-h: 100vh;
+}
+@supports (height: 100dvh) {
+  :root:not(.installed) {
+    --page-h: 100dvh;
+  }
+}
 html,
 body,
 #app {
-  height: 100vh;
+  height: var(--page-h);
   margin: 0;
 }
 

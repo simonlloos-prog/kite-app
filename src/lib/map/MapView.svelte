@@ -132,19 +132,29 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 100vh;
+    height: var(--page-h);
   }
   .map :global(.maplibregl-ctrl-top-right) {
     margin-top: env(safe-area-inset-top);
   }
   /* Open credits: the legend and the side buttons sit above the map, so keep the text clear of
-     them, right of the buttons (64 px) and below the legend (--legend-h, set by Legend): the
-     legend starts 12 px down, the credits text 51 px down. */
+     them, right of the buttons (64 px) and below the legend (--legend-h, set by Legend). The
+     ⓘ stays in place (49 px down); only the text has a white box, starting 6 px under the
+     legend (12 px down): a white box padded down from the ⓘ showed as a blank strip. */
   .map :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
     box-sizing: border-box;
     max-width: calc(100vw - 74px);
+    padding: 0 28px 0 0;
+    background: none;
+  }
+  .map :global(.maplibregl-compact-show .maplibregl-ctrl-attrib-button) {
+    background-color: #fff;
   }
   .map :global(.maplibregl-compact-show .maplibregl-ctrl-attrib-inner) {
-    padding-top: max(0px, calc(var(--legend-h, 0px) - 33px));
+    margin-top: max(0px, calc(var(--legend-h, 0px) - 31px));
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: var(--shadow);
   }
 </style>

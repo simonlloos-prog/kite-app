@@ -61,6 +61,8 @@ export const SPOTS: Spot[] = [
   // Not in the table: orientations from windspot.fr.
   { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 2 },
   { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, windPoint: { lat: 44.647832, lon: -1.113052 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: [], offshore: ['SE', 'S', 'SO'], level: 'Débutant', tide: 3, note: 'Période de chasse' },
+  // Not in the table: orientations from windspot.fr, sailable at any tide.
+  { id: 'cva', name: 'Cercle Voile Arcachon', area: "Bassin d'Arcachon", lat: 44.660221, lon: -1.143146, windPoint: { lat: 44.661006, lon: -1.142008 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: ['SE'], offshore: ['S', 'SO'], level: 'Confirmé', note: "Déconseillé l'été (baigneurs)" },
   { id: 'arbousiers', name: 'Les Arbousiers', area: "Bassin d'Arcachon", lat: 44.64641, lon: -1.200347, windPoint: { lat: 44.647148, lon: -1.200423 }, good: ['N', 'SO', 'O', 'NO'], ok: ['NE', 'S'], offshore: ['E', 'SE'], level: 'Confirmé', note: "Inaccessible l'été" },
   // Ocean, south of the Bassin
   { id: 'lagune-sud', name: 'La Lagune Sud', area: 'Océan sud', lat: 44.548778, lon: -1.249725, windPoint: { lat: 44.549675, lon: -1.250783 }, good: ['N', 'NO', 'O', 'SO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Réserve naturelle' },

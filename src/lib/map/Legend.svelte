@@ -22,7 +22,10 @@
 
   // The open map credits start below the legend, whose height varies (run line, tide line).
   let height = $state(0)
-  $effect(() => document.documentElement.style.setProperty('--legend-h', `${height}px`))
+  $effect(() => {
+    document.documentElement.style.setProperty('--legend-h', `${height}px`)
+    return () => document.documentElement.style.setProperty('--legend-h', '0px')
+  })
 </script>
 
 {#if app.layers.field}
