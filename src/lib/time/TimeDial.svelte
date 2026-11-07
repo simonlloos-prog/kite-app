@@ -173,7 +173,7 @@
           app.unit,
         )}{/if}
       {UNIT_LABEL[app.unit]}
-      {sector(picked.obs.dir)} à {obsClock(picked.obs.time)} · Météo-France
+      {sector(picked.obs.dir)} à {obsClock(picked.obs.time)} · {picked.obs.source}
     </div>
   {/if}
 </div>

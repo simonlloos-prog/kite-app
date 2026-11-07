@@ -1,10 +1,12 @@
-/** Wind measured by Météo-France stations, written by pipeline/fetch_obs.py. */
+/** Wind measured at stations (Météo-France, Weameter), written by pipeline/fetch_obs.py. */
 import { distanceKm } from '../spots/spots'
 import type { LatLon } from './arome'
 
 export interface Obs extends LatLon {
   id: string
   name: string
+  /** Who runs the station, shown with the measurement: "Météo-France", "Weameter". */
+  source: string
   /** Measurement time, ISO UTC (6-minute record). */
   time: string
   /** Mean wind, knots. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { freshObs, nearestObs, obsClock, type Obs } from './obs'
 
-const at = (name: string, lat: number, lon: number, time = '2026-11-07T15:06:00Z'): Obs => ({ id: name, name, lat, lon, time, speed: 10, dir: 270 })
+const at = (name: string, lat: number, lon: number, time = '2026-11-07T15:06:00Z'): Obs => ({ id: name, name, source: 'Météo-France', lat, lon, time, speed: 10, dir: 270 })
 const capFerret = at('Cap Ferret', 44.6305, -1.251667)
 const cazaux = at('Cazaux', 44.534667, -1.132, '2026-11-07T13:00:00Z')
 
