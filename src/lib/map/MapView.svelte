@@ -153,7 +153,7 @@
     height: var(--page-h);
   }
   /* Stations (obsMarkers.ts): 44 px touch target, a 32 px fan of the wind colour with white
-     edges and a soft dark outline (readable on every band), the arrow in a disc at its centre. Every
+     edges and a soft dark outline (readable on every band), a dart arrow at its centre. Every
      part is a block: an inline span cannot rotate, which once left the fan still. */
   /* No position here: MapLibre's markers are absolutely positioned, which also holds the parts. */
   .map :global(.obs-marker) {
@@ -174,16 +174,12 @@
     height: 100%;
     overflow: visible;
   }
-  /* Direction: a still white disc at the centre of the fan, with a dark arrow. */
+  /* Direction: a still dark dart at the centre of the fan, edged in white over the blades. */
   .map :global(.obs-dir) {
     left: 15px;
     top: 15px;
     width: 14px;
     height: 14px;
-    box-sizing: border-box;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 0 0 1px #0b1320;
   }
   .map :global(.obs-dir > span) {
     display: block;
@@ -192,6 +188,10 @@
   }
   .map :global(.obs-dir path) {
     fill: #0b1320;
+    stroke: #fff;
+    stroke-width: 1.3;
+    stroke-linejoin: round;
+    paint-order: stroke;
   }
   .map :global(.obs-fan) {
     left: 6px;

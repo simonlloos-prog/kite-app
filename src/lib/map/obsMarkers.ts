@@ -5,8 +5,8 @@ import { windColor } from '../wind/windColor'
 
 /**
  * Stations as HTML markers: a fan of four crescent blades in the map's wind colour (a station at
- * 18 kn matches an 18 kn band), spinning faster with the wind, the direction as an arrow in a
- * white disc at its centre that does not spin (outside the fan, it was hard to see), the value
+ * 18 kn matches an 18 kn band), spinning faster with the wind, the direction as a dart at its
+ * centre that does not spin (outside the fan, it was hard to see; in a white disc, too big), the value
  * beside it. The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
  * own way. HTML rather than a map layer, for the CSS animation; there are only a dozen.
  * Off the current hour, they are greyed and still: a measurement says nothing about later.
@@ -20,8 +20,8 @@ import { windColor } from '../wind/windColor'
  */
 const BLADES = [0, 90, 180, 270].map((a) => `<path d="M-3 -2 C-3.2 -8.5 0.8 -13 6.5 -14.5 C4.2 -11 3.4 -6 3 2" transform="rotate(${a})"/>`).join('')
 const FAN = `<svg viewBox="-16 -16 32 32" aria-hidden="true"><g class="edge">${BLADES}</g><g class="body">${BLADES}</g></svg>`
-/** Arrow pointing up (north), turned to where the wind goes. */
-const ARROW = `<svg viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -5.6 L4.2 -0.4 L1.5 -0.4 L1.5 5.4 L-1.5 5.4 L-1.5 -0.4 L-4.2 -0.4 Z"/></svg>`
+/** Dart pointing up (north), notched at the back like a navigation arrow, turned to where the wind goes. */
+const ARROW = `<svg viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -5.8 L4.6 5.2 L0 2.6 L-4.6 5.2 Z"/></svg>`
 
 interface Parts {
   marker: Marker
