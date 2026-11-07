@@ -5,8 +5,9 @@ import { windColor } from '../wind/windColor'
 
 /**
  * Stations as HTML markers: a fan of four crescent blades in the map's wind colour (a station at
- * 18 kn matches an 18 kn band), spinning faster with the wind, an arrow on the downwind side,
- * the value beside it. The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
+ * 18 kn matches an 18 kn band), spinning faster with the wind, the direction as an arrow in a
+ * white disc at its centre that does not spin (outside the fan, it was hard to see), the value
+ * beside it. The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
  * own way. HTML rather than a map layer, for the CSS animation; there are only a dozen.
  * Off the current hour, they are greyed and still: a measurement says nothing about later.
  * Styles: MapView.svelte (.obs-marker).
@@ -18,8 +19,9 @@ import { windColor } from '../wind/windColor'
  * (a stroke per blade drew white lines where they meet).
  */
 const BLADES = [0, 90, 180, 270].map((a) => `<path d="M-3 -2 C-3.2 -8.5 0.8 -13 6.5 -14.5 C4.2 -11 3.4 -6 3 2" transform="rotate(${a})"/>`).join('')
-const FAN = `<svg viewBox="-16 -16 32 32" aria-hidden="true"><g class="edge">${BLADES}</g><g class="body">${BLADES}</g><circle r="2.8"/></svg>`
-const ARROW = `<svg viewBox="-22 -22 44 44" aria-hidden="true"><path d="M0 -21 L6 -13 L-6 -13 Z"/></svg>`
+const FAN = `<svg viewBox="-16 -16 32 32" aria-hidden="true"><g class="edge">${BLADES}</g><g class="body">${BLADES}</g></svg>`
+/** Arrow pointing up (north), turned to where the wind goes. */
+const ARROW = `<svg viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -5.6 L4.2 -0.4 L1.5 -0.4 L1.5 5.4 L-1.5 5.4 L-1.5 -0.4 L-4.2 -0.4 Z"/></svg>`
 
 interface Parts {
   marker: Marker
@@ -35,7 +37,8 @@ const shown = new Map<string, Parts>()
 function create(map: MlMap, o: Obs, onTap: (o: Obs) => void): Parts {
   const el = document.createElement('button')
   el.type = 'button'
-  el.innerHTML = `<span class="obs-dir">${ARROW}</span><span class="obs-fan">${FAN}</span><span class="obs-val"></span>`
+  // The arrow after the fan, on top of it.
+  el.innerHTML = `<span class="obs-fan">${FAN}</span><span class="obs-dir"><span>${ARROW}</span></span><span class="obs-val"></span>`
   const q = (c: string) => el.querySelector<HTMLElement>(c)!
   const parts: Parts = { marker: new Marker({ element: el }).setLngLat([o.lon, o.lat]).addTo(map), el, dir: q('.obs-dir'), fan: q('.obs-fan'), value: q('.obs-val'), obs: o }
   // Marker replaces the element's classes with its own: ours go back on afterwards.
@@ -71,7 +74,7 @@ export function setObsMarkers(map: MlMap, obs: Obs[], opts: { live: boolean; vis
     p.obs = o
     p.marker.setLngLat([o.lon, o.lat])
     p.el.classList.toggle('dim', !opts.live)
-    p.dir.style.transform = `rotate(${o.dir + 180}deg)`
+    p.dir.firstElementChild!.setAttribute('style', `transform: rotate(${o.dir + 180}deg)`)
     p.fan.style.setProperty('--wind', windColor(o.speed))
     const spin = opts.live ? spinSeconds(o.speed) : 0
     // Only when it changes: rewriting the duration restarts the turn from zero.

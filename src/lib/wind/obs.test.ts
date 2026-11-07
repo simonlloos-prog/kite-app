@@ -24,10 +24,10 @@ describe('obs', () => {
   it('spins the fan faster with the wind, still when calm', () => {
     expect(spinSeconds(0)).toBe(0)
     expect(spinSeconds(0.9)).toBe(0)
-    expect(spinSeconds(1)).toBe(4)
-    expect(spinSeconds(4)).toBe(1.5)
-    expect(spinSeconds(12)).toBe(0.5)
-    expect(spinSeconds(40)).toBe(0.25)
+    expect(spinSeconds(1)).toBe(6)
+    expect(spinSeconds(4)).toBe(3)
+    expect(spinSeconds(12)).toBe(1)
+    expect(spinSeconds(40)).toBe(0.5)
     expect(spinSeconds(NaN)).toBe(0)
   })
 
