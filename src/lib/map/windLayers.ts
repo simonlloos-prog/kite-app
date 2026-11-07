@@ -240,7 +240,7 @@ export function addWindLayers(map: MlMap) {
   })
   // Measured wind: a ringed white disc with the value, and an arrow on its downwind side. The
   // ring tells it from the forecast values, which have none.
-  map.addSource('obs', { type: 'geojson', data: empty(), attribution: 'Stations : Météo-France · Andernos : Weameter' })
+  map.addSource('obs', { type: 'geojson', data: empty(), attribution: 'Stations : Météo-France · Balises : Holfuy (CVA, APCK, La Jenny) · Andernos : Weameter' })
   map.addLayer({
     id: 'obs-arrow',
     type: 'symbol',
