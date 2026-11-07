@@ -1,7 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl'
 import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
 import { checkForUpdate } from '../pwa'
-import { freshObs, type Obs } from '../wind/obs'
+import { freshObs, mergeObs, type Obs } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
@@ -20,6 +20,8 @@ export interface Picked extends LatLon {
 }
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`
+/** Live station readings (Cloudflare Worker, worker/index.ts); unset: meta.json's copy only. */
+const OBS_URL: string | undefined = import.meta.env.VITE_OBS_URL
 const PREFS_KEY = 'kite-prefs'
 
 /** Per-phone preferences. Storage may be unavailable (private mode): fall back to defaults. */
@@ -74,8 +76,9 @@ class AppState {
   /** Hidden screen diagnostics (long press on ⟳). */
   showDiagnostics = $state(false)
 
-  /** Station records from meta.json, fresh or not. */
-  private allObs = $state.raw<Obs[]>([])
+  /** Station records from meta.json (rebuilt every 15 min) and from the Worker (live), fresh or not. */
+  private metaObs = $state.raw<Obs[]>([])
+  private liveObs = $state.raw<Obs[]>([])
 
   /** Plain properties: the map instance and the decoded arrays must never be proxied. */
   map: MlMap | null = null
@@ -122,7 +125,7 @@ class AppState {
   /** Measured wind, only on the current hour: a measurement says nothing about later. */
   get obs(): Obs[] {
     void this.dataVersion
-    return this.timeIndex === 0 ? freshObs(this.allObs) : []
+    return this.timeIndex === 0 ? freshObs(mergeObs(this.liveObs, this.metaObs)) : []
   }
 
   windAt(p: LatLon): WindAt | null {
@@ -175,7 +178,8 @@ class AppState {
     if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
     const tides = meta.tide ? tideByTime(meta.tide) : new Map<string, Tide>()
     this.tides = new Map([...tides].map(([t, tide]) => [parisHourKey(new Date(t)), tide]))
-    this.allObs = meta.obs ?? []
+    this.metaObs = meta.obs ?? []
+    this.loadObs()
     this.dataVersion++
     // File names carry the run and a grid fingerprint: same first file, same data.
     if (meta.files[0] === this.meta?.files[0]) return
@@ -201,6 +205,17 @@ class AppState {
       }
       // A newer run arrived meanwhile: that call takes over.
       if (this.meta !== meta) return
+    }
+  }
+
+  /** Live readings from the Worker: seconds old, where meta.json's are 10 to 35 minutes old. */
+  async loadObs() {
+    if (!OBS_URL) return
+    try {
+      const res = await fetch(OBS_URL, { cache: 'no-store' })
+      if (res.ok) this.liveObs = (await res.json()).obs ?? []
+    } catch {
+      // Offline or Worker down: meta.json's copy stays.
     }
   }
 
@@ -239,7 +254,8 @@ export const app = new AppState()
 // Dev only: inspect and drive the app from the browser console.
 if (import.meta.env.DEV) Object.assign(window, { app })
 
-// Station records change every 6 min and are republished every 15 min: pick them up while open.
+// While open: live readings every 2 min (the Worker keeps them 2 min), a newer run every 10 min.
+setInterval(() => document.visibilityState === 'visible' && app.loadObs(), 2 * 60_000)
 setInterval(() => document.visibilityState === 'visible' && app.loadData(), 10 * 60_000)
 addEventListener('online', () => (app.online = true))
 addEventListener('offline', () => (app.online = false))

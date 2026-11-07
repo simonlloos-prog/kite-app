@@ -1,0 +1,4 @@
+# Cloudflare Worker for the live station readings: see worker/index.ts and worker/README.md.
+name = "kite-obs"
+main = "index.ts"
+compatibility_date = "2026-10-01"

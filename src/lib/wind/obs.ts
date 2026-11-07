@@ -20,6 +20,16 @@ export interface Obs extends LatLon {
 /** Older than this, a record says nothing about now: the station stopped sending. */
 export const MAX_AGE_MIN = 75
 
+/** Both lists, keeping the newest record of each station: the Worker's, or meta.json's when fresher. */
+export function mergeObs(a: Obs[], b: Obs[]): Obs[] {
+  const byId = new Map<string, Obs>()
+  for (const o of [...a, ...b]) {
+    const seen = byId.get(o.id)
+    if (!seen || Date.parse(o.time) > Date.parse(seen.time)) byId.set(o.id, o)
+  }
+  return [...byId.values()]
+}
+
 /** Records recent enough to show as the current wind. */
 export const freshObs = (obs: Obs[], now = Date.now()) => obs.filter((o) => now - Date.parse(o.time) <= MAX_AGE_MIN * 60_000)
 

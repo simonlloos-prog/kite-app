@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freshObs, nearestObs, obsClock, type Obs } from './obs'
+import { freshObs, mergeObs, nearestObs, obsClock, type Obs } from './obs'
 
 const at = (name: string, lat: number, lon: number, time = '2026-11-07T15:06:00Z'): Obs => ({ id: name, name, source: 'Météo-France', lat, lon, time, speed: 10, dir: 270 })
 const capFerret = at('Cap Ferret', 44.6305, -1.251667)
@@ -8,6 +8,12 @@ const cazaux = at('Cazaux', 44.534667, -1.132, '2026-11-07T13:00:00Z')
 describe('obs', () => {
   it('drops records the station stopped sending', () => {
     expect(freshObs([capFerret, cazaux], Date.parse('2026-11-07T15:30:00Z'))).toEqual([capFerret])
+  })
+
+  it('keeps the newest record of each station', () => {
+    const later = { ...capFerret, time: '2026-11-07T15:12:00Z', speed: 12 }
+    expect(mergeObs([capFerret, cazaux], [later])).toEqual([later, cazaux])
+    expect(mergeObs([later], [capFerret])).toEqual([later])
   })
 
   it('finds the station of a spot, only when close enough', () => {

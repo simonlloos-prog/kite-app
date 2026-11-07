@@ -32,3 +32,7 @@ dev-dist
 # AROME data, produced by pipeline/fetch_arome.py (CI or `npm run data`)
 public/data/
 __pycache__/
+
+# Cloudflare Worker (worker/): local secrets and wrangler state
+.dev.vars
+.wrangler/
