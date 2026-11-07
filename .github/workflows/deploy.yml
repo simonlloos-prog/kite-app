@@ -3,6 +3,8 @@
 # busy, worst on the hour (a single hourly slot once gave 3 runs in 18 h). AROME runs every 3 h:
 # an unchanged run is copied from the published site instead of downloaded again. AROME-PI runs
 # every hour. On the schedule, nothing is published when neither run changed.
+# GitHub's schedule alone gave only 3 to 4 runs a day (Nov. 2026): an external cron (cron-job.org)
+# calls workflow_dispatch with scheduled=true every 15 min, which behaves like the schedule.
 name: Données AROME + déploiement
 
 on:
@@ -11,6 +13,11 @@ on:
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+    inputs:
+      scheduled:
+        description: "Comme le planning : ne rien publier si AROME et AROME-PI n'ont pas changé"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -51,7 +58,8 @@ jobs:
           python pipeline/fetch_tide.py --out public/data
           fresh=$(runs < public/data/meta.json)
           echo "online: $published / new: $fresh"
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$published" = "$fresh" ]; then
+          scheduled=${{ github.event_name == 'schedule' || inputs.scheduled == true }}
+          if [ "$scheduled" = "true" ] && [ "$published" = "$fresh" ]; then
             echo "skipped=true" >> "$GITHUB_OUTPUT"
           else
             echo "skipped=false" >> "$GITHUB_OUTPUT"

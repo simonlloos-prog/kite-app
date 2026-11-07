@@ -51,7 +51,7 @@ Open-Meteo Marine ────────► pipeline/fetch_tide.py ─── (
 - **Pipeline marée** (`fetch_tide.py`) : hauteur horaire au large du Cap Ferret, d'un jour avant le run à un jour après sa dernière heure, ajoutée à `meta.json` (`tide`). Sans réponse, le Bassin n'est jamais grisé.
 - **Contour du Bassin** (`src/lib/map/bassin.json`, 25 Ko) : généré une fois par `node pipeline/bassin_water.mjs`, qui découpe l'eau des tuiles OpenFreeMap avec un masque dessiné à la main (milieu de la presqu'île du Cap Ferret, et au sud une ligne Bélisaire – Jetée Thiers). Il utilise `polygon-clipping` (dépendance de dev, seulement pour ce script).
 - **Relief du Bassin** (`src/lib/map/bassin-depth.bin` + `.json`, 190 Ko, mis en cache hors ligne) : généré une fois par `node pipeline/bassin_depth.mjs <fichier .asc>` depuis le MNT Shom HOMONIM « NM » (archive 7z de 41 Mo sur data.gouv.fr, non versionnée). Pas de ~40 m, `int8` en décimètres au-dessus du NM, ligne 0 au sud, −128 hors du contour du Bassin.
-- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push et tous les quarts d'heure, à des minutes décalées (`:07`, `:22`, `:37`, `:52`). GitHub retarde ou saute les tâches planifiées quand il est chargé, surtout à l'heure pile : avec un seul passage par heure, il n'y a eu que 3 lancements en 18 h et le site est resté bloqué sur un vieux run. Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
+- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push, par un réveil externe (`workflow_dispatch` avec `scheduled: true`, voir « À faire ») et tous les quarts d'heure, à des minutes décalées (`:07`, `:22`, `:37`, `:52`). GitHub retarde ou saute les tâches planifiées quand il est chargé, surtout à l'heure pile : avec un seul passage par heure, il n'y a eu que 3 lancements en 18 h et le site est resté bloqué sur un vieux run. Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres (CacheFirst). Aucun appel API côté client.
 
 ## Stack (décisions figées)
@@ -139,8 +139,9 @@ src/
 - Point de mesure manquant : Taussat. Bonne Anse a son point sur sa position.
 - Orientations devinées à confirmer : Soulac (absent de windspot.fr).
 
-**Mises à jour fiables (si les quarts d'heure ne suffisent pas)**
-- Un réveil externe qui lance le workflow (`workflow_dispatch`) à heure fixe : Cloudflare Worker planifié, cron-job.org, ou `pg_cron` de Supabase. Il faut un jeton GitHub limité au dépôt, à créer par l'utilisateur.
+**Mises à jour fiables : réveil externe à mettre en place**
+- Le planning de GitHub ne donne que 3 à 4 passages par jour (relevé du 3 au 7 nov. 2026), le site a 5 à 8 h de retard. Le workflow accepte `workflow_dispatch` avec `scheduled: true`, qui se comporte comme le planning.
+- À faire par l'utilisateur : un jeton GitHub *fine-grained* limité à `kite-app` (permission Actions : lecture et écriture), et une tâche cron-job.org tous les quarts d'heure qui fait `POST https://api.github.com/repos/simonlloos-prog/kite-app/actions/workflows/deploy.yml/dispatches` avec `{"ref":"main","inputs":{"scheduled":"true"}}` (réponse 204). Le planning GitHub reste en secours.
 
 **Idées évoquées, non décidées**
 - Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), balises de vent en direct (Holfuy), spots manquants (Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
