@@ -3,6 +3,8 @@
  * - GET /obs → { time, obs: Obs[] }: live wind at the stations.
  * - GET /data/<key> → forecast files (meta.json, hour files) from the R2 bucket kite-data,
  *   written by the GitHub workflow after each new run.
+ * - Every 5 min (scheduled): wake the GitHub workflow up when a new AROME or AROME-PI run is
+ *   due (worker/check.ts). GET /status shows what it would decide now, without waking it.
  *
  * Runs on Cloudflare Workers (free plan). The Météo-France key stays here as a secret
  * (METEOFRANCE_API_KEY), never in the app. GitHub Pages only serves files rebuilt by the
@@ -15,16 +17,62 @@
  * Deploy: see worker/README.md.
  */
 import { fetchAllObs } from '../src/lib/wind/obsSources'
+import { aromeCandidates, decide, lastStepUrl, type Decision, type Published } from './check'
 
 interface R2Object {
   body: ReadableStream
   httpEtag: string
   httpMetadata?: { contentType?: string; contentEncoding?: string; cacheControl?: string }
+  text(): Promise<string>
 }
 
 interface Env {
   METEOFRANCE_API_KEY: string
-  DATA: { get(key: string): Promise<R2Object | null> }
+  /** Fine-grained GitHub token, kite-app only, Actions: read and write. */
+  GITHUB_TOKEN: string
+  DATA: { get(key: string): Promise<R2Object | null>; put(key: string, value: string): Promise<unknown> }
+}
+
+const WORKFLOW = 'https://api.github.com/repos/simonlloos-prog/kite-app/actions/workflows/deploy.yml/dispatches'
+/** When the workflow was last woken up (ms). Outside data/, which old-runs empties. */
+const LAST_DISPATCH = 'state/last-dispatch'
+
+async function status(env: Env, now = Date.now()) {
+  const meta = await env.DATA.get('data/meta.json')
+  const pub: Published | null = meta ? JSON.parse(await meta.text()) : null
+  // Newest complete AROME run, only among those newer than the published one.
+  let latestArome: string | null = null
+  for (const run of aromeCandidates(now).filter((r) => !pub || r > pub.run)) {
+    const r = await fetch(lastStepUrl(run), { method: 'HEAD' }).catch(() => null)
+    if (r?.ok) {
+      latestArome = run
+      break
+    }
+  }
+  const last = await env.DATA.get(LAST_DISPATCH)
+  const lastDispatch = last ? Number(await last.text()) : null
+  const decision: Decision = decide(pub, latestArome, now, lastDispatch)
+  return { published: pub && { run: pub.run, pi: pub.pi?.run ?? null }, latestArome, lastDispatch: lastDispatch && new Date(lastDispatch).toISOString(), decision }
+}
+
+async function scheduledCheck(env: Env) {
+  const s = await status(env)
+  if (s.decision.dispatch) {
+    const r = await fetch(WORKFLOW, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'kite-obs-worker',
+      },
+      body: JSON.stringify({ ref: 'main', inputs: { scheduled: 'true' } }),
+    })
+    if (r.status === 204) await env.DATA.put(LAST_DISPATCH, String(Date.now()))
+    console.log(`workflow ${r.status === 204 ? 'lancé' : `refusé (HTTP ${r.status})`} : ${s.decision.reason}`)
+  } else {
+    console.log(`pas de lancement : ${s.decision.reason}`)
+  }
 }
 
 const TTL_MS = 2 * 60_000
@@ -62,7 +110,8 @@ export default {
     const url = new URL(req.url)
     if (req.method === 'OPTIONS') return new Response(null, { headers })
     if (url.pathname.startsWith('/data/')) return dataFile(url.pathname.slice('/data/'.length), env)
-    if (url.pathname !== '/obs') return new Response('Kite App : /obs, /data/…', { status: 404, headers })
+    if (url.pathname === '/status') return new Response(JSON.stringify(await status(env), null, 1), { headers: { ...headers, 'Cache-Control': 'no-store' } })
+    if (url.pathname !== '/obs') return new Response('Kite App : /obs, /data/…, /status', { status: 404, headers })
 
     // Concurrent requests share the same round of fetches.
     if (!cached || Date.now() - cached.at > TTL_MS) {
@@ -75,5 +124,9 @@ export default {
     } catch {
       return new Response(JSON.stringify({ error: 'stations indisponibles' }), { status: 502, headers })
     }
+  },
+
+  async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+    ctx.waitUntil(scheduledCheck(env))
   },
 }

@@ -5,6 +5,8 @@ Petit programme hébergé chez Cloudflare (offre gratuite) :
   mémoire. Le code des sources est partagé avec l'app : `src/lib/wind/obsSources.ts`.
 - `GET /data/<clé>` : fichiers de prévision (`meta.json`, heures, AROME-PI) du bucket R2 `kite-data`,
   déposés par le workflow GitHub.
+- Toutes les 5 min (tâche planifiée) : lance le workflow GitHub quand un nouveau run AROME ou AROME-PI
+  est attendu (`check.ts`). `GET /status` montre sa décision du moment sans rien lancer.
 
 ## Développement
 ```
@@ -17,6 +19,7 @@ l'app lit le Worker local si `.env.development.local` contient `VITE_OBS_URL=htt
 ```
 npx wrangler@4.151.2 login                                                   # une fois, ouvre le navigateur
 npx wrangler@4.151.2 secret put METEOFRANCE_API_KEY --config worker/wrangler.toml   # une fois, colle la clé
+npx wrangler@4.151.2 secret put GITHUB_TOKEN --config worker/wrangler.toml         # une fois, jeton GitHub (Actions, kite-app)
 npm run worker:deploy                                                        # à chaque changement du Worker
 ```
 Adresse publique : `https://kite-obs.kite-app.workers.dev`, dans `.env.production` (`VITE_OBS_URL`,

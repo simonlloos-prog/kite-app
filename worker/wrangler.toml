@@ -9,3 +9,7 @@ compatibility_date = "2026-10-01"
 [[r2_buckets]]
 binding = "DATA"
 bucket_name = "kite-data"
+
+# Scheduled check (worker/check.ts): wakes the GitHub workflow up when a new run is due.
+[triggers]
+crons = ["*/5 * * * *"]
