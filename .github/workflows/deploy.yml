@@ -61,9 +61,20 @@ jobs:
         run: |
           # Runs currently online, to reuse AROME and to tell whether anything changed.
           runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), (m.get('pi') or {}).get('run'))"; }
-          published=$(curl -sf "$DATA_URL/meta.json" | runs || echo "none")
+          curl -sf "$DATA_URL/meta.json" -o published.json || echo '{}' > published.json
+          published=$(runs < published.json || echo "none")
           python pipeline/fetch_arome.py --out public/data --reuse-from "$DATA_URL" --meta-only
           python pipeline/fetch_aromepi.py --out public/data
+          # AROME-PI failed (API down): keep the one already published, its file is still in R2,
+          # rather than drop the gust trend until the API is back.
+          python - <<'EOF'
+          import json
+          meta, pub = (json.load(open(p)) for p in ("public/data/meta.json", "published.json"))
+          if "pi" not in meta and pub.get("pi") and pub.get("grid") == meta.get("grid"):
+              meta["pi"] = pub["pi"]
+              json.dump(meta, open("public/data/meta.json", "w"), indent=1)
+              print(f"AROME-PI unavailable: kept the published run {pub['pi']['run']}")
+          EOF
           python pipeline/fetch_tide.py --out public/data
           python pipeline/fetch_obs.py --out public/data
           fresh=$(runs < public/data/meta.json)
