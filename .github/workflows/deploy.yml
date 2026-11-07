@@ -1,12 +1,15 @@
-# Fetch the latest AROME 0.01° run and AROME-PI gusts, build the app and publish it on GitHub Pages.
-# Runs on every push and every 15 min, at odd minutes: GitHub delays or drops scheduled runs when
-# busy, worst on the hour (a single hourly slot once gave 3 runs in 18 h). AROME runs every 3 h:
-# an unchanged run is copied from the published site instead of downloaded again. AROME-PI runs
-# every hour. On the schedule, nothing is published when neither run changed. Live station
-# readings come from the Cloudflare Worker (worker/); meta.json only keeps a fallback copy,
-# refreshed whenever the site is published.
-# GitHub's schedule alone gave only 3 to 4 runs a day (Nov. 2026): an external cron (cron-job.org)
-# calls workflow_dispatch with scheduled=true every 15 min, which behaves like the schedule.
+# Two jobs, so that new data never means rebuilding the app:
+# - data: fetch the latest AROME 0.01° run, AROME-PI gusts, tide and a fallback copy of the
+#   station readings, and upload them to Cloudflare R2 (bucket kite-data), which the Worker
+#   (worker/) serves to the app at /data/. No build, no deployment.
+# - app: build the app and publish it on GitHub Pages, only when the code changes (push) or on
+#   a manual run.
+# AROME runs every 3 h and AROME-PI every hour: an unchanged AROME run is left in R2 (only
+# meta.json is rewritten). On the schedule, nothing is uploaded when neither run changed. Live
+# station readings come from the Worker; meta.json only keeps a fallback copy.
+# Triggers: an external cron (cron-job.org) calls workflow_dispatch with scheduled=true every
+# 15 min, since GitHub's own schedule (kept as a backup, at odd minutes) gave only 3 to 4 runs a
+# day (Nov. 2026).
 name: Données AROME + déploiement
 
 on:
@@ -17,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       scheduled:
-        description: "Comme le planning : ne rien publier si AROME et AROME-PI n'ont pas changé"
+        description: "Comme le planning : ne rien déposer si AROME et AROME-PI n'ont pas changé, ne pas redéployer l'appli"
         type: boolean
         default: false
 
@@ -26,15 +29,19 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
+env:
+  # Public addresses, not secrets: the Worker serving R2, and the R2 S3 endpoint of the account.
+  DATA_URL: https://kite-obs.kite-app.workers.dev/data
+  R2_ENDPOINT: https://c26d5962672f2b3456ca1d5d574e4147.r2.cloudflarestorage.com
+  R2_BUCKET: kite-data
 
 jobs:
-  build:
+  data:
     runs-on: ubuntu-latest
-    outputs:
-      skipped: ${{ steps.data.outputs.skipped }}
+    # One upload at a time: meta.json must never point at files of a run still being written.
+    concurrency:
+      group: data
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -46,16 +53,15 @@ jobs:
 
       - run: pip install -r pipeline/requirements.txt
 
-      - name: Données AROME + AROME-PI + stations
+      - name: Données AROME + AROME-PI + marée + stations
         id: data
         env:
-          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
         run: |
           # Runs currently online, to reuse AROME and to tell whether anything changed.
           runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), (m.get('pi') or {}).get('run'))"; }
-          published=$(curl -sf "$PAGES_URL/data/meta.json" | runs || echo "none")
-          python pipeline/fetch_arome.py --out public/data --reuse-from "$PAGES_URL/data"
+          published=$(curl -sf "$DATA_URL/meta.json" | runs || echo "none")
+          python pipeline/fetch_arome.py --out public/data --reuse-from "$DATA_URL" --meta-only
           python pipeline/fetch_aromepi.py --out public/data
           python pipeline/fetch_tide.py --out public/data
           python pipeline/fetch_obs.py --out public/data
@@ -68,14 +74,53 @@ jobs:
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - name: Dépôt dans R2
         if: steps.data.outputs.skipped == 'false'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 rejects some checksums recent AWS CLI versions send by default.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" --only-show-errors "$@"; }
+          # Hour and AROME-PI files, gzipped (~5x smaller): their names carry the run, so they
+          # never change. Only new ones are here: a reused AROME run stays in R2 as it is.
+          mkdir -p upload
+          (cd public/data && find . -name '*.bin') | while read -r f; do
+            mkdir -p "upload/$(dirname "$f")"
+            gzip -9 -c "public/data/$f" > "upload/$f"
+          done
+          echo "$(find upload -name '*.bin' | wc -l) fichiers à déposer"
+          s3 cp upload "s3://$R2_BUCKET/data" --recursive \
+            --content-encoding gzip --content-type application/octet-stream \
+            --cache-control "public, max-age=31536000, immutable"
+          # meta.json last: it points at the files above, which must be there first.
+          s3 cp public/data/meta.json "s3://$R2_BUCKET/data/meta.json" \
+            --content-type "application/json; charset=utf-8" --cache-control no-cache
+
+  app:
+    # Code changes and manual runs only: data runs never rebuild the app. After the data job,
+    # so that a new app never reads an R2 that does not have what it expects yet.
+    needs: data
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.scheduled != true)) }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
       - name: Build
-        if: steps.data.outputs.skipped == 'false'
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
         run: |
@@ -84,17 +129,8 @@ jobs:
           npm run build
 
       - uses: actions/upload-pages-artifact@v3
-        if: steps.data.outputs.skipped == 'false'
         with:
           path: dist
 
-  deploy:
-    needs: build
-    if: needs.build.outputs.skipped == 'false'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v4

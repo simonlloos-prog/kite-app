@@ -126,11 +126,12 @@ def data_folder(run: str, grid: dict) -> str:
     return f"{run.replace(':', '')}_{fingerprint}"
 
 
-def reuse_published(base: str, run: str, grid: dict, out: Path) -> bool:
-    """Copy the published hour files when they are already this run on this grid.
+def reuse_published(base: str, run: str, grid: dict, out: Path, copy_files: bool = True) -> bool:
+    """Reuse the published data when it is already this run on this grid.
 
     AROME runs every 3 h but AROME-PI every hour: this keeps the hourly update to a few MB
-    instead of 1.2 GB of GRIB files.
+    instead of 1.2 GB of GRIB files. Without copy_files, only meta.json is written: the hour
+    files stay where they are published (R2) and are not uploaded again.
     """
     try:
         with urllib.request.urlopen(f"{base}/meta.json", timeout=30) as r:
@@ -140,13 +141,13 @@ def reuse_published(base: str, run: str, grid: dict, out: Path) -> bool:
     folder = data_folder(run, grid)
     if meta.get("run") != run or meta.get("grid") != grid or not all(f.startswith(f"{folder}/") for f in meta["files"]):
         return False
-    for name in meta["files"]:
+    for name in meta["files"] if copy_files else ():
         dest = out / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         download(f"{base}/{name}", dest)
     meta.pop("pi", None)  # Rebuilt by fetch_aromepi.py.
     (out / "meta.json").write_text(json.dumps(meta, indent=1))
-    print(f"run {run} already published: reused {len(meta['files'])} hour files")
+    print(f"run {run} already published: reused {len(meta['files'])} hour files{'' if copy_files else ' (left in place)'}")
     return True
 
 
@@ -160,6 +161,11 @@ def main() -> None:
         help="published data URL (…/data): when it already holds the latest run on the same grid, "
         "copy it instead of downloading the GRIB files again",
     )
+    p.add_argument(
+        "--meta-only",
+        action="store_true",
+        help="with --reuse-from: write meta.json only, the hour files are already published",
+    )
     args = p.parse_args()
 
     run = args.run or latest_run(args.max_step)
@@ -167,7 +173,7 @@ def main() -> None:
     rows = round((BOX["north"] - BOX["south"]) / STEP) + 1
     cols = round((BOX["east"] - BOX["west"]) / STEP) + 1
     grid = {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols}
-    if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out):
+    if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out, copy_files=not args.meta_only):
         return
     run_dir = args.out / data_folder(run, grid)
     run_dir.mkdir(parents=True, exist_ok=True)

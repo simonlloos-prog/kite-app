@@ -1,4 +1,11 @@
-# Cloudflare Worker for the live station readings: see worker/index.ts and worker/README.md.
+# Cloudflare Worker serving the app's data (live station readings, forecast files from R2):
+# see worker/index.ts and worker/README.md.
 name = "kite-obs"
 main = "index.ts"
 compatibility_date = "2026-10-01"
+
+# Forecast files written by the GitHub workflow (pipeline/), served at /data/<key>.
+# Objects older than 3 days are deleted by a lifecycle rule on the bucket (old-runs).
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "kite-data"

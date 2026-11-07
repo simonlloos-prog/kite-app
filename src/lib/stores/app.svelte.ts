@@ -19,7 +19,8 @@ export interface Picked extends LatLon {
   obs?: Obs
 }
 
-const DATA_URL = `${import.meta.env.BASE_URL}data/`
+/** Forecast files: R2 through the Worker in production (VITE_DATA_URL), public/data in development. */
+const DATA_URL: string = import.meta.env.VITE_DATA_URL ?? `${import.meta.env.BASE_URL}data/`
 /** Live station readings (Cloudflare Worker, worker/index.ts); unset: meta.json's copy only. */
 const OBS_URL: string | undefined = import.meta.env.VITE_OBS_URL
 const PREFS_KEY = 'kite-prefs'
