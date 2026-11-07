@@ -19,6 +19,7 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
 - **Données AROME 0,01°**, le même modèle que l'« AROME 1.3 km » de Meteociel. Les fichiers GRIB open data de Météo-France sont préparés par un serveur (GitHub Actions) plutôt qu'appelés depuis le téléphone : il y a assez de points pour la pleine résolution, sans quota ni clé côté app. L'utilisateur accepte quelques minutes de préparation par run, puisque Meteociel n'est pas plus frais.
 - **Fraîcheur** : un run AROME toutes les 3 h, publié 3 à 4 h après. La légende affiche le run en heure de Paris (« run dim. 16 h » = 15 UTC). Au-delà de 8 h après l'heure du run, au moins un run plus récent manque : la légende ajoute « en retard (N h) » en orange (`staleHours`).
 - **AROME-PI** (run horaire, environ 1 h de retard) ne donne que des **rafales** via l'API, pas de vent moyen : il n'est pas dessiné. Il sert d'**indicateur de tendance** : pour chaque spot, un badge « PI ↑ +3 / ↓ −2 / = » donne l'écart moyen des rafales AROME-PI − AROME sur les heures communes (+1 à +6 h), avec un seuil de 1,5 kn. Le badge **ne dépend pas de l'heure choisie**. Le point touché affiche aussi « raf. 18 (PI 18) ».
+- **Vent mesuré** (stations Météo-France, API DPObs) : Cap Ferret, Cazaux, Biscarrosse, Vendays-Montalivet, Royan et Capbreton, dernier relevé de 6 min (environ 10 min de retard). Les autres stations de la zone sont dans les terres, ou sans anémomètre (Lacanau, Soorts-Hossegor). Les rafales sont rarement fournies. Sur la carte : un disque blanc cerclé avec la valeur, et une flèche du côté où va le vent (le cercle le distingue des valeurs prévues). Toucher une station ajoute une ligne « Mesuré : 3 kn E à 16 h 36 » au module de temps. Dans la liste, un spot affiche la station la plus proche à moins de 10 km (`nearestObs` ; La Hume est à 11 km du Cap Ferret, de l'autre côté du Bassin). **Seulement à l'heure actuelle**, et un relevé de plus de 75 min est ignoré (`freshObs`). L'app relit `meta.json` toutes les 10 min tant qu'elle est ouverte. Crédit « Stations : Météo-France » dans ⓘ.
 - **Marée du Bassin** : le Bassin d'Arcachon montre **ce qui découvre à l'heure choisie** (bancs et crassats en **sable hachuré**, chenaux en couleur ; une ligne « à sec dans le Bassin (marée) » dans la légende le dit. Un gris uni se lisait comme une couleur de vent de plus), et l'état de la marée s'affiche sous l'heure (« marée basse ↓ », « mi-marée ↑ »…). La hauteur d'eau vient d'Open-Meteo Marine (sans clé, CC BY 4.0), au large du Cap Ferret, **moins la moyenne de la série** : c'est le niveau au-dessus du niveau moyen (NM), quel que soit le zéro du modèle. Le relief vient du Shom (MNT HOMONIM 20 m, référence NM, Licence Ouverte). Une case est sèche quand le sol est au-dessus de l'eau (`isobands` au niveau d'eau, mémorisé au centimètre). Comparaison avec l'annuaire d'Eyrac (2 nov. 2026, coef. 47) : marnage juste (~2,3 m), heures en avance de 0 à 1 h. Le grisé est limité au Bassin à l'est d'une ligne Bélisaire – Jetée Thiers (les passes et Les Arbousiers se naviguent à marée basse). « Marée basse / mi-marée / haute » = place de l'heure entre basse mer (0) et pleine mer (1) sur ±6 h (`tideByTime`, seuil `LOW_TIDE` = 1/3). Crédits Open-Meteo et Shom dans ⓘ.
 - **Unités** : tout est calculé en **nœuds**. Le bouton kn ↔ km/h ne convertit que l'affichage (`fmtSpeed`) ; Meteociel affiche en km/h. Le choix est mémorisé (`localStorage`, `kite-prefs`).
 - **Direction** : on parle d'où vient le vent (convention météo), et les flèches pointent là où il va.
@@ -44,14 +45,18 @@ Météo-France open data ──► pipeline/fetch_arome.py ───┐
 API Météo-France ─────────► pipeline/fetch_aromepi.py ┘   meta.json + <run>_<grille>/hNN.bin + pi-<run>_<grille>.bin
 (WCS AROME-PI, clé)        (GitHub Actions, chaque heure)
 Open-Meteo Marine ────────► pipeline/fetch_tide.py ─── (marée du Bassin, dans meta.json)
+API Météo-France ─────────► pipeline/fetch_obs.py ──── (vent mesuré aux stations, dans meta.json)
+(DPObs, même clé)
 ```
 - **Source AROME** : `https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/<run>/arome/001/SP1/arome__001__SP1__<NN>H__<run>.grib2`. C'est le jeu de données data.gouv « Paquets Arome - Résolution 0,01° », en Licence Ouverte 2.0, sans clé. Il y a 52 échéances (0 à 51 h), environ 23 Mo par fichier. On utilise `10u`, `10v` et `max_10efg`/`max_10nfg` (rafale max de l'heure écoulée, absente à l'échéance 0).
 - **Pipeline AROME** (Python, `eccodes` + `numpy`) : il prend le dernier run complet, découpe `BOX` (231 × 141 points) et écrit un fichier binaire par heure (~98 Ko, ~5 Mo par run). Le format, documenté en tête de `fetch_arome.py`, est `int8` u, `int8` v, `uint8` rafale, 0,5 kn par unité, ligne 0 au sud. **Les noms de fichiers portent une empreinte de la grille** (`data_folder`). Le téléphone garde les fichiers en cache indéfiniment, et republier un run sur une autre grille sous les mêmes noms avait servi d'anciens fichiers (« Fichier AROME inattendu »). L'app recharge aussi depuis le réseau un fichier de taille inattendue (`fetchBin`). Au-delà de ~3 fois la surface actuelle, il faudra découper en tuiles.
 - **Pipeline AROME-PI** (`fetch_aromepi.py`) : `WIND_SPEED_GUST` à 10 m sur toute `BOX`, en 6 requêtes WCS GetCoverage en GRIB. La clé est le secret GitHub `METEOFRANCE_API_KEY`, ou `.env.local` en local (ignoré par git, jamais affiché). Sans clé ou si l'API échoue, AROME-PI est simplement absent.
 - **Pipeline marée** (`fetch_tide.py`) : hauteur horaire au large du Cap Ferret, d'un jour avant le run à un jour après sa dernière heure, ajoutée à `meta.json` (`tide`). Sans réponse, le Bassin n'est jamais grisé.
+- **Pipeline stations** (`fetch_obs.py`) : le dernier relevé de 6 min de chaque station (`STATIONS`), via l'API « Données Publiques Observation » (DPObs v1). **La même clé que pour AROME-PI** : une clé du portail Météo-France contient la liste des API abonnées au moment où elle est générée (c'est un JWT, champ `subscribedAPIs`). Après un nouvel abonnement, il faut regénérer la clé et la remplacer dans `.env.local` et dans le secret GitHub. Ajouté à `meta.json` (`obs`). Une station sans vent ou en erreur est simplement absente.
 - **Contour du Bassin** (`src/lib/map/bassin.json`, 25 Ko) : généré une fois par `node pipeline/bassin_water.mjs`, qui découpe l'eau des tuiles OpenFreeMap avec un masque dessiné à la main (milieu de la presqu'île du Cap Ferret, et au sud une ligne Bélisaire – Jetée Thiers). Il utilise `polygon-clipping` (dépendance de dev, seulement pour ce script).
 - **Relief du Bassin** (`src/lib/map/bassin-depth.bin` + `.json`, 190 Ko, mis en cache hors ligne) : généré une fois par `node pipeline/bassin_depth.mjs <fichier .asc>` depuis le MNT Shom HOMONIM « NM » (archive 7z de 41 Mo sur data.gouv.fr, non versionnée). Pas de ~40 m, `int8` en décimètres au-dessus du NM, ligne 0 au sud, −128 hors du contour du Bassin.
-- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push, par un réveil externe (`workflow_dispatch` avec `scheduled: true`, voir « À faire ») et tous les quarts d'heure, à des minutes décalées (`:07`, `:22`, `:37`, `:52`). GitHub retarde ou saute les tâches planifiées quand il est chargé, surtout à l'heure pile : avec un seul passage par heure, il n'y a eu que 3 lancements en 18 h et le site est resté bloqué sur un vieux run. Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME ni AROME-PI n'ont changé. Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
+- **Workflow** `.github/workflows/deploy.yml` : il se lance à chaque push, par un réveil externe tous les quarts d'heure (cron-job.org, voir plus bas) et par le planning GitHub, à des minutes décalées (`:07`, `:22`, `:37`, `:52`). GitHub retarde ou saute les tâches planifiées quand il est chargé, surtout à l'heure pile : avec un seul passage par heure, il n'y a eu que 3 lancements en 18 h et le site est resté bloqué sur un vieux run. Si le run AROME n'a pas changé, il recopie les fichiers déjà publiés (`--reuse-from`) au lieu de retélécharger 1,2 Go. En mode planifié, il ne republie rien si ni AROME, ni AROME-PI, ni le dernier relevé des stations n'ont changé (en pratique, les stations le font republier à chaque quart d'heure, ~1 min). Un nouveau run prend environ 4 min, une mise à jour AROME-PI seule environ 1 min.
+- **Réveil externe** (en place depuis le 7 nov. 2026) : le planning GitHub ne donnait que 3 à 4 passages par jour malgré le cron au quart d'heure. Une tâche cron-job.org (compte de l'utilisateur) fait tous les quarts d'heure `POST https://api.github.com/repos/simonlloos-prog/kite-app/actions/workflows/deploy.yml/dispatches` avec `{"ref":"main","inputs":{"scheduled":"true"}}`, avec un jeton GitHub *fine-grained* limité à `kite-app` (Actions : lecture et écriture). Quand le jeton expire, les lancements s'arrêtent et la légende passe « en retard ». Le planning GitHub reste en secours. Les runs AROME complets arrivent à heure fixe (heure d'hiver, Paris) : 3 h 44, 6 h 38, 12 h 00, 14 h 11, 16 h 54, 19 h 50, 0 h 00, 2 h 09 (runs de 7 h et 19 h plus lents).
 - **App** : elle lit `data/meta.json` (NetworkFirst), puis l'heure affichée, puis les autres (CacheFirst). Aucun appel API côté client.
 
 ## Stack (décisions figées)
@@ -64,7 +69,7 @@ Open-Meteo Marine ────────► pipeline/fetch_tide.py ─── (
 ## Commandes
 ```
 npm run dev       # serveur de dev (il faut des données dans public/data, voir `npm run data`)
-npm run data      # pipeline local : AROME 13 heures + AROME-PI + marée (Python + `pip install -r pipeline/requirements.txt`)
+npm run data      # pipeline local : AROME 13 heures + AROME-PI + marée + stations (Python + `pip install -r pipeline/requirements.txt`)
 npm run build     # build prod + service worker (BASE_PATH=/kite-app/ pour GitHub Pages)
 npm run preview   # sert le build (tester la PWA / le hors-ligne)
 npm test          # vitest
@@ -75,7 +80,7 @@ npm run dev:phone # serveur accessible depuis le téléphone sur le Wi-Fi local 
 
 ## Arborescence
 ```
-pipeline/                  fetch_arome.py (GRIB → binaire), fetch_aromepi.py (rafales AROME-PI), fetch_tide.py (marée),
+pipeline/                  fetch_arome.py (GRIB → binaire), fetch_aromepi.py (rafales AROME-PI), fetch_tide.py (marée), fetch_obs.py (stations),
                            bassin_water.mjs (contour du Bassin), bassin_depth.mjs (relief du Bassin), requirements.txt
 .github/workflows/         deploy.yml (données + build + GitHub Pages, chaque heure)
 src/
@@ -86,7 +91,7 @@ src/
     time/                  TimeDial (module flottant : heure, gestes, frise, point touché)
     sheet/                 SpotsSheet (fermé / half / full), SpotList, PiBadge
     wind/                  arome.ts (format, décodage, vent en un point), field.ts (valeurs, interpolation, isobandes,
-                           lignes de vent, grille de valeurs), pi.ts (AROME-PI), units.ts, time.ts, tide.ts (marée), windColor.ts (paliers)
+                           lignes de vent, grille de valeurs), pi.ts (AROME-PI), obs.ts (vent mesuré), units.ts, time.ts, tide.ts (marée), windColor.ts (paliers)
     spots/                 spots.ts (spots, orientations, niveau, restrictions), rating.ts (note)
     stores/app.svelte.ts   état global (run, heures, AROME-PI, heure choisie, point touché, couches, vue, préférences)
     pwa.ts                 enregistrement du service worker, vérification des mises à jour
@@ -139,12 +144,15 @@ src/
 - Point de mesure manquant : Taussat. Bonne Anse a son point sur sa position.
 - Orientations devinées à confirmer : Soulac (absent de windspot.fr).
 
-**Mises à jour fiables : réveil externe à mettre en place**
-- Le planning de GitHub ne donne que 3 à 4 passages par jour (relevé du 3 au 7 nov. 2026), le site a 5 à 8 h de retard. Le workflow accepte `workflow_dispatch` avec `scheduled: true`, qui se comporte comme le planning.
-- À faire par l'utilisateur : un jeton GitHub *fine-grained* limité à `kite-app` (permission Actions : lecture et écriture), et une tâche cron-job.org tous les quarts d'heure qui fait `POST https://api.github.com/repos/simonlloos-prog/kite-app/actions/workflows/deploy.yml/dispatches` avec `{"ref":"main","inputs":{"scheduled":"true"}}` (réponse 204). Le planning GitHub reste en secours.
+**Balises de vent en direct (demandes en cours)**
+- Holfuy : la clé API se demande au propriétaire de chaque balise (Holfuy ne répond pas aux tiers). Demandes envoyées : CVA (1995), La Jenny (1317, pour Le Porge), APCK pour Les Arbousiers (1383) et La Hume (1491). Accès : `api.holfuy.com/live/`.
+- Andernos (Weameter, 44,744 N 1,102 O, près du Betey) : fichier JSON ouvert sans clé (`weameter.com/stations/andernos/windrtv2.json`, en nœuds, mis à jour toutes les 3 s). Accord du propriétaire à demander avant de l'afficher.
+- Pyla : balise FFVL 64 (balisemeteo.com) ; l'API FFVL demande une clé à la fédération. Les balises FFVL de Gironde sont en maintenance.
+- Rien à prendre : OpenWindMap / Pioupiou (aucune balise sur nos spots), Winds-Up et Windguru (pas d'API publique).
+- Elles s'ajouteront à `meta.json` comme les stations (`obs`), par un script de plus dans le workflow.
 
 **Idées évoquées, non décidées**
-- Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), balises de vent en direct (Holfuy), spots manquants (Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
+- Reprendre d'autres infos de windspot.fr (en reformulant et en citant la source, l'app est publique) : niveaux kite et wing séparés, plan d'eau et courant, règlements saisonniers à l'heure près (Arbousiers : kite seulement avant 12 h et après 19 h en juillet-août), spots manquants (Lacanau Port). Les Arbousiers sont recommandés à marée basse (plat) : un bonus possible.
 - Restrictions saisonnières (griser un spot « Interdit l'été » en été).
 - Dessiner AROME-PI sur la carte si Météo-France publie un jour son vent moyen.
 

@@ -2,6 +2,7 @@
   import { windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { tideLabel } from '../wind/tide'
+  import { obsClock } from '../wind/obs'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -14,7 +15,13 @@
   const idx = $derived(app.timeIndex)
   const picked = $derived(
     app.picked
-      ? { name: app.picked.name, w: app.windAt(windPointOf(app.picked)), piGust: app.piGustAt(windPointOf(app.picked)) }
+      ? {
+          name: app.picked.name,
+          w: app.windAt(windPointOf(app.picked)),
+          piGust: app.piGustAt(windPointOf(app.picked)),
+          // A station's measurement, while it is fresh and the current hour is shown.
+          obs: app.picked.obs && app.obs.find((o) => o.id === app.picked!.obs!.id),
+        }
       : null,
   )
 
@@ -158,6 +165,17 @@
     {/if}
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
+  {#if picked?.obs}
+    <!-- Own line: the forecast line above is already full on a phone. -->
+    <div class="measured">
+      Mesuré : <b>{fmtSpeed(picked.obs.speed, app.unit)}</b>{#if picked.obs.gust != null}&nbsp;raf. {fmtSpeed(
+          picked.obs.gust,
+          app.unit,
+        )}{/if}
+      {UNIT_LABEL[app.unit]}
+      {sector(picked.obs.dir)} à {obsClock(picked.obs.time)} · Météo-France
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -279,6 +297,10 @@
   }
   .error {
     color: #ef4444;
+  }
+  .measured {
+    padding: 2px 6px 0;
+    font-size: 13px;
   }
   .pi {
     color: var(--muted);

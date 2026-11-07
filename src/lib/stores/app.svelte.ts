@@ -1,6 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl'
 import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
 import { checkForUpdate } from '../pwa'
+import { freshObs, type Obs } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
@@ -14,6 +15,8 @@ export interface Picked extends LatLon {
   name?: string
   /** A spot's wind point, out on the water. */
   windPoint?: LatLon
+  /** A Météo-France station: its measured wind. */
+  obs?: Obs
 }
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`
@@ -71,6 +74,9 @@ class AppState {
   /** Hidden screen diagnostics (long press on ⟳). */
   showDiagnostics = $state(false)
 
+  /** Station records from meta.json, fresh or not. */
+  private allObs = $state.raw<Obs[]>([])
+
   /** Plain properties: the map instance and the decoded arrays must never be proxied. */
   map: MlMap | null = null
   private hours = new Map<string, Hour>()
@@ -111,6 +117,12 @@ class AppState {
   get tide(): Tide | null {
     void this.dataVersion
     return this.tides.get(this.selectedTime) ?? null
+  }
+
+  /** Measured wind, only on the current hour: a measurement says nothing about later. */
+  get obs(): Obs[] {
+    void this.dataVersion
+    return this.timeIndex === 0 ? freshObs(this.allObs) : []
   }
 
   windAt(p: LatLon): WindAt | null {
@@ -163,6 +175,7 @@ class AppState {
     if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
     const tides = meta.tide ? tideByTime(meta.tide) : new Map<string, Tide>()
     this.tides = new Map([...tides].map(([t, tide]) => [parisHourKey(new Date(t)), tide]))
+    this.allObs = meta.obs ?? []
     this.dataVersion++
     // File names carry the run and a grid fingerprint: same first file, same data.
     if (meta.files[0] === this.meta?.files[0]) return
@@ -226,6 +239,8 @@ export const app = new AppState()
 // Dev only: inspect and drive the app from the browser console.
 if (import.meta.env.DEV) Object.assign(window, { app })
 
+// Station records change every 6 min and are republished every 15 min: pick them up while open.
+setInterval(() => document.visibilityState === 'visible' && app.loadData(), 10 * 60_000)
 addEventListener('online', () => (app.online = true))
 addEventListener('offline', () => (app.online = false))
 // Back to the app after a while: pick up a newer app version and a newer run if there is one.

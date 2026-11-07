@@ -1,4 +1,5 @@
 /** Data written by pipeline/fetch_arome.py: one meta file and one binary file per forecast hour. */
+import type { Obs } from './obs'
 import type { TideSeries } from './tide'
 
 export interface LatLon {
@@ -37,6 +38,8 @@ export interface Meta {
   }
   /** Sea level at the Bassin inlet, when the pipeline could fetch it (see pipeline/fetch_tide.py). */
   tide?: TideSeries
+  /** Latest wind at Météo-France stations, when the pipeline could fetch it (see pipeline/fetch_obs.py). */
+  obs?: Obs[]
 }
 
 /** One forecast hour over the grid, in knots. Index = row * cols + col. */

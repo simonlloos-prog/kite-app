@@ -12,6 +12,7 @@
     setBandsData,
     setLayerVisibility,
     setLinesData,
+    setObsData,
     setPickedData,
     setSpotsData,
     setTideData,
@@ -58,7 +59,11 @@
     map.on('click', (e) => {
       const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
       const s = spot && SPOTS.find((s) => s.id === spot.properties.id)
-      if (s) {
+      const station = map.queryRenderedFeatures(e.point, { layers: ['obs-circle'] })[0]
+      const o = station && app.obs.find((o) => o.id === station.properties.id)
+      if (o) {
+        app.picked = { lat: o.lat, lon: o.lon, name: `station ${o.name}`, obs: o }
+      } else if (s) {
         app.picked = { lat: s.lat, lon: s.lon, name: s.name, windPoint: s.windPoint }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
@@ -104,6 +109,11 @@
   $effect(() => {
     const { tide } = app
     if (ready) setTideData(app.map!, tide)
+  })
+
+  $effect(() => {
+    const { obs, unit } = app
+    if (ready) setObsData(app.map!, obs, unit)
   })
 
   $effect(() => {

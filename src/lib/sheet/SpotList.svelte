@@ -2,6 +2,7 @@
   import { rateSpot } from '../spots/rating'
   import { SPOTS, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
+  import { nearestObs, obsClock } from '../wind/obs'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -10,7 +11,13 @@
   const rows = $derived(
     SPOTS.map((spot) => {
       const w = app.windAt(windPointOf(spot))
-      return { spot, w, rating: rateSpot(spot, w, app.tide), trend: app.gustTrendAt(windPointOf(spot)) }
+      return {
+        spot,
+        w,
+        rating: rateSpot(spot, w, app.tide),
+        trend: app.gustTrendAt(windPointOf(spot)),
+        obs: nearestObs(windPointOf(spot), app.obs),
+      }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
   )
   const piHour = $derived(
@@ -29,7 +36,7 @@
     </p>
   {/if}
   <ul>
-    {#each rows as { spot, w, rating, trend } (spot.id)}
+    {#each rows as { spot, w, rating, trend, obs } (spot.id)}
       <li>
         <button type="button" onclick={() => app.flyTo(spot)}>
           <span class="dot" style:background={rating.color}></span>
@@ -39,6 +46,12 @@
               {rating.label}
               {#if trend}<PiBadge {trend} />{/if}
             </small>
+            {#if obs}
+              <small class="measured">
+                mesuré {fmtSpeed(obs.speed, app.unit)}{obs.gust != null ? ` raf. ${fmtSpeed(obs.gust, app.unit)}` : ''}
+                {sector(obs.dir)} · station {obs.name}, {obsClock(obs.time)}
+              </small>
+            {/if}
             <small class="meta">
               {spot.level}{spot.tide ? ` · PM ±${spot.tide} h` : ''}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>
@@ -104,6 +117,10 @@
     gap: 6px;
     color: var(--muted);
     font-size: 12px;
+  }
+  .measured {
+    display: block;
+    color: var(--text);
   }
   .meta {
     display: block;
