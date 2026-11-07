@@ -226,9 +226,17 @@
     font-size: 10px;
     font-weight: 600;
   }
+  /* Off the current hour: the same fan, grey, smaller, still and without its arrow, so it reads
+     as switched off (the user's idea). */
   .map :global(.obs-marker.dim) {
     filter: grayscale(1);
     opacity: 0.6;
+  }
+  .map :global(.obs-marker.dim .obs-fan) {
+    transform: scale(0.7);
+  }
+  .map :global(.obs-marker.dim .obs-dir) {
+    display: none;
   }
   @keyframes -global-obs-spin {
     to {
