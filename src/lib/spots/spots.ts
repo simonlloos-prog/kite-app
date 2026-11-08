@@ -43,7 +43,7 @@ export const SPOTS: Spot[] = [
   { id: 'bonne-anse', name: 'Bonne Anse', area: 'Estuaire', lat: 45.687, lon: -1.211109, good: ['S', 'SO', 'O'], ok: ['SE', 'NO'], offshore: ['N', 'NE', 'E'], level: 'Débutant' },
   { id: 'chambrette', name: 'La Chambrette', area: 'Estuaire', lat: 45.55004, lon: -1.057843, windPoint: { lat: 45.549691, lon: -1.051608 }, good: ['N', 'NE', 'E', 'SE'], ok: ['NO'], offshore: ['S', 'SO', 'O'], level: 'Confirmé' },
   // Ocean, Médoc: not in the table, orientations copied from the ocean beaches below.
-  { id: 'soulac', name: 'Soulac', area: 'Océan nord', lat: 45.516681, lon: -1.127357, windPoint: { lat: 45.51889, lon: -1.133818 }, good: ['N', 'NO', 'SO'], ok: ['O'], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Orientations à vérifier' },
+  { id: 'soulac', name: 'Soulac', area: 'Océan nord', lat: 45.516681, lon: -1.127357, windPoint: { lat: 45.51889, lon: -1.133818 }, good: ['N', 'NO', 'SO', 'O'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert' },
   // Lac d'Hourtin
   { id: 'hourtin-port', name: 'Hourtin Port', area: "Lac d'Hourtin", lat: 45.17877, lon: -1.085813, windPoint: { lat: 45.177984, lon: -1.087369 }, good: ['S', 'SO', 'O', 'NO'], ok: ['N', 'SE'], offshore: ['NE', 'E'], level: 'Débutant' },
   { id: 'lachanau', name: 'Lachanau', area: "Lac d'Hourtin", lat: 45.165521, lon: -1.078767, windPoint: { lat: 45.164417, lon: -1.083483 }, good: ['S', 'SO', 'O', 'NO'], ok: ['N', 'SE'], offshore: ['NE', 'E'], level: 'Confirmé' },
@@ -60,15 +60,15 @@ export const SPOTS: Spot[] = [
   { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, windPoint: { lat: 44.754918, lon: -1.135271 }, good: ['S', 'SO', 'O', 'NO'], ok: ['SE'], offshore: ['N', 'NE', 'E'], level: 'Confirmé', tide: 3 },
   { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, windPoint: { lat: 44.732001, lon: -1.093669 }, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 3, note: "Interdit l'été" },
   // Not in the table: orientations from windspot.fr.
-  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 3 },
+  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, windPoint: { lat: 44.718048, lon: -1.073054 }, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 3 },
   { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, windPoint: { lat: 44.647832, lon: -1.113052 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: [], offshore: ['SE', 'S', 'SO'], level: 'Débutant', tide: 3, note: 'Période de chasse' },
   // Not in the table: orientations from windspot.fr, sailable at any tide.
   { id: 'cva', name: 'Cercle Voile Arcachon', area: "Bassin d'Arcachon", lat: 44.660221, lon: -1.143146, windPoint: { lat: 44.661006, lon: -1.142008 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: ['SE'], offshore: ['S', 'SO'], level: 'Confirmé', note: "Déconseillé l'été (baigneurs)" },
   { id: 'arbousiers', name: 'Les Arbousiers', area: "Bassin d'Arcachon", lat: 44.64641, lon: -1.200347, windPoint: { lat: 44.647148, lon: -1.200423 }, good: ['N', 'SO', 'O', 'NO'], ok: ['NE', 'S'], offshore: ['E', 'SE'], level: 'Confirmé', note: "Inaccessible l'été" },
   // Ocean, south of the Bassin
   { id: 'lagune-sud', name: 'La Lagune Sud', area: 'Océan sud', lat: 44.548778, lon: -1.249725, windPoint: { lat: 44.549675, lon: -1.250783 }, good: ['N', 'NO', 'O', 'SO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Réserve naturelle' },
-  { id: 'la-salie', name: 'La Salie', area: 'Océan sud', lat: 44.521294, lon: -1.255038, windPoint: { lat: 44.521359, lon: -1.260705 }, good: ['N', 'NO', 'SO'], ok: ['O'], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert +', note: 'Panneaux Abeilles' },
-  { id: 'biscarrosse', name: 'Biscarrosse', area: 'Océan sud', lat: 44.445565, lon: -1.256221, windPoint: { lat: 44.445491, lon: -1.258682 }, good: ['N', 'NO', 'SO'], ok: ['O'], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
+  { id: 'la-salie', name: 'La Salie', area: 'Océan sud', lat: 44.521294, lon: -1.255038, windPoint: { lat: 44.521359, lon: -1.260705 }, good: ['N', 'NO', 'SO', 'O'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert +', note: 'Panneaux Abeilles' },
+  { id: 'biscarrosse', name: 'Biscarrosse', area: 'Océan sud', lat: 44.445565, lon: -1.256221, windPoint: { lat: 44.445491, lon: -1.258682 }, good: ['N', 'NO', 'SO', 'O'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Lac de Cazaux-Sanguinet and Lac de Biscarrosse
   { id: 'laouga', name: 'Laouga', area: 'Lac de Cazaux', lat: 44.520582, lon: -1.176372, windPoint: { lat: 44.519541, lon: -1.175587 }, good: ['E', 'SE', 'S'], ok: ['NE', 'SO'], offshore: ['N', 'O', 'NO'], level: 'Débutant', note: "Interdit l'été" },
   { id: 'estey', name: "Port de l'Estey", area: 'Lac de Cazaux', lat: 44.482797, lon: -1.103575, windPoint: { lat: 44.483944, lon: -1.103947 }, good: ['N', 'NE', 'O', 'NO'], ok: ['E', 'SO'], offshore: ['SE', 'S'], level: 'Confirmé', note: "Interdit l'été" },

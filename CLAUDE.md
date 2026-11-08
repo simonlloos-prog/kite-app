@@ -27,7 +27,8 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
   - Lacanau Sud et Super Sud sont fusionnés en **Lacanau Océan** ;
   - l'**Aérium** (à la place d'Arès), **Taussat** et **Soulac** sont ajoutés, avec des orientations devinées et marquées « à vérifier » ;
   - le **Cercle Voile Arcachon** (CVA) est ajouté depuis windspot.fr (toute marée, déconseillé l'été à cause des baigneurs) ;
-  - **Les Aigrettes** (lac de Cazaux, « Interdit ») est retiré.
+  - **Les Aigrettes** (lac de Cazaux, « Interdit ») est retiré ;
+  - les orientations de **Soulac** ont été confirmées par l'utilisateur (nov. 2026), et l'Ouest est en bonne direction à Soulac, La Salie et Biscarrosse (dit par l'utilisateur).
 
   Chaque spot a ses directions 🤙 bonnes (`good`), 👍 moyennes (`ok`) et ⚠ **offshore** (`offshore`) sur 8 directions, son niveau et ses restrictions (« Interdit l'été »…). Toutes les positions ont été données par l'utilisateur. **Les orientations viennent de windspot.fr (2026)** pour les 18 spots qu'il décrit (idéal = `good`, navigable = `ok`, offshore), relevées sur sa rose des vents. Elles remplacent celles du tableau de 2018. Lacanau Océan et Le Porge marchent comme Le Grand Crohot (dit par l'utilisateur) et en prennent les orientations. Les autres plages océanes qu'il n'a pas (Soulac, La Lagune, La Salie, Biscarrosse) gardent les directions du tableau et prennent les secteurs offshore du Grand Crohot (NE, E, SE, S), sur la même côte rectiligne.
 - **Note d'un spot** (`spots/rating.ts`) :
@@ -151,10 +152,6 @@ src/
 **Android** : installation et plein écran vérifiés sur un téléphone (nov. 2026).
 
 **Marée** : à revoir sur le terrain avec api-maree.fr (Eyrac, depuis le 7 nov. 2026). Au fond du Bassin (Taussat, Le Betey, l'Aérium), la pleine mer arrive encore plus tard qu'à Eyrac : un décalage par spot serait possible si l'écart se confirme.
-
-**Données des spots à compléter**
-- Point de mesure manquant : Taussat. Bonne Anse a son point sur sa position.
-- Orientations devinées à confirmer : Soulac (absent de windspot.fr).
 
 **Balises de vent en direct**
 - Holfuy : branché sur le fichier des graphiques (voir le pipeline stations). Les propriétaires sont d'accord ; la clé de l'API officielle (`api.holfuy.com/live/`, générée depuis leur compte admin) reste la solution de secours si le fichier change. Le lien `holfuy.com/puget/mjso.php?k=…` ne marche pas : même réponse quel que soit `k`.
