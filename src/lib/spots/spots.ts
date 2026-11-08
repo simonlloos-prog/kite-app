@@ -23,8 +23,9 @@ export interface Spot extends LatLon {
    */
   windPoint?: LatLon
   /**
-   * Kite window around high water, hours either side (windspot.fr): outside it, the spot is too
-   * dry. Absent: no tide, or sailable at any tide.
+   * Kite window around high water, hours either side (windspot.fr gave ±2 h on most of the Bassin,
+   * widened to ±3 h by the user): outside it, the spot is too dry. Absent: no tide, or sailable at
+   * any tide.
    */
   tide?: number
 }
@@ -55,11 +56,11 @@ export const SPOTS: Spot[] = [
   { id: 'le-porge', name: 'Le Porge', area: 'Océan nord', lat: 44.892182, lon: -1.218879, windPoint: { lat: 44.892612, lon: -1.224644 }, good: ['N', 'SO', 'O', 'NO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
   { id: 'grand-crohot', name: 'Le Grand Crohot', area: 'Océan nord', lat: 44.797919, lon: -1.235184, windPoint: { lat: 44.797487, lon: -1.236964 }, good: ['N', 'SO', 'O', 'NO'], ok: [], offshore: ['NE', 'E', 'SE', 'S'], level: 'Expert', note: 'Panneaux Abeilles' },
   // Bassin d'Arcachon
-  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, windPoint: { lat: 44.746823, lon: -1.17116 }, good: ['NE', 'E', 'SE', 'S'], ok: ['SO'], offshore: ['N', 'O', 'NO'], level: 'Confirmé', tide: 2, note: "Interdit l'été" },
-  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, windPoint: { lat: 44.754918, lon: -1.135271 }, good: ['S', 'SO', 'O', 'NO'], ok: ['SE'], offshore: ['N', 'NE', 'E'], level: 'Confirmé', tide: 2 },
-  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, windPoint: { lat: 44.732001, lon: -1.093669 }, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 2, note: "Interdit l'été" },
+  { id: 'claouey', name: 'Claouey - Bertic', area: "Bassin d'Arcachon", lat: 44.747475, lon: -1.172587, windPoint: { lat: 44.746823, lon: -1.17116 }, good: ['NE', 'E', 'SE', 'S'], ok: ['SO'], offshore: ['N', 'O', 'NO'], level: 'Confirmé', tide: 3, note: "Interdit l'été" },
+  { id: 'aerium', name: "L'Aérium", area: "Bassin d'Arcachon", lat: 44.75506, lon: -1.134345, windPoint: { lat: 44.754918, lon: -1.135271 }, good: ['S', 'SO', 'O', 'NO'], ok: ['SE'], offshore: ['N', 'NE', 'E'], level: 'Confirmé', tide: 3 },
+  { id: 'betey', name: 'Le Betey', area: "Bassin d'Arcachon", lat: 44.733467, lon: -1.092514, windPoint: { lat: 44.732001, lon: -1.093669 }, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 3, note: "Interdit l'été" },
   // Not in the table: orientations from windspot.fr.
-  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 2 },
+  { id: 'taussat', name: 'Taussat', area: "Bassin d'Arcachon", lat: 44.716687, lon: -1.071281, good: ['SE', 'S', 'SO', 'O', 'NO'], ok: ['E'], offshore: ['N', 'NE'], level: 'Débutant', tide: 3 },
   { id: 'la-hume', name: 'La Hume', area: "Bassin d'Arcachon", lat: 44.645325, lon: -1.115474, windPoint: { lat: 44.647832, lon: -1.113052 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: [], offshore: ['SE', 'S', 'SO'], level: 'Débutant', tide: 3, note: 'Période de chasse' },
   // Not in the table: orientations from windspot.fr, sailable at any tide.
   { id: 'cva', name: 'Cercle Voile Arcachon', area: "Bassin d'Arcachon", lat: 44.660221, lon: -1.143146, windPoint: { lat: 44.661006, lon: -1.142008 }, good: ['N', 'NE', 'E', 'O', 'NO'], ok: ['SE'], offshore: ['S', 'SO'], level: 'Confirmé', note: "Déconseillé l'été (baigneurs)" },
