@@ -51,6 +51,23 @@ describe('spots', () => {
     expect(rateSpot(spot, { speed: 8, gust: 10, dir: 270 }).label).toBe('Trop faible')
   })
 
+  it('rates a south wind along an ocean beach as side-off, from 180° only', () => {
+    const crohot = SPOTS.find((s) => s.id === 'grand-crohot')!
+    const at = (dir: number, speed = 20) => rateSpot(crohot, { speed, gust: speed + 5, dir })
+    expect(at(179)).toMatchObject({ score: 0, label: 'Offshore ⚠ dangereux' })
+    expect(at(180)).toMatchObject({ score: 1, label: 'Side-off, prudence', color: '#f97316' })
+    expect(at(194).label).toBe('Side-off, prudence')
+    expect(at(195).label).toBe('Bon')
+    expect(at(200).label).toBe('Bon')
+    expect(at(204).label).toBe('Bon')
+    expect(at(190, 8).label).toBe('Trop faible')
+    expect(at(190, 35).label).toBe('Offshore ⚠ dangereux')
+    expect(at(90).label).toBe('Offshore ⚠ dangereux')
+    // Not on the Bassin or the lakes, where the S sector really comes from the shore.
+    const hume = SPOTS.find((s) => s.id === 'la-hume')!
+    expect(rateSpot(hume, { speed: 20, gust: 25, dir: 190 }).label).toBe('Offshore ⚠ dangereux')
+  })
+
   it('takes one notch off for an average direction', () => {
     expect(rateSpot(spot, { speed: 20, gust: 25, dir: 315 })).toMatchObject({ score: 1, label: 'Bon, direction moyenne' })
     expect(rateSpot(spot, { speed: 28, gust: 35, dir: 315 })).toMatchObject({ score: 1, label: 'Fort, direction moyenne' })
