@@ -45,8 +45,20 @@ export function dirQuality(spot: Spot, dir: number): DirQuality {
 export const tooDry = (spot: Spot, tide: Tide | null) =>
   spot.tide !== undefined && tide !== null && Math.abs(tide.fromHigh) > spot.tide
 
-export function rateSpot(spot: Spot, w: WindAt | null, tide: Tide | null = null): Rating {
+/** Whether kiting is banned at a Paris hour key (YYYY-MM-DDTHH:00). */
+export function isBanned(spot: Spot, time: string): boolean {
+  const day = time.slice(5, 10)
+  const hour = Number(time.slice(11, 13))
+  return (spot.ban ?? []).some(({ from, to, hours }) => {
+    const inDates = from <= to ? day >= from && day <= to : day >= from || day <= to
+    return inDates && (!hours || (hour >= hours[0] && hour < hours[1]))
+  })
+}
+
+export function rateSpot(spot: Spot, w: WindAt | null, tide: Tide | null = null, time: string | null = null): Rating {
   if (!w) return NO
+  // Before the wind: banned whatever the conditions.
+  if (time && isBanned(spot, time)) return { ...NO, label: 'Interdit (saison)' }
   // The wind first: a light day stays "too light", whatever the tide.
   const r = rateWind(spot, w)
   return r.score > 0 && tooDry(spot, tide) ? { ...NO, label: 'Marée trop basse' } : r

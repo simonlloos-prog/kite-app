@@ -99,7 +99,8 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
   map.addImage('dry-hatch', dryPattern(), { pixelRatio: 2 })
-  for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'spots', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
+  for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
+  map.addSource('spots', { type: 'geojson', data: empty(), attribution: 'Infos spots : <a href="https://windspot.fr/">WindSpot</a>' })
 
   // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
@@ -277,10 +278,10 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
   ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
 }
 
-export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null) {
+export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null) {
   const fc = empty()
   for (const s of SPOTS) {
-    const r = rateSpot(s, windAt(g, h, windPointOf(s)), tide)
+    const r = rateSpot(s, windAt(g, h, windPointOf(s)), tide, time)
     fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { id: s.id, color: r.color, name: s.name } })
   }
   ;(map.getSource('spots') as GeoJSONSource).setData(fc)

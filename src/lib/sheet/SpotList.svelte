@@ -14,7 +14,7 @@
       return {
         spot,
         w,
-        rating: rateSpot(spot, w, app.tide),
+        rating: rateSpot(spot, w, app.tide, app.selectedTime),
         trend: app.gustTrendAt(windPointOf(spot)),
         obs: app.obsLive ? nearestObs(windPointOf(spot), app.obs) : null,
       }
@@ -55,6 +55,7 @@
             <small class="meta">
               {spot.level}{spot.tide ? ` · PM ±${spot.tide} h` : ''}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>
+            {#if spot.danger}<small class="danger">⚠ {spot.danger}</small>{/if}
           </span>
           {#if w}
             <svg viewBox="0 0 24 24" style:transform="rotate({w.dir + 180}deg)" aria-hidden="true">
@@ -126,6 +127,11 @@
     display: block;
     font-size: 11px;
     opacity: 0.85;
+  }
+  .danger {
+    display: block;
+    font-size: 11px;
+    color: #f59e0b;
   }
   .note {
     margin: -4px 0 6px;

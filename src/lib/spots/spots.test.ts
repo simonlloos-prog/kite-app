@@ -68,6 +68,22 @@ describe('spots', () => {
     expect(rateSpot(hume, { speed: 20, gust: 25, dir: 190 }).label).toBe('Offshore ⚠ dangereux')
   })
 
+  it('greys a spot during its known ban, whatever the wind', () => {
+    const wind = { speed: 20, gust: 25, dir: 270 }
+    const of = (id: string) => SPOTS.find((s) => s.id === id)!
+    expect(rateSpot(of('la-hume'), wind, null, '2026-11-20T15:00')).toMatchObject({ score: 0, label: 'Interdit (saison)' })
+    expect(rateSpot(of('la-hume'), wind, null, '2026-11-21T15:00').label).toBe('Bon')
+    // Over the new year.
+    expect(rateSpot(of('mayotte'), wind, null, '2027-01-10T15:00').label).toBe('Interdit (saison)')
+    expect(rateSpot(of('mayotte'), wind, null, '2026-07-10T15:00').label).toBe('Bon')
+    expect(rateSpot(of('navarrosse'), wind, null, '2026-07-10T15:00').label).toBe('Interdit (saison)')
+    // Hours: 12 h included, 19 h not.
+    expect(rateSpot(of('arbousiers'), wind, null, '2026-07-10T12:00').label).toBe('Interdit (saison)')
+    expect(rateSpot(of('arbousiers'), wind, null, '2026-07-10T11:00').label).toBe('Bon')
+    expect(rateSpot(of('arbousiers'), wind, null, '2026-07-10T19:00').label).toBe('Bon')
+    expect(rateSpot(of('la-hume'), wind).label).toBe('Bon')
+  })
+
   it('takes one notch off for an average direction', () => {
     expect(rateSpot(spot, { speed: 20, gust: 25, dir: 315 })).toMatchObject({ score: 1, label: 'Bon, direction moyenne' })
     expect(rateSpot(spot, { speed: 28, gust: 35, dir: 315 })).toMatchObject({ score: 1, label: 'Fort, direction moyenne' })
