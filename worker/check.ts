@@ -13,12 +13,12 @@
  */
 
 const AROME_BUCKET = 'https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt'
-const FIRST_STEP = 12
+const FIRST_STEP = '03' // Earlier steps are already in the past when a run comes out.
 
 /** Next AROME-PI run expected this long after the published one's time. */
 export const PI_DUE_MIN = 100
-/** Wait after a wake-up: for a new AROME run, and while AROME-PI is late. */
-export const AROME_WAIT_MIN = 10
+/** Wait after a wake-up: for a new AROME run, and while AROME-PI is late. Under the 5 min of the check, or it would skip one. */
+export const AROME_WAIT_MIN = 4
 export const PI_WAIT_MIN = 15
 /** Stop trying to complete a run this long after its time: it normally takes about 4 h. */
 export const PARTIAL_MAX_H = 7

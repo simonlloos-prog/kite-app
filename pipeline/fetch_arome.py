@@ -37,8 +37,8 @@ import numpy as np
 BUCKET = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt"
 MODEL = "AROME 0.01°"
 MAX_STEP = 51
-# A new run is worth publishing once this step is out: the hours that decide today's session.
-FIRST_STEP = 12
+# A run comes out about 3 h after its time: earlier steps are already in the past, never shown.
+FIRST_STEP = 3
 # Gironde and Landes coast, Gironde estuary → Capbreton, well offshore and inland to the edge of
 # Bordeaux: 231 × 141 points, ~98 KB per hour.
 BOX = {"south": 43.55, "north": 45.85, "west": -2.00, "east": -0.60}
