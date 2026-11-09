@@ -13,7 +13,7 @@
   let long = $state(false)
   const view = $derived(long ? LONG : SHORT)
   const W = 320
-  const H = 104
+  const H = 76 // Low enough to stay under the left buttons (⟳) on a phone.
   const TOP = 16 // Row of direction arrows.
   const BOTTOM = 14 // Hour labels.
   const LEFT = 20 // Speed labels.
@@ -32,7 +32,7 @@
   const start = $derived(end - view.hours * 3_600_000)
   const minutes = $derived(view.bucket)
   const buckets = $derived(bucketize(points.filter((p) => p.t >= start), minutes))
-  const arrows = $derived(bucketize(points.filter((p) => p.t >= start), view.arrow))
+  const arrows = $derived(bucketize(points.filter((p) => p.t >= start), view.arrow).filter((a) => a.t + (view.arrow * 60_000) / 2 >= start))
   const hasMore = $derived(points.some((p) => p.t < end - SHORT.hours * 3_600_000))
 
   const top = $derived(Math.max(10, ...buckets.map((b) => b.gust)) * 1.08)
@@ -45,7 +45,8 @@
     return out
   })
 
-  const x = (t: number) => LEFT + ((t - start) / (end - start || 1)) * (W - LEFT)
+  /** The first period starts before the chart: never draw over the speed labels. */
+  const x = (t: number) => Math.max(LEFT, LEFT + ((t - start) / (end - start || 1)) * (W - LEFT))
   const y = (kn: number) => H - BOTTOM - (kn / top) * (H - TOP - BOTTOM)
   const width = (b: ObsBucket) => Math.max(1, x(b.t + minutes * 60_000) - x(b.t))
   const clock = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: '2-digit' })
@@ -66,7 +67,7 @@
       {sector(obs.dir)}
     </span>
     {#if hasMore}
-      <button type="button" class="more" onclick={() => (long = !long)}>{long ? '1 h' : 'Historique'}</button>
+      <button type="button" class="more" onclick={() => (long = !long)}>{long ? 'Dernière heure' : 'Historique complet'}</button>
     {/if}
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.picked = null)}>✕</button>
   </header>
@@ -110,12 +111,18 @@
     right: 0;
     bottom: calc(100% + 8px);
     box-sizing: border-box;
-    padding: 8px 10px;
+    padding: 6px 10px;
     border-radius: 14px;
     background: var(--surface);
     color: var(--text);
     box-shadow: 0 4px 24px rgb(0 0 0 / 0.25);
     touch-action: pan-y;
+  }
+  /* Short screens (a phone's browser): the card stays right of the left buttons. */
+  @media (max-height: 780px) {
+    .card {
+      left: 48px;
+    }
   }
   header {
     display: flex;
@@ -192,6 +199,7 @@
     background: none;
     color: var(--accent);
     font: 600 13px var(--font);
+    white-space: nowrap;
   }
   .arrow {
     fill: var(--text);

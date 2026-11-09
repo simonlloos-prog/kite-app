@@ -166,7 +166,10 @@
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
   {#if picked?.obs}
-    <ObsCard obs={picked.obs} />
+    <!-- One card per station: its "Historique complet" choice does not follow to the next. -->
+    {#key picked.obs.id}
+      <ObsCard obs={picked.obs} />
+    {/key}
   {/if}
 </div>
 
