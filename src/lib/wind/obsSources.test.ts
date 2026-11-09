@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
+import { fromHolfuy, fromHolfuyLive, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
 
 describe('obs sources', () => {
   it('turns Paris local time into UTC, summer and winter', () => {
@@ -26,6 +26,18 @@ var gd_direction = [180,350,10,0];`
       gust: 10.8, // 20 km/h
     })
     expect(fromHolfuy('1491', 'var unt = [];')).toBeNull()
+    expect(fromHolfuyLive('1317', { dateTime: '2026-11-09 18:30:29', wind: { speed: 7.6, gust: 10.8, direction: 115 } })).toEqual({
+      id: 'holfuy-1317',
+      name: 'La Jenny',
+      source: 'Holfuy',
+      lat: 44.8566,
+      lon: -1.21987,
+      time: '2026-11-09T17:30:29Z',
+      speed: 7.6,
+      dir: 115,
+      gust: 10.8,
+    })
+    expect(fromHolfuyLive('1317', { error: 'Sorry', errorCode: 'no_access' } as object)).toBeNull()
   })
 
   it('reads Météo-France and Weameter records', () => {

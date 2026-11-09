@@ -20,6 +20,7 @@ l'app lit le Worker local si `.env.development.local` contient `VITE_OBS_URL=htt
 npx wrangler@4.151.2 login                                                   # une fois, ouvre le navigateur
 npx wrangler@4.151.2 secret put METEOFRANCE_API_KEY --config worker/wrangler.toml   # une fois, colle la clé
 npx wrangler@4.151.2 secret put GITHUB_TOKEN --config worker/wrangler.toml         # une fois, jeton GitHub (Actions, kite-app)
+npx wrangler@4.151.2 secret put HOLFUY_JENNY_CLE --config worker/wrangler.toml     # une fois, clé Holfuy de La Jenny
 npm run worker:deploy                                                        # à chaque changement du Worker
 ```
 Adresse publique : `https://kite-obs.kite-app.workers.dev`, dans `.env.production` (`VITE_OBS_URL`,

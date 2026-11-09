@@ -129,8 +129,37 @@ export function fromHolfuy(id: string, js: string): Obs | null {
   }
 }
 
-/** Every station at once; a source that fails is just missing. */
-export async function fetchAllObs(meteoFranceKey: string): Promise<Obs[]> {
+const HOLFUY_LIVE = (id: string, key: string) => `https://api.holfuy.com/live/?s=${id}&pw=${encodeURIComponent(key)}&m=JSON&tu=C&su=knots`
+
+interface HolfuyLive {
+  dateTime?: string
+  wind?: { speed: number; gust: number; direction: number }
+}
+
+/**
+ * Holfuy's official API, for the beacons whose owner gave a key: the last reading, about 30 s old
+ * (the graph file moves by steps of about 5 min). Knots, Paris local time. Null on an error
+ * answer ("no_access"…), which comes with HTTP 200.
+ */
+export function fromHolfuyLive(id: string, d: HolfuyLive): Obs | null {
+  if (!d.dateTime || !d.wind) return null
+  const [y, mo, day, h, mi, s] = d.dateTime.split(/[- :]/).map(Number)
+  const [name, lat, lon] = HOLFUY_BEACONS[id]
+  return {
+    id: `holfuy-${id}`,
+    name,
+    source: 'Holfuy',
+    lat,
+    lon,
+    time: parisToUtc(y, mo, day, h, mi, s).toISOString().replace(/\.\d+Z$/, 'Z'),
+    speed: round1(d.wind.speed),
+    dir: d.wind.direction,
+    gust: round1(d.wind.gust),
+  }
+}
+
+/** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
+export async function fetchAllObs(meteoFranceKey: string, holfuyKeys: Record<string, string | undefined> = {}): Promise<Obs[]> {
   const get = async <T>(url: string, init: RequestInit, read: (r: Response) => Promise<T>): Promise<T | null> => {
     try {
       const r = await fetch(url, { ...init, signal: AbortSignal.timeout(15_000) })
@@ -152,6 +181,10 @@ export async function fetchAllObs(meteoFranceKey: string): Promise<Obs[]> {
       return d ? fromWeameter(slug, d) : null
     }),
     ...Object.keys(HOLFUY_BEACONS).map(async (id) => {
+      const key = holfuyKeys[id]
+      const live = key ? await get(HOLFUY_LIVE(id, key), { headers: ua }, (r) => r.json() as Promise<HolfuyLive>) : null
+      const obs = live && fromHolfuyLive(id, live)
+      if (obs) return obs
       const js = await get(HOLFUY(id), { headers: ua }, (r) => r.text())
       return js ? fromHolfuy(id, js) : null
     }),

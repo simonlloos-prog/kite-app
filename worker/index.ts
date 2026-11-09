@@ -28,6 +28,8 @@ interface R2Object {
 
 interface Env {
   METEOFRANCE_API_KEY: string
+  /** Holfuy API key of the La Jenny beacon (1317): the other beacons use their graph file. */
+  HOLFUY_JENNY_CLE?: string
   /** Fine-grained GitHub token, kite-app only, Actions: read and write. */
   GITHUB_TOKEN: string
   DATA: { get(key: string): Promise<R2Object | null>; put(key: string, value: string): Promise<unknown> }
@@ -115,7 +117,7 @@ export default {
 
     // Concurrent requests share the same round of fetches.
     if (!cached || Date.now() - cached.at > TTL_MS) {
-      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '').then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
+      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', { '1317': env.HOLFUY_JENNY_CLE }).then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
       cached = { at: Date.now(), body }
       body.catch(() => (cached = null))
     }
