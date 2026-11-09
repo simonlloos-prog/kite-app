@@ -1,7 +1,7 @@
 # Worker `kite-obs` : les données de l'app
 
 Petit programme hébergé chez Cloudflare (offre gratuite) :
-- `GET /obs` : dernières mesures des stations (Météo-France, Holfuy, Weameter), gardées 2 min en
+- `GET /obs` : dernières mesures des stations (Météo-France, Holfuy, Weameter), gardées 30 s en
   mémoire. Le code des sources est partagé avec l'app : `src/lib/wind/obsSources.ts`.
 - `GET /data/<clé>` : fichiers de prévision (`meta.json`, heures, AROME-PI) du bucket R2 `kite-data`,
   déposés par le workflow GitHub.

@@ -285,8 +285,8 @@ export const app = new AppState()
 // Dev only: inspect and drive the app from the browser console.
 if (import.meta.env.DEV) Object.assign(window, { app })
 
-// While open: live readings every 2 min (the Worker keeps them 2 min), a newer run every 10 min.
-setInterval(() => document.visibilityState === 'visible' && app.loadObs(), 2 * 60_000)
+// While open: live readings every 30 s (the Worker keeps them 30 s), a newer run every 10 min.
+setInterval(() => document.visibilityState === 'visible' && app.loadObs(), 30_000)
 setInterval(() => document.visibilityState === 'visible' && app.loadData(), 10 * 60_000)
 addEventListener('online', () => (app.online = true))
 addEventListener('offline', () => (app.online = false))

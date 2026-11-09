@@ -10,8 +10,8 @@
  * (METEOFRANCE_API_KEY), never in the app. GitHub Pages only serves files rebuilt by the
  * workflow, which put the measurements 10 to 35 minutes behind; this answers in seconds.
  *
- * The answer is kept 2 minutes in memory: however many phones ask, the sources see at most
- * one round of requests per 2 minutes per Cloudflare instance. The Cache API does not work
+ * The answer is kept 30 s in memory: however many phones ask, the sources see at most
+ * one round of requests per 30 s per Cloudflare instance. The Cache API does not work
  * on *.workers.dev, hence the plain variable.
  *
  * Deploy: see worker/README.md.
@@ -77,14 +77,14 @@ async function scheduledCheck(env: Env) {
   }
 }
 
-const TTL_MS = 2 * 60_000
+const TTL_MS = 30_000
 let cached: { at: number; body: Promise<string> } | null = null
 
 const headers = {
   'Content-Type': 'application/json; charset=utf-8',
   // Public measurements: any page may read them (the app, and localhost in development).
   'Access-Control-Allow-Origin': '*',
-  'Cache-Control': 'public, max-age=60',
+  'Cache-Control': 'public, max-age=30',
 }
 
 /**
