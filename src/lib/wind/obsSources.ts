@@ -26,7 +26,11 @@ export const WEAMETER_STATIONS: Record<string, [string, number, number]> = {
   lachanau: ['Lachanau', 45.165, -1.076],
 }
 
-const HOLFUY = (id: string) => `https://holfuy.com/dynamic/graphs/tdarr${id}.js`
+/**
+ * The query string gives each request its own cache key: Cloudflare caches the .js files a Worker
+ * fetches, and the readings then came 30 min to 1 h 40 late although the file itself was fresh.
+ */
+const HOLFUY = (id: string) => `https://holfuy.com/dynamic/graphs/tdarr${id}.js?t=${Date.now()}`
 /** Holfuy beacon id → name and position (from its page's map link). Their owners agreed. */
 export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
   '1995': ['CVA', 44.660952, -1.144144],
