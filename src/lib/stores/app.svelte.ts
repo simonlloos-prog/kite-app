@@ -1,7 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl'
 import { cellOf, decodeHour, windAt, type Hour, type LatLon, type Meta, type WindAt } from '../wind/arome'
 import { checkForUpdate } from '../pwa'
-import { freshObs, mergeObs, type Obs } from '../wind/obs'
+import { freshObs, mergeObs, type Obs, type ObsHistory } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
@@ -74,6 +74,8 @@ class AppState {
   dataVersion = $state(0)
   online = $state(navigator.onLine)
   refreshing = $state(false)
+  /** What the tapped station measured lately. */
+  obsHistory = $state.raw<ObsHistory | null>(null)
   /** Hidden screen diagnostics (long press on ⟳). */
   showDiagnostics = $state(false)
 
@@ -247,6 +249,16 @@ class AppState {
       if (res.ok) this.liveObs = (await res.json()).obs ?? []
     } catch {
       // Offline or Worker down: meta.json's copy stays.
+    }
+  }
+
+  async loadHistory(id: string) {
+    if (!OBS_URL) return
+    try {
+      const res = await fetch(`${OBS_URL.replace(/obs$/, 'history')}?id=${encodeURIComponent(id)}`, { cache: 'no-store' })
+      if (res.ok) this.obsHistory = await res.json()
+    } catch {
+      // Offline: the card shows the current reading only.
     }
   }
 

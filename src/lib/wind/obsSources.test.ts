@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fromHolfuy, fromHolfuyLive, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
+import { bucketize } from './obs'
+import { archivePoints, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
 
 describe('obs sources', () => {
   it('turns Paris local time into UTC, summer and winter', () => {
@@ -26,18 +27,11 @@ var gd_direction = [180,350,10,0];`
       gust: 10.8, // 20 km/h
     })
     expect(fromHolfuy('1491', 'var unt = [];')).toBeNull()
-    expect(fromHolfuyLive('1317', { dateTime: '2026-11-09 18:30:29', wind: { speed: 7.6, gust: 10.8, direction: 115 } })).toEqual({
-      id: 'holfuy-1317',
-      name: 'La Jenny',
-      source: 'Holfuy',
-      lat: 44.8566,
-      lon: -1.21987,
-      time: '2026-11-09T17:30:29Z',
-      speed: 7.6,
-      dir: 115,
-      gust: 10.8,
-    })
-    expect(fromHolfuyLive('1317', { error: 'Sorry', errorCode: 'no_access' } as object)).toBeNull()
+    expect(archivePoints({ measurements: [{ dateTime: '2026-11-09 19:56:29', wind: { speed: 8.1, gust: 11.3, direction: 138 } }, { dateTime: '2026-11-09 19:55:29', wind: { speed: 7.6, gust: 9.2, direction: 135 } }] })).toEqual([
+      { t: Date.parse('2026-11-09T19:55:29Z'), speed: 7.6, gust: 9.2, dir: 135 },
+      { t: Date.parse('2026-11-09T19:56:29Z'), speed: 8.1, gust: 11.3, dir: 138 },
+    ])
+    expect(archivePoints({ error: 'Sorry', errorCode: 'no_access' } as object)).toBeNull()
   })
 
   it('reads Météo-France and Weameter records', () => {
@@ -47,5 +41,16 @@ var gd_direction = [180,350,10,0];`
     expect(fromMeteoFrance('33236002', { lat: 0, lon: 0, validity_time: '', ff: null, dd: null })).toBeNull()
     const w = fromWeameter('andernos', { current: { epoch: 1794067093 }, Average: { '0': { wspeed: 4.44, wdir: 158, gmax: 5.3 } } })
     expect(w).toMatchObject({ name: 'Andernos', speed: 4.4, dir: 158, gust: 5.3, time: '2026-11-07T15:58:13Z' })
+  })
+})
+
+describe('bucketize', () => {
+  it('averages readings on round periods', () => {
+    const t0 = Date.parse('2026-11-09T19:00:00Z')
+    const p = (min: number, speed: number, gust: number, dir: number) => ({ t: t0 + min * 60_000, speed, gust, dir })
+    expect(bucketize([p(1, 8, 10, 350), p(4, 12, 15, 10), p(6, 5, 6, 90)], 5)).toEqual([
+      { t: t0, speed: 10, gust: 15, dir: 2 },
+      { t: t0 + 5 * 60_000, speed: 5, gust: 6, dir: 90 },
+    ])
   })
 })

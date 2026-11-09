@@ -1,6 +1,7 @@
 /**
  * Data for the app, outside GitHub Pages so that new data never means rebuilding the app:
  * - GET /obs → { time, obs: Obs[] }: live wind at the stations.
+ * - GET /history?id=<station> → what it measured lately, for the card shown when it is tapped.
  * - GET /data/<key> → forecast files (meta.json, hour files) from the R2 bucket kite-data,
  *   written by the GitHub workflow after each new run.
  * - Every 5 min (scheduled): wake the GitHub workflow up when a new AROME or AROME-PI run is
@@ -16,7 +17,7 @@
  *
  * Deploy: see worker/README.md.
  */
-import { fetchAllObs } from '../src/lib/wind/obsSources'
+import { fetchAllObs, fetchHistory, isStation } from '../src/lib/wind/obsSources'
 import { aromeCandidates, decide, firstStepUrl, type Decision, type Published } from './check'
 
 interface R2Object {
@@ -79,6 +80,8 @@ async function scheduledCheck(env: Env) {
 
 const TTL_MS = 30_000
 let cached: { at: number; body: Promise<string> } | null = null
+const histories = new Map<string, { at: number; body: Promise<string> }>()
+const holfuyKeys = (env: Env) => ({ '1317': env.HOLFUY_JENNY_CLE })
 
 const headers = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -113,11 +116,19 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers })
     if (url.pathname.startsWith('/data/')) return dataFile(url.pathname.slice('/data/'.length), env)
     if (url.pathname === '/status') return new Response(JSON.stringify(await status(env), null, 1), { headers: { ...headers, 'Cache-Control': 'no-store' } })
-    if (url.pathname !== '/obs') return new Response('Kite App : /obs, /data/…, /status', { status: 404, headers })
+    if (url.pathname === '/history') {
+      const id = url.searchParams.get('id') ?? ''
+      if (!isStation(id)) return new Response('station inconnue', { status: 404, headers })
+      const seen = histories.get(id)
+      const entry = seen && Date.now() - seen.at <= TTL_MS ? seen : { at: Date.now(), body: fetchHistory(id, holfuyKeys(env)).then((h) => JSON.stringify(h)) }
+      histories.set(id, entry)
+      return new Response(await entry.body, { headers })
+    }
+    if (url.pathname !== '/obs') return new Response('Kite App : /obs, /history, /data/…, /status', { status: 404, headers })
 
     // Concurrent requests share the same round of fetches.
     if (!cached || Date.now() - cached.at > TTL_MS) {
-      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', { '1317': env.HOLFUY_JENNY_CLE }).then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
+      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', holfuyKeys(env)).then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
       cached = { at: Date.now(), body }
       body.catch(() => (cached = null))
     }

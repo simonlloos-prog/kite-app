@@ -212,20 +212,6 @@
   .map :global(.obs-fan .body path) {
     fill: var(--wind);
   }
-  .map :global(.obs-val) {
-    right: 37px;
-    top: 50%;
-    transform: translateY(-50%);
-    font: 800 13px var(--font);
-    color: #0b1320;
-    white-space: nowrap;
-    text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
-  }
-  .map :global(.obs-val small) {
-    margin-left: 3px;
-    font-size: 10px;
-    font-weight: 600;
-  }
   /* Off the current hour: the same fan, grey, smaller, still and without its arrow, so it reads
      as switched off (the user's idea). */
   .map :global(.obs-marker.dim) {

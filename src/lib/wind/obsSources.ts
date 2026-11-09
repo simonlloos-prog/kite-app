@@ -3,7 +3,7 @@
  * runs this on demand. Same sources and rules as pipeline/fetch_obs.py, which still writes a
  * fallback copy into meta.json.
  */
-import type { Obs } from './obs'
+import type { Obs, ObsHistory, ObsPoint, ObsWindow } from './obs'
 
 const MS_TO_KN = 3600 / 1852
 const KMH_TO_KN = 1 / 1.852
@@ -60,7 +60,7 @@ export function fromMeteoFrance(id: string, r: MeteoFranceRecord | undefined): O
 
 interface WeameterLive {
   current: { epoch: number }
-  Average: Record<string, { wspeed: number; wdir: number; gmax: number }>
+  Average: Record<string, { wspeed: number; wdir: number; gmax: number; Txt?: string }>
 }
 
 /** Weameter's live file: knots; Average["0"] is the last 10 minutes (the instant wind is too jumpy). */
@@ -93,82 +93,120 @@ export function parisToUtc(y: number, mo: number, d: number, h: number, mi: numb
   return new Date(summer(asUtc - 2 * 3_600_000) ? asUtc - 2 * 3_600_000 : asUtc - 3_600_000)
 }
 
+/** Mean direction weighted by speed (350° and 10° average to north, not south). */
+export function meanDir(points: { speed: number; dir: number }[]): number {
+  const u = points.reduce((a, p) => a + p.speed * Math.sin((p.dir * Math.PI) / 180), 0)
+  const v = points.reduce((a, p) => a + p.speed * Math.cos((p.dir * Math.PI) / 180), 0)
+  return u || v ? Math.round(((Math.atan2(u, v) * 180) / Math.PI + 360) % 360) : points.at(-1)!.dir
+}
+
+/** What a Holfuy beacon shows: its last 10 minutes (mean speed, max gust, mean direction), oldest point first. */
+export function summarize(id: string, points: ObsPoint[]): Obs {
+  const end = points.at(-1)!.t
+  const last = points.filter((p) => p.t > end - 10 * 60_000)
+  const [name, lat, lon] = HOLFUY_BEACONS[id]
+  return {
+    id: `holfuy-${id}`,
+    name,
+    source: 'Holfuy',
+    lat,
+    lon,
+    time: new Date(end).toISOString().replace(/\.\d+Z$/, 'Z'),
+    speed: round1(last.reduce((a, p) => a + p.speed, 0) / last.length),
+    dir: meanDir(last),
+    gust: round1(Math.max(...last.map((p) => p.gust))),
+  }
+}
+
 /**
  * The file Holfuy's station page draws its graphs from: `var unt = ['2026/11/07 17:08:58', ...];
  * var gd_speed = [5, ...]; ...`. Not an API: it may change, and the beacon then goes missing.
- * Every 2 min, km/h as integers, Paris local time. Last 10 minutes: mean speed, max gust, mean
- * direction weighted by speed (350° and 10° average to north, not south).
+ * About 5 days, km/h as integers, Paris local time; rewritten only every few minutes.
  */
-export function fromHolfuy(id: string, js: string): Obs | null {
+export function tdarrPoints(js: string): ObsPoint[] | null {
   const arrays: Record<string, string[]> = {}
   for (const [, name, body] of js.matchAll(/var\s+(\w+)\s*=\s*\[(.*?)\];/gs)) {
     arrays[name] = body.split(',').map((x) => x.trim().replace(/^'|'$/g, ''))
   }
   const { unt, gd_speed, gd_gust, gd_direction } = arrays
   if (!unt?.length || [gd_speed, gd_gust, gd_direction].some((a) => a?.length !== unt.length)) return null
-  const times = unt.map((t) => {
-    const [y, mo, d, h, mi, s] = t.split(/[/ :]/).map(Number)
-    return parisToUtc(y, mo, d, h, mi, s).getTime()
+  return unt.map((u, i) => {
+    const [y, mo, d, h, mi, s] = u.split(/[/ :]/).map(Number)
+    return { t: parisToUtc(y, mo, d, h, mi, s).getTime(), speed: Number(gd_speed[i]) * KMH_TO_KN, gust: Number(gd_gust[i]) * KMH_TO_KN, dir: Number(gd_direction[i]) }
   })
-  const last = times.flatMap((t, i) => (t > times.at(-1)! - 10 * 60_000 ? [i] : []))
-  const speed = last.map((i) => Number(gd_speed[i]))
-  const dirs = last.map((i) => Number(gd_direction[i]))
-  const u = speed.reduce((a, s, k) => a + s * Math.sin((dirs[k] * Math.PI) / 180), 0)
-  const v = speed.reduce((a, s, k) => a + s * Math.cos((dirs[k] * Math.PI) / 180), 0)
-  const [name, lat, lon] = HOLFUY_BEACONS[id]
-  return {
-    id: `holfuy-${id}`,
-    name,
-    source: 'Holfuy',
-    lat,
-    lon,
-    time: new Date(times.at(-1)!).toISOString().replace(/\.\d+Z$/, 'Z'),
-    speed: round1((speed.reduce((a, b) => a + b, 0) / speed.length) * KMH_TO_KN),
-    dir: u || v ? Math.round(((Math.atan2(u, v) * 180) / Math.PI + 360) % 360) : dirs.at(-1)!,
-    gust: round1(Math.max(...last.map((i) => Number(gd_gust[i]))) * KMH_TO_KN),
-  }
 }
 
-const HOLFUY_LIVE = (id: string, key: string) => `https://api.holfuy.com/live/?s=${id}&pw=${encodeURIComponent(key)}&m=JSON&tu=C&su=knots`
+export function fromHolfuy(id: string, js: string): Obs | null {
+  const points = tdarrPoints(js)
+  return points && summarize(id, points)
+}
 
-interface HolfuyLive {
-  dateTime?: string
-  wind?: { speed: number; gust: number; direction: number }
+const HOLFUY_ARCHIVE = (id: string, key: string, minutes: number) =>
+  `https://api.holfuy.com/archive/?s=${id}&pw=${encodeURIComponent(key)}&mback=${minutes}&type=0&su=knots&tu=C&m=JSON&utc`
+
+interface HolfuyArchive {
+  measurements?: { dateTime: string; wind: { speed: number; gust: number; direction: number } }[]
 }
 
 /**
- * Holfuy's official API, for the beacons whose owner gave a key: the last reading, about 30 s old
- * (the graph file moves by steps of about 5 min). Knots, Paris local time. Null on an error
- * answer ("no_access"…), which comes with HTTP 200.
+ * Holfuy's archive API, for the beacons whose owner gave a key: every reading of the last minutes,
+ * the newest a few seconds old. Knots, UTC. Null on an error answer ("no_access"…), sent with HTTP 200.
  */
-export function fromHolfuyLive(id: string, d: HolfuyLive): Obs | null {
-  if (!d.dateTime || !d.wind) return null
-  const [y, mo, day, h, mi, s] = d.dateTime.split(/[- :]/).map(Number)
-  const [name, lat, lon] = HOLFUY_BEACONS[id]
-  return {
-    id: `holfuy-${id}`,
-    name,
-    source: 'Holfuy',
-    lat,
-    lon,
-    time: parisToUtc(y, mo, day, h, mi, s).toISOString().replace(/\.\d+Z$/, 'Z'),
-    speed: round1(d.wind.speed),
-    dir: d.wind.direction,
-    gust: round1(d.wind.gust),
+export function archivePoints(d: HolfuyArchive): ObsPoint[] | null {
+  if (!d.measurements?.length) return null
+  return d.measurements
+    .map((m) => ({ t: Date.parse(`${m.dateTime.replace(' ', 'T')}Z`), speed: m.wind.speed, gust: m.wind.gust, dir: m.wind.direction }))
+    .sort((a, b) => a.t - b.t)
+}
+
+const ua = { 'User-Agent': 'kite-app (simonlloos-prog.github.io/kite-app)' }
+
+async function get<T>(url: string, init: RequestInit, read: (r: Response) => Promise<T>): Promise<T | null> {
+  try {
+    const r = await fetch(url, { ...init, signal: AbortSignal.timeout(15_000) })
+    return r.ok ? await read(r) : null
+  } catch {
+    return null
   }
 }
 
-/** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
-export async function fetchAllObs(meteoFranceKey: string, holfuyKeys: Record<string, string | undefined> = {}): Promise<Obs[]> {
-  const get = async <T>(url: string, init: RequestInit, read: (r: Response) => Promise<T>): Promise<T | null> => {
-    try {
-      const r = await fetch(url, { ...init, signal: AbortSignal.timeout(15_000) })
-      return r.ok ? await read(r) : null
-    } catch {
-      return null
-    }
+type HolfuyKeys = Record<string, string | undefined>
+
+/** A Holfuy beacon's readings: the archive API when it has a key, else (and as a fallback) its graph file. */
+async function holfuyPoints(id: string, keys: HolfuyKeys, minutes: number): Promise<ObsPoint[] | null> {
+  const key = keys[id]
+  const archive = key ? await get(HOLFUY_ARCHIVE(id, key, minutes), { headers: ua }, (r) => r.json() as Promise<HolfuyArchive>) : null
+  const points = archive && archivePoints(archive)
+  if (points) return points
+  const js = await get(HOLFUY(id), { headers: ua }, (r) => r.text())
+  return js ? tdarrPoints(js) : null
+}
+
+const WEAMETER_HEADERS = { ...ua, 'Accept-Encoding': 'gzip' }
+const WEAMETER_WINDOWS = ["10'", "30'", '1h', '2h', '4h']
+/** Is this one of our stations? */
+export const isStation = (id: string) =>
+  id in MF_STATIONS || WEAMETER_STATIONS[id.replace('weameter-', '')] !== undefined || HOLFUY_BEACONS[id.replace('holfuy-', '')] !== undefined
+
+/** What a station measured lately: 8 hours of readings (Holfuy, the archive API's maximum), its averages (Weameter), or nothing (Météo-France). */
+export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Promise<ObsHistory> {
+  let points: ObsPoint[] = []
+  let windows: ObsWindow[] = []
+  if (id.startsWith('holfuy-')) {
+    const all = (await holfuyPoints(id.slice('holfuy-'.length), holfuyKeys, 480)) ?? []
+    const end = all.at(-1)?.t ?? 0
+    points = all.filter((p) => p.t >= end - 8 * 3_600_000)
+  } else if (id.startsWith('weameter-')) {
+    const d = await get(WEAMETER(id.slice('weameter-'.length)), { headers: WEAMETER_HEADERS }, (r) => r.json() as Promise<WeameterLive>)
+    windows = Object.values(d?.Average ?? {})
+      .filter((a) => a.Txt && WEAMETER_WINDOWS.includes(a.Txt))
+      .map((a) => ({ label: a.Txt!, speed: round1(a.wspeed), gust: round1(a.gmax), dir: a.wdir }))
   }
-  const ua = { 'User-Agent': 'kite-app (simonlloos-prog.github.io/kite-app)' }
+  return { id, points, windows }
+}
+
+/** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
+export async function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}): Promise<Obs[]> {
   const tasks: Promise<Obs | null>[] = [
     ...Object.keys(MF_STATIONS).map(async (id) =>
       meteoFranceKey
@@ -177,16 +215,12 @@ export async function fetchAllObs(meteoFranceKey: string, holfuyKeys: Record<str
     ),
     ...Object.keys(WEAMETER_STATIONS).map(async (slug) => {
       // Weameter only answers compressed requests (406 otherwise); fetch decompresses.
-      const d = await get(WEAMETER(slug), { headers: { ...ua, 'Accept-Encoding': 'gzip' } }, (r) => r.json() as Promise<WeameterLive>)
+      const d = await get(WEAMETER(slug), { headers: WEAMETER_HEADERS }, (r) => r.json() as Promise<WeameterLive>)
       return d ? fromWeameter(slug, d) : null
     }),
     ...Object.keys(HOLFUY_BEACONS).map(async (id) => {
-      const key = holfuyKeys[id]
-      const live = key ? await get(HOLFUY_LIVE(id, key), { headers: ua }, (r) => r.json() as Promise<HolfuyLive>) : null
-      const obs = live && fromHolfuyLive(id, live)
-      if (obs) return obs
-      const js = await get(HOLFUY(id), { headers: ua }, (r) => r.text())
-      return js ? fromHolfuy(id, js) : null
+      const points = await holfuyPoints(id, holfuyKeys, 12)
+      return points && summarize(id, points)
     }),
   ]
   return (await Promise.all(tasks.map((t) => t.catch(() => null)))).filter((o): o is Obs => o !== null)

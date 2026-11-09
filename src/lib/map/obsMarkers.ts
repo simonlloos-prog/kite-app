@@ -6,8 +6,8 @@ import { windColor } from '../wind/windColor'
 /**
  * Stations as HTML markers: a fan of four crescent blades in the map's wind colour (a station at
  * 18 kn matches an 18 kn band), spinning faster with the wind, the direction as a dart at its
- * centre that does not spin (outside the fan, it was hard to see; in a white disc, too big), the value
- * beside it. The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
+ * centre that does not spin (outside the fan, it was hard to see; in a white disc, too big). No
+ * value beside it: tapping opens its card (ObsCard). The user's idea, in the spirit of Winds-Up's spinning stations, drawn our
  * own way. HTML rather than a map layer, for the CSS animation; there are only a dozen.
  * Off the current hour, they are greyed and still: a measurement says nothing about later.
  * Styles: MapView.svelte (.obs-marker).
@@ -28,7 +28,6 @@ interface Parts {
   el: HTMLButtonElement
   dir: HTMLElement
   fan: HTMLElement
-  value: HTMLElement
   obs: Obs
 }
 
@@ -38,9 +37,9 @@ function create(map: MlMap, o: Obs, onTap: (o: Obs) => void): Parts {
   const el = document.createElement('button')
   el.type = 'button'
   // The arrow after the fan, on top of it.
-  el.innerHTML = `<span class="obs-fan">${FAN}</span><span class="obs-dir"><span>${ARROW}</span></span><span class="obs-val"></span>`
+  el.innerHTML = `<span class="obs-fan">${FAN}</span><span class="obs-dir"><span>${ARROW}</span></span>`
   const q = (c: string) => el.querySelector<HTMLElement>(c)!
-  const parts: Parts = { marker: new Marker({ element: el }).setLngLat([o.lon, o.lat]).addTo(map), el, dir: q('.obs-dir'), fan: q('.obs-fan'), value: q('.obs-val'), obs: o }
+  const parts: Parts = { marker: new Marker({ element: el }).setLngLat([o.lon, o.lat]).addTo(map), el, dir: q('.obs-dir'), fan: q('.obs-fan'), obs: o }
   // Marker replaces the element's classes with its own: ours go back on afterwards.
   el.classList.add('obs-marker')
   // The map's own click would pick the point under the station instead.
@@ -81,8 +80,6 @@ export function setObsMarkers(map: MlMap, obs: Obs[], opts: { live: boolean; vis
     const duration = spin ? `${spin}s` : ''
     if (p.fan.style.animationDuration !== duration) p.fan.style.animationDuration = duration
     p.fan.classList.toggle('spin', spin > 0)
-    const gust = o.gust != null ? `<small>${fmtSpeed(o.gust, opts.unit)}</small>` : ''
-    p.value.innerHTML = opts.live ? `${fmtSpeed(o.speed, opts.unit)}${gust}` : `<small>${obsClock(o.time)}</small>`
     p.el.setAttribute(
       'aria-label',
       `${o.name} (${o.source}) : ${fmtSpeed(o.speed, opts.unit)} ${UNIT_LABEL[opts.unit]} ${sector(o.dir)}, mesuré à ${obsClock(o.time)}`,

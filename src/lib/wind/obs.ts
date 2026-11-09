@@ -1,6 +1,7 @@
 /** Wind measured at stations (Météo-France, Holfuy, Weameter), written by pipeline/fetch_obs.py. */
 import { distanceKm } from '../spots/spots'
 import type { LatLon } from './arome'
+import { meanDir } from './obsSources'
 
 export interface Obs extends LatLon {
   id: string
@@ -15,6 +16,44 @@ export interface Obs extends LatLon {
   dir: number
   /** Max gust, knots, when the station gives it. */
   gust?: number
+}
+
+/** One reading of a station: ms UTC, knots, degrees. */
+export interface ObsPoint {
+  t: number
+  speed: number
+  gust: number
+  dir: number
+}
+
+/** An average a station gives over a period: `10'`, `1h`… */
+export interface ObsWindow {
+  label: string
+  speed: number
+  gust: number
+  dir: number
+}
+
+/** What a station measured lately (Worker, /history). */
+export interface ObsHistory {
+  id: string
+  points: ObsPoint[]
+  windows: ObsWindow[]
+}
+
+export type ObsBucket = ObsPoint
+
+/** Readings grouped on round periods of `minutes`: mean speed, max gust, mean direction, oldest first. */
+export function bucketize(points: ObsPoint[], minutes: number): ObsBucket[] {
+  const size = minutes * 60_000
+  const groups = new Map<number, ObsPoint[]>()
+  for (const p of points) {
+    const t = Math.floor(p.t / size) * size
+    groups.set(t, [...(groups.get(t) ?? []), p])
+  }
+  return [...groups]
+    .sort(([a], [b]) => a - b)
+    .map(([t, g]) => ({ t, speed: g.reduce((a, p) => a + p.speed, 0) / g.length, gust: Math.max(...g.map((p) => p.gust)), dir: meanDir(g) }))
 }
 
 /**
