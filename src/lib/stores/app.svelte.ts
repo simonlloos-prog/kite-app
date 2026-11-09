@@ -85,6 +85,8 @@ class AppState {
   map: MlMap | null = null
   private hours = new Map<string, Hour>()
   private fileOf = new Map<string, string>()
+  /** File each decoded hour came from: while a run comes out, the file of an hour changes. */
+  private hourFiles = new Map<string, string>()
   /** AROME-PI gusts per Paris hour key. */
   private pi = new Map<string, Float32Array>()
   /** Tide at the Bassin inlet per Paris hour key. */
@@ -115,6 +117,12 @@ class AppState {
   get hour(): Hour | undefined {
     void this.dataVersion
     return this.hours.get(this.selectedTime)
+  }
+
+  /** File of the hour on screen: what it shows may still be the previous run's. */
+  get hourFile(): string | undefined {
+    void this.dataVersion
+    return this.hourFiles.get(this.selectedTime)
   }
 
   /** Tide in the Bassin at the selected hour, when known. */
@@ -168,7 +176,10 @@ class AppState {
     }
   }
 
-  /** Latest run: the selected hour first, then the others in order. */
+  /**
+   * Latest data: the selected hour first, then the others in order. Only the hours whose file
+   * changed are fetched, and an hour keeps showing its previous file until the new one is there.
+   */
   async loadData() {
     let meta: Meta
     try {
@@ -187,30 +198,44 @@ class AppState {
     this.metaObs = meta.obs ?? []
     this.loadObs()
     this.dataVersion++
-    // File names carry the run and a grid fingerprint: same first file, same data.
-    if (meta.files[0] === this.meta?.files[0]) return
+    // File names carry the run and a grid fingerprint: same files, same data.
+    if (meta.files.join() === this.meta?.files.join()) return
 
     const now = parisHourKey()
     const keys = meta.times.map((t) => parisHourKey(new Date(t)))
-    this.hours.clear()
-    this.fileOf = new Map(keys.map((k, i) => [k, meta.files[i]]))
+    const fileOf = new Map(keys.map((k, i) => [k, meta.files[i]]))
+    if (JSON.stringify(meta.grid) !== JSON.stringify(this.meta?.grid)) {
+      this.hours.clear()
+      this.hourFiles.clear()
+    }
+    for (const k of this.hours.keys()) {
+      if (!fileOf.has(k)) {
+        this.hours.delete(k)
+        this.hourFiles.delete(k)
+      }
+    }
+    this.fileOf = fileOf
     this.meta = meta
     this.times = keys.filter((k) => k >= now)
     if (!this.times.includes(this.selectedTime)) this.selectedTime = this.times[0] ?? now
-    this.loaded = 0
+    const toFetch = (k: string) => this.hourFiles.get(k) !== fileOf.get(k)
+    this.loaded = this.times.filter((k) => !toFetch(k)).length
 
-    const order = [this.selectedTime, ...this.times.filter((t) => t !== this.selectedTime)]
+    const order = [this.selectedTime, ...this.times.filter((t) => t !== this.selectedTime)].filter(toFetch)
     for (const key of order) {
+      const file = fileOf.get(key)!
       try {
-        const buf = await fetchBin(DATA_URL + this.fileOf.get(key), 3 * meta.grid.rows * meta.grid.cols)
+        const buf = await fetchBin(DATA_URL + file, 3 * meta.grid.rows * meta.grid.cols)
+        // Newer data arrived meanwhile: that call takes over.
+        if (this.meta !== meta) return
         this.hours.set(key, decodeHour(buf, meta.grid, meta.scale))
+        this.hourFiles.set(key, file)
         this.loaded++
         this.dataVersion++
       } catch (e) {
+        if (this.meta !== meta) return
         this.error = `heure ${key} : ${e instanceof Error ? e.message : e}`
       }
-      // A newer run arrived meanwhile: that call takes over.
-      if (this.meta !== meta) return
     }
   }
 

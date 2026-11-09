@@ -92,7 +92,7 @@
 
   $effect(() => {
     const { meta, hour } = app
-    if (ready && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, meta.run, app.selectedTime, hour, app.kind)
+    if (ready && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, app.hourFile ?? meta.run, app.selectedTime, hour, app.kind)
   })
 
   $effect(() => {

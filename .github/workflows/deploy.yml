@@ -4,8 +4,8 @@
 #   (worker/) serves to the app at /data/. No build, no deployment.
 # - app: build the app and publish it on GitHub Pages, only when the code changes (push) or on
 #   a manual run.
-# AROME runs every 3 h and AROME-PI every hour: an unchanged AROME run is left in R2 (only
-# meta.json is rewritten). On the schedule, nothing is uploaded when neither run changed. Live
+# AROME runs every 3 h and AROME-PI every hour: a run is published as it comes out (only its new
+# hour files are uploaded) and an unchanged one is left in R2 (only meta.json is rewritten). On the schedule, nothing is uploaded when neither run changed. Live
 # station readings come from the Worker; meta.json only keeps a fallback copy.
 # Triggers: an external cron (cron-job.org) calls workflow_dispatch with scheduled=true every
 # 15 min, since GitHub's own schedule (kept as a backup, at odd minutes) gave only 3 to 4 runs a
@@ -60,7 +60,7 @@ jobs:
           API_MAREE_KEY: ${{ secrets.API_MAREE_KEY }}
         run: |
           # Runs currently online, to reuse AROME and to tell whether anything changed.
-          runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), (m.get('pi') or {}).get('run'))"; }
+          runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), m.get('runThrough'), (m.get('pi') or {}).get('run'))"; }
           curl -sf "$DATA_URL/meta.json" -o published.json || echo '{}' > published.json
           published=$(runs < published.json || echo "none")
           python pipeline/fetch_arome.py --out public/data --reuse-from "$DATA_URL" --meta-only

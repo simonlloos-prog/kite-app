@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { cellOf, decodeHour, dirFrom, nodeAt, windAt, type Grid, type Hour } from './arome'
 import { isobands, labels, sample, streamlines, strideFor, valuesOf } from './field'
+import { runProgress } from './arome'
 import { formatHour, parisHourKey, staleHours } from './time'
 import { angleDiff, beaufort, fmtSpeed, sector } from './units'
 import { BINS, binOf, windColor } from './windColor'
@@ -156,5 +157,12 @@ describe('units, time & colours', () => {
     expect(binOf(99)).toBe(BINS.length - 1)
     expect(binOf(NaN)).toBe(-1)
     expect(windColor(NaN)).toBe('rgb(148 163 184)')
+  })
+})
+
+describe('runProgress', () => {
+  it('gives the hours out so far, null once the run is complete', () => {
+    expect(runProgress({ run: '2026-11-09T15:00:00Z', runThrough: '2026-11-10T03:00Z' })).toBe(12)
+    expect(runProgress({ run: '2026-11-09T15:00:00Z' })).toBeNull()
   })
 })

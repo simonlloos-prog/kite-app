@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
   import { DRY_HATCH, DRY_SAND } from './windLayers'
+  import { runProgress } from '../wind/arome'
   import { staleHours } from '../wind/time'
   import { fmtSpeed, UNIT_LABEL } from '../wind/units'
   import { BINS } from '../wind/windColor'
@@ -19,6 +20,7 @@
     return () => clearInterval(id)
   })
   const late = $derived(app.meta ? staleHours(app.meta.run, now) : null)
+  const progress = $derived(app.meta ? runProgress(app.meta) : null)
 
   // The open map credits start below the legend, whose height varies (run line, tide line).
   let height = $state(0)
@@ -47,7 +49,7 @@
     </div>
     {#if app.meta}
       <span class="run">
-        {app.meta.model} · run {runHour}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
+        {app.meta.model} · run {runHour}{#if progress !== null}{` · en cours (jusqu'à +${progress} h)`}{/if}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
       </span>
     {/if}
     {#if app.tide}

@@ -25,8 +25,10 @@ export interface Meta {
   scale: number
   /** Validity times, ISO UTC, one per file. */
   times: string[]
-  /** Hour files, relative to the data folder. */
+  /** Hour files, relative to the data folder. Past `runThrough`, they come from the previous run. */
   files: string[]
+  /** Last validity time (ISO UTC) of `run` while it is still coming out; absent once complete. */
+  runThrough?: string
   /** Latest AROME-PI gusts, when the pipeline could fetch them (see pipeline/fetch_aromepi.py). */
   pi?: {
     /** Run time, ISO UTC: AROME-PI runs every hour. */
@@ -91,4 +93,9 @@ export function windAt(g: Grid, h: Hour | undefined, p: LatLon): WindAt | null {
   if (k === null) return null
   const { u, v, gust } = h!
   return { speed: Math.hypot(u[k], v[k]), gust: gust[k], dir: dirFrom(u[k], v[k]) }
+}
+
+/** Forecast hours of the run out so far (+24), null once the run is complete. */
+export function runProgress(meta: Pick<Meta, 'run' | 'runThrough'>): number | null {
+  return meta.runThrough ? Math.round((Date.parse(meta.runThrough) - Date.parse(meta.run)) / 3_600_000) : null
 }

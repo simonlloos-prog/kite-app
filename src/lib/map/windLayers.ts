@@ -243,8 +243,9 @@ export function addWindLayers(map: MlMap) {
 // Bands only change with the hour: keep the last few, swiping back and forth costs nothing.
 const bandMemo = new Map<string, FeatureCollection<MultiPolygon>>()
 
-export function setBandsData(map: MlMap, g: Grid, run: string, time: string, h: Hour, kind: Kind) {
-  const key = `${run}|${time}|${kind}`
+/** `source` names the data (its file): the same hour changes file while a run comes out. */
+export function setBandsData(map: MlMap, g: Grid, source: string, time: string, h: Hour, kind: Kind) {
+  const key = `${source}|${time}|${kind}`
   let fc = bandMemo.get(key)
   if (!fc) {
     const colors = new Map(BINS)

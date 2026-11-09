@@ -10,6 +10,11 @@ Output, read by the app (see src/lib/wind/arome.ts):
 
 Source: https://www.data.gouv.fr/datasets/paquets-arome-resolution-0-01deg
 (Licence Ouverte 2.0), package SP1: 10 m wind and hourly max gust components.
+
+A run comes out step by step over about 50 min. With --reuse-from and --meta-only, it is published
+as soon as FIRST_STEP is out, then completed on each pass: meta.json then lists the hours of the new
+run followed by the later hours of what was published before, and "runThrough" gives the last hour
+of the new run until it is complete.
 """
 
 from __future__ import annotations
@@ -32,6 +37,8 @@ import numpy as np
 BUCKET = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt"
 MODEL = "AROME 0.01°"
 MAX_STEP = 51
+# A new run is worth publishing once this step is out: the hours that decide today's session.
+FIRST_STEP = 12
 # Gironde and Landes coast, Gironde estuary → Capbreton, well offshore and inland to the edge of
 # Bordeaux: 231 × 141 points, ~98 KB per hour.
 BOX = {"south": 43.55, "north": 45.85, "west": -2.00, "east": -0.60}
@@ -53,7 +60,7 @@ def exists(url: str) -> bool:
 
 
 def latest_run(max_step: int) -> str:
-    """Most recent run (every 3 h) whose last wanted step is already published."""
+    """Most recent run (every 3 h) with this step already published."""
     now = datetime.now(timezone.utc)
     t = now.replace(hour=now.hour - now.hour % 3, minute=0, second=0, microsecond=0)
     for _ in range(8):
@@ -61,7 +68,14 @@ def latest_run(max_step: int) -> str:
         if exists(file_url(run, max_step)):
             return run
         t -= timedelta(hours=3)
-    sys.exit("No complete AROME run found in the last 24 h")
+    sys.exit("No AROME run found in the last 24 h")
+
+
+def available_steps(run: str, max_step: int) -> int:
+    """How many consecutive steps of this run, from +0 h, are out."""
+    with ThreadPoolExecutor(12) as pool:
+        found = list(pool.map(lambda s: exists(file_url(run, s)), range(max_step + 1)))
+    return found.index(False) if False in found else len(found)
 
 
 def download(url: str, dest: Path) -> Path:
@@ -151,6 +165,77 @@ def reuse_published(base: str, run: str, grid: dict, out: Path, copy_files: bool
     return True
 
 
+def hour_of(run_time: datetime, step: int) -> str:
+    return (run_time + timedelta(hours=step)).strftime("%Y-%m-%dT%H:%MZ")
+
+
+def write_hours(run: str, steps: list[int], folder: str, out: Path, shape: tuple[int, int]) -> tuple[list[str], list[str]]:
+    """Download these steps and write their hour files: their validity times and file names."""
+    (out / folder).mkdir(parents=True, exist_ok=True)
+    run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    times, files = [], []
+    with tempfile.TemporaryDirectory() as tmp, ThreadPoolExecutor(6) as pool:
+        downloads = {s: pool.submit(download, file_url(run, s), Path(tmp) / f"{s:02d}.grib2") for s in steps}
+        for s in steps:
+            path = downloads[s].result()
+            fields = read_fields(path)
+            path.unlink()
+            name = f"{folder}/h{s:02d}.bin"
+            (out / name).write_bytes(encode(fields, shape))
+            times.append(hour_of(run_time, s))
+            files.append(name)
+            print(f"  +{s:02d}h ok")
+    return times, files
+
+
+def read_published(base: str) -> dict | None:
+    try:
+        with urllib.request.urlopen(f"{base}/meta.json", timeout=30) as r:
+            return json.load(r)
+    except (urllib.error.URLError, ValueError):
+        return None
+
+
+def publish_progress(base: str, run: str, max_step: int, grid: dict, out: Path) -> None:
+    """Write the steps of this run not published yet, and a meta.json with every hour known.
+
+    Only the new hour files are written: the others stay where they are published (R2).
+    """
+    pub = read_published(base)
+    same_grid = pub is not None and pub.get("grid") == grid
+    folder = data_folder(run, grid)
+    have = sum(f.startswith(f"{folder}/") for f in pub["files"]) if same_grid and pub.get("run") == run else 0
+    available = available_steps(run, max_step)
+
+    if have >= available or (not have and available <= min(FIRST_STEP, max_step)):
+        if pub is None:
+            sys.exit(f"run {run}: nothing published and only {available} steps out")
+        pub.pop("pi", None)  # Rebuilt by fetch_aromepi.py.
+        (out / "meta.json").write_text(json.dumps(pub, indent=1))
+        print(f"run {run}: nothing new ({available} steps out, {have} published)")
+        return
+
+    run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    new_times, new_files = write_hours(run, list(range(have, available)), folder, out, (grid["rows"], grid["cols"]))
+    last = hour_of(run_time, available - 1)
+    times = [hour_of(run_time, s) for s in range(have)] + new_times
+    files = [f"{folder}/h{s:02d}.bin" for s in range(have)] + new_files
+    # Beyond the new run: the hours already published, until it reaches them.
+    tail = [(t, f) for t, f in zip(pub["times"], pub["files"]) if t > last] if same_grid else []
+    meta = {
+        "model": MODEL,
+        "run": run,
+        "grid": grid,
+        "scale": SCALE,
+        "times": times + [t for t, _ in tail],
+        "files": files + [f for _, f in tail],
+    }
+    if available <= MAX_STEP:
+        meta["runThrough"] = last
+    (out / "meta.json").write_text(json.dumps(meta, indent=1))
+    print(f"run {run}: +{have} to +{available - 1} h added, {len(tail)} later hours kept from the previous data")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path, required=True)
@@ -164,34 +249,23 @@ def main() -> None:
     p.add_argument(
         "--meta-only",
         action="store_true",
-        help="with --reuse-from: write meta.json only, the hour files are already published",
+        help="with --reuse-from: publish the run progressively, writing only the hour files not published yet",
     )
     args = p.parse_args()
 
-    run = args.run or latest_run(args.max_step)
+    progressive = bool(args.reuse_from and args.meta_only)
+    run = args.run or latest_run(min(FIRST_STEP, args.max_step) if progressive else args.max_step)
     print(f"run {run}")
     rows = round((BOX["north"] - BOX["south"]) / STEP) + 1
     cols = round((BOX["east"] - BOX["west"]) / STEP) + 1
     grid = {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols}
-    if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out, copy_files=not args.meta_only):
+    args.out.mkdir(parents=True, exist_ok=True)
+    if progressive:
+        publish_progress(args.reuse_from, run, args.max_step, grid, args.out)
         return
-    run_dir = args.out / data_folder(run, grid)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-
-    steps = list(range(args.max_step + 1))
-    times, files = [], []
-    with tempfile.TemporaryDirectory() as tmp, ThreadPoolExecutor(6) as pool:
-        downloads = {s: pool.submit(download, file_url(run, s), Path(tmp) / f"{s:02d}.grib2") for s in steps}
-        for s in steps:
-            path = downloads[s].result()
-            fields = read_fields(path)
-            path.unlink()
-            name = f"{run_dir.name}/h{s:02d}.bin"
-            (args.out / name).write_bytes(encode(fields, (rows, cols)))
-            times.append((run_time + timedelta(hours=s)).strftime("%Y-%m-%dT%H:%MZ"))
-            files.append(name)
-            print(f"  +{s:02d}h ok")
+    if args.reuse_from and reuse_published(args.reuse_from, run, grid, args.out):
+        return
+    times, files = write_hours(run, list(range(args.max_step + 1)), data_folder(run, grid), args.out, (rows, cols))
 
     meta = {
         "model": MODEL,

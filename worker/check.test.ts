@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aromeCandidates, decide, lastStepUrl } from './check'
+import { aromeCandidates, decide, firstStepUrl } from './check'
 
 const at = (iso: string) => Date.parse(iso)
 const pub = { run: '2026-11-07T09:00:00Z', pi: { run: '2026-11-07T16:00:00Z' } }
@@ -8,8 +8,8 @@ describe('scheduled check', () => {
   it('lists the AROME runs of the last 9 hours, newest first', () => {
     expect(aromeCandidates(at('2026-11-07T17:42:10Z'))).toEqual(['2026-11-07T15:00:00Z', '2026-11-07T12:00:00Z', '2026-11-07T09:00:00Z'])
     expect(aromeCandidates(at('2026-11-07T01:00:00Z'))[1]).toBe('2026-11-06T21:00:00Z')
-    expect(lastStepUrl('2026-11-07T12:00:00Z')).toBe(
-      'https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/2026-11-07T12:00:00Z/arome/001/SP1/arome__001__SP1__51H__2026-11-07T12:00:00Z.grib2',
+    expect(firstStepUrl('2026-11-07T12:00:00Z')).toBe(
+      'https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/2026-11-07T12:00:00Z/arome/001/SP1/arome__001__SP1__12H__2026-11-07T12:00:00Z.grib2',
     )
   })
 
@@ -25,6 +25,15 @@ describe('scheduled check', () => {
     expect(decide(pub, null, at('2026-11-07T17:45:00Z'), null).dispatch).toBe(true) // + 1 h 45
     expect(decide(pub, null, at('2026-11-07T17:55:00Z'), at('2026-11-07T17:45:00Z')).dispatch).toBe(false)
     expect(decide(pub, null, at('2026-11-07T18:00:00Z'), at('2026-11-07T17:45:00Z')).dispatch).toBe(true)
+  })
+
+  it('keeps completing a run that is still coming out, then gives up', () => {
+    const partial = { ...pub, run: '2026-11-07T12:00:00Z', runThrough: '2026-11-08T00:00Z', pi: { run: '2026-11-07T16:00:00Z' } }
+    const now = at('2026-11-07T16:30:00Z')
+    expect(decide(partial, null, now, null).dispatch).toBe(true)
+    expect(decide(partial, null, now, now - 4 * 60_000).dispatch).toBe(false)
+    expect(decide(partial, null, now, now - 10 * 60_000).dispatch).toBe(true)
+    expect(decide({ ...partial, pi: { run: '2026-11-07T19:00:00Z' } }, null, at('2026-11-07T19:30:00Z'), null).reason).toBe('rien de nouveau')
   })
 
   it('fills an empty bucket', () => {

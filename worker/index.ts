@@ -17,7 +17,7 @@
  * Deploy: see worker/README.md.
  */
 import { fetchAllObs } from '../src/lib/wind/obsSources'
-import { aromeCandidates, decide, lastStepUrl, type Decision, type Published } from './check'
+import { aromeCandidates, decide, firstStepUrl, type Decision, type Published } from './check'
 
 interface R2Object {
   body: ReadableStream
@@ -40,10 +40,10 @@ const LAST_DISPATCH = 'state/last-dispatch'
 async function status(env: Env, now = Date.now()) {
   const meta = await env.DATA.get('data/meta.json')
   const pub: Published | null = meta ? JSON.parse(await meta.text()) : null
-  // Newest complete AROME run, only among those newer than the published one.
+  // Newest AROME run far enough out, only among those newer than the published one.
   let latestArome: string | null = null
   for (const run of aromeCandidates(now).filter((r) => !pub || r > pub.run)) {
-    const r = await fetch(lastStepUrl(run), { method: 'HEAD' }).catch(() => null)
+    const r = await fetch(firstStepUrl(run), { method: 'HEAD' }).catch(() => null)
     if (r?.ok) {
       latestArome = run
       break
@@ -52,7 +52,7 @@ async function status(env: Env, now = Date.now()) {
   const last = await env.DATA.get(LAST_DISPATCH)
   const lastDispatch = last ? Number(await last.text()) : null
   const decision: Decision = decide(pub, latestArome, now, lastDispatch)
-  return { published: pub && { run: pub.run, pi: pub.pi?.run ?? null }, latestArome, lastDispatch: lastDispatch && new Date(lastDispatch).toISOString(), decision }
+  return { published: pub && { run: pub.run, runThrough: pub.runThrough ?? null, pi: pub.pi?.run ?? null }, latestArome, lastDispatch: lastDispatch && new Date(lastDispatch).toISOString(), decision }
 }
 
 async function scheduledCheck(env: Env) {
