@@ -6,7 +6,9 @@ Petit programme hébergé chez Cloudflare (offre gratuite) :
 - `GET /data/<clé>` : fichiers de prévision (`meta.json`, heures, AROME-PI) du bucket R2 `kite-data`,
   déposés par le workflow GitHub.
 - Toutes les 5 min (tâche planifiée) : lance le workflow GitHub quand un nouveau run AROME ou AROME-PI
-  est attendu (`check.ts`). `GET /status` montre sa décision du moment sans rien lancer.
+  est attendu (`check.ts`). `GET /status` montre sa décision du moment sans rien lancer. Enregistre aussi
+  les relevés Météo-France et Weameter (8 h, `state/obs-history.json` dans R2, `record.ts`).
+- `GET /history?id=<station>` : ce qu'une station a mesuré récemment (carte d'une balise touchée).
 
 ## Développement
 ```

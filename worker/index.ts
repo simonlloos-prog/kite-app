@@ -6,6 +6,7 @@
  *   written by the GitHub workflow after each new run.
  * - Every 5 min (scheduled): wake the GitHub workflow up when a new AROME or AROME-PI run is
  *   due (worker/check.ts). GET /status shows what it would decide now, without waking it.
+ *   Also records the Météo-France and Weameter readings for /history (worker/record.ts).
  *
  * Runs on Cloudflare Workers (free plan). The Météo-France key stays here as a secret
  * (METEOFRANCE_API_KEY), never in the app. GitHub Pages only serves files rebuilt by the
@@ -17,8 +18,9 @@
  *
  * Deploy: see worker/README.md.
  */
-import { fetchAllObs, fetchHistory, isStation } from '../src/lib/wind/obsSources'
+import { fetchAllObs, fetchHistory, fetchRecordedObs, isRecorded, isStation } from '../src/lib/wind/obsSources'
 import { aromeCandidates, decide, firstStepUrl, type Decision, type Published } from './check'
+import { addReadings, pointsOf, RECORD_KEY, RECORD_STEP, type Recorded } from './record'
 
 interface R2Object {
   body: ReadableStream
@@ -78,6 +80,29 @@ async function scheduledCheck(env: Env) {
   }
 }
 
+async function readRecorded(env: Env): Promise<Recorded> {
+  const obj = await env.DATA.get(RECORD_KEY)
+  try {
+    return obj ? JSON.parse(await obj.text()) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Every 5 min: the latest Météo-France and Weameter readings, added to their history in R2. */
+async function recordObs(env: Env) {
+  const obs = await fetchRecordedObs(env.METEOFRANCE_API_KEY ?? '')
+  const store = addReadings(await readRecorded(env), obs, Date.now())
+  await env.DATA.put(RECORD_KEY, JSON.stringify(store))
+  console.log(`historique : ${obs.length} relevés, ${Object.keys(store).length} stations`)
+}
+
+/** What a station measured lately: its source's history, plus what this Worker recorded. */
+async function history(id: string, env: Env): Promise<string> {
+  const [h, store] = await Promise.all([fetchHistory(id, holfuyKeys(env)), isRecorded(id) ? readRecorded(env) : null])
+  return JSON.stringify(store ? { ...h, points: pointsOf(store, id), step: RECORD_STEP } : h)
+}
+
 const TTL_MS = 30_000
 let cached: { at: number; body: Promise<string> } | null = null
 const histories = new Map<string, { at: number; body: Promise<string> }>()
@@ -120,7 +145,7 @@ export default {
       const id = url.searchParams.get('id') ?? ''
       if (!isStation(id)) return new Response('station inconnue', { status: 404, headers })
       const seen = histories.get(id)
-      const entry = seen && Date.now() - seen.at <= TTL_MS ? seen : { at: Date.now(), body: fetchHistory(id, holfuyKeys(env)).then((h) => JSON.stringify(h)) }
+      const entry = seen && Date.now() - seen.at <= TTL_MS ? seen : { at: Date.now(), body: history(id, env) }
       histories.set(id, entry)
       return new Response(await entry.body, { headers })
     }
@@ -141,5 +166,6 @@ export default {
 
   async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     ctx.waitUntil(scheduledCheck(env))
+    ctx.waitUntil(recordObs(env))
   },
 }

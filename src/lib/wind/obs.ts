@@ -39,6 +39,8 @@ export interface ObsHistory {
   id: string
   points: ObsPoint[]
   windows: ObsWindow[]
+  /** Minutes per bar at least, when readings are sparse (recorded by the Worker every 5 min). */
+  step?: number
 }
 
 export type ObsBucket = ObsPoint

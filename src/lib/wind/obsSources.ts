@@ -188,7 +188,11 @@ const WEAMETER_WINDOWS = ["10'", "30'", '1h', '2h', '4h']
 export const isStation = (id: string) =>
   id in MF_STATIONS || WEAMETER_STATIONS[id.replace('weameter-', '')] !== undefined || HOLFUY_BEACONS[id.replace('holfuy-', '')] !== undefined
 
-/** What a station measured lately: 8 hours of readings (Holfuy, the archive API's maximum), its averages (Weameter), or nothing (Météo-France). */
+/**
+ * What a station's source gives of its recent past: 8 hours of readings (Holfuy, the archive API's
+ * maximum), its rolling averages (Weameter), or nothing (Météo-France). The Worker adds what it
+ * recorded itself for the last two (worker/record.ts).
+ */
 export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Promise<ObsHistory> {
   let points: ObsPoint[] = []
   let windows: ObsWindow[] = []
@@ -205,23 +209,35 @@ export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Pro
   return { id, points, windows }
 }
 
+/** Stations without a history of their own: the Worker records them (worker/record.ts). */
+export const isRecorded = (id: string) => id in MF_STATIONS || id.startsWith('weameter-')
+
+const settle = async (tasks: Promise<Obs | null>[]): Promise<Obs[]> =>
+  (await Promise.all(tasks.map((t) => t.catch(() => null)))).filter((o): o is Obs => o !== null)
+
+const meteoFranceTasks = (key: string) =>
+  Object.keys(MF_STATIONS).map(async (id) =>
+    key ? fromMeteoFrance(id, (await get(METEO_FRANCE + id, { headers: { apikey: key } }, (r) => r.json() as Promise<MeteoFranceRecord[]>))?.[0]) : null,
+  )
+
+const weameterTasks = () =>
+  Object.keys(WEAMETER_STATIONS).map(async (slug) => {
+    // Weameter only answers compressed requests (406 otherwise); fetch decompresses.
+    const d = await get(WEAMETER(slug), { headers: WEAMETER_HEADERS }, (r) => r.json() as Promise<WeameterLive>)
+    return d ? fromWeameter(slug, d) : null
+  })
+
+/** The stations the Worker records: Météo-France and Weameter. */
+export const fetchRecordedObs = (meteoFranceKey: string): Promise<Obs[]> => settle([...meteoFranceTasks(meteoFranceKey), ...weameterTasks()])
+
 /** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
-export async function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}): Promise<Obs[]> {
-  const tasks: Promise<Obs | null>[] = [
-    ...Object.keys(MF_STATIONS).map(async (id) =>
-      meteoFranceKey
-        ? fromMeteoFrance(id, (await get(METEO_FRANCE + id, { headers: { apikey: meteoFranceKey } }, (r) => r.json() as Promise<MeteoFranceRecord[]>))?.[0])
-        : null,
-    ),
-    ...Object.keys(WEAMETER_STATIONS).map(async (slug) => {
-      // Weameter only answers compressed requests (406 otherwise); fetch decompresses.
-      const d = await get(WEAMETER(slug), { headers: WEAMETER_HEADERS }, (r) => r.json() as Promise<WeameterLive>)
-      return d ? fromWeameter(slug, d) : null
-    }),
+export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}): Promise<Obs[]> {
+  return settle([
+    ...meteoFranceTasks(meteoFranceKey),
+    ...weameterTasks(),
     ...Object.keys(HOLFUY_BEACONS).map(async (id) => {
       const points = await holfuyPoints(id, holfuyKeys, 12)
       return points && summarize(id, points)
     }),
-  ]
-  return (await Promise.all(tasks.map((t) => t.catch(() => null)))).filter((o): o is Obs => o !== null)
+  ])
 }

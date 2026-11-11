@@ -30,7 +30,7 @@
   const points = $derived(history?.points ?? [])
   const end = $derived(points.at(-1)?.t ?? Date.now())
   const start = $derived(end - view.hours * 3_600_000)
-  const minutes = $derived(view.bucket)
+  const minutes = $derived(Math.max(view.bucket, history?.step ?? 0))
   const buckets = $derived(bucketize(points.filter((p) => p.t >= start), minutes))
   const arrows = $derived(bucketize(points.filter((p) => p.t >= start), view.arrow).filter((a) => a.t + (view.arrow * 60_000) / 2 >= start))
   const hasMore = $derived(points.some((p) => p.t < end - SHORT.hours * 3_600_000))
@@ -100,7 +100,7 @@
       {/each}
     </div>
   {:else if history}
-    <p class="none">Cette station ne donne que son dernier relevé.</p>
+    <p class="none">Historique en cours d'enregistrement (un relevé toutes les 5 min).</p>
   {/if}
 </section>
 
