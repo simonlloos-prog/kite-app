@@ -32,7 +32,12 @@
   const start = $derived(end - view.hours * 3_600_000)
   const minutes = $derived(Math.max(view.bucket, history?.step ?? 0))
   const buckets = $derived(bucketize(points.filter((p) => p.t >= start), minutes))
-  const arrows = $derived(bucketize(points.filter((p) => p.t >= start), view.arrow).filter((a) => a.t + (view.arrow * 60_000) / 2 >= start))
+  /** Arrow centre, unclamped: an arrow that does not fit whole in the chart is not drawn (never half of one). */
+  const arrowX = (a: ObsBucket) => LEFT + ((a.t + (view.arrow * 60_000) / 2 - start) / (end - start || 1)) * (W - LEFT)
+  const ARROW_HALF = 5
+  const arrows = $derived(
+    bucketize(points.filter((p) => p.t >= start), view.arrow).filter((a) => arrowX(a) >= LEFT + ARROW_HALF && arrowX(a) <= W - ARROW_HALF),
+  )
   const hasMore = $derived(points.some((p) => p.t < end - SHORT.hours * 3_600_000))
 
   const top = $derived(Math.max(10, ...buckets.map((b) => b.gust)) * 1.08)
@@ -84,7 +89,7 @@
       {/each}
       <polyline class="gust" points={gustLine} />
       {#each arrows as a (a.t)}
-        <path class="arrow" d="M0 -5 L3.6 4.5 L0 2.4 L-3.6 4.5 Z" transform="translate({x(a.t + (view.arrow * 60_000) / 2).toFixed(1)} 7) rotate({a.dir + 180})" />
+        <path class="arrow" d="M0 -5 L3.6 4.5 L0 2.4 L-3.6 4.5 Z" transform="translate({arrowX(a).toFixed(1)} 7) rotate({a.dir + 180})" />
       {/each}
       {#each ticks as t (t)}
         <text class="axis" x={x(t)} y={H - 3} text-anchor={x(t) > W - 12 ? 'end' : 'middle'}>{hourLabel(t)}</text>
