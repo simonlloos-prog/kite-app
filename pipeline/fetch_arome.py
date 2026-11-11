@@ -81,7 +81,8 @@ def available_steps(run: str, max_step: int) -> int:
 def download(url: str, dest: Path) -> Path:
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(url, timeout=120) as r, open(dest, "wb") as f:
+            req = urllib.request.Request(url, headers={"User-Agent": "kite-app-pipeline"})
+            with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
                 shutil.copyfileobj(r, f, 1 << 20)
             return dest
         except (urllib.error.URLError, TimeoutError) as e:
@@ -147,10 +148,8 @@ def reuse_published(base: str, run: str, grid: dict, out: Path, copy_files: bool
     instead of 1.2 GB of GRIB files. Without copy_files, only meta.json is written: the hour
     files stay where they are published (R2) and are not uploaded again.
     """
-    try:
-        with urllib.request.urlopen(f"{base}/meta.json", timeout=30) as r:
-            meta = json.load(r)
-    except (urllib.error.URLError, ValueError):
+    meta = read_published(base)
+    if meta is None:
         return False
     folder = data_folder(run, grid)
     if meta.get("run") != run or meta.get("grid") != grid or not all(f.startswith(f"{folder}/") for f in meta["files"]):
@@ -189,11 +188,20 @@ def write_hours(run: str, steps: list[int], folder: str, out: Path, shape: tuple
 
 
 def read_published(base: str) -> dict | None:
+    """meta.json currently online, None when nothing is published yet.
+
+    Any other failure stops the pipeline: publishing without it would drop the later hours
+    of the previous run and download the whole new run again on every pass.
+    Cloudflare answers 403 (error 1010) to Python's default User-Agent: send our own.
+    """
+    req = urllib.request.Request(f"{base}/meta.json", headers={"User-Agent": "kite-app-pipeline"})
     try:
-        with urllib.request.urlopen(f"{base}/meta.json", timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=30) as r:
             return json.load(r)
-    except (urllib.error.URLError, ValueError):
-        return None
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        sys.exit(f"cannot read the published meta.json: HTTP {e.code}")
 
 
 def publish_progress(base: str, run: str, max_step: int, grid: dict, out: Path) -> None:
