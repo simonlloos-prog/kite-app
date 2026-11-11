@@ -183,6 +183,8 @@ class AppState {
    * changed are fetched, and an hour keeps showing its previous file until the new one is there.
    */
   async loadData() {
+    // First, even offline or when the run has not changed: the app may come back hours later.
+    this.dropPastHours()
     let meta: Meta
     try {
       const res = await fetch(`${DATA_URL}meta.json`, { cache: 'no-cache' })
@@ -239,6 +241,15 @@ class AppState {
         this.error = `heure ${key} : ${e instanceof Error ? e.message : e}`
       }
     }
+  }
+
+  /** Removes the hours already past from the dial; a past selected hour moves to now. */
+  dropPastHours() {
+    const now = parisHourKey()
+    if (!this.times.length || this.times[0] >= now) return
+    this.times = this.times.filter((k) => k >= now)
+    if (!this.times.includes(this.selectedTime)) this.selectedTime = this.times[0] ?? now
+    this.loaded = this.times.filter((k) => this.hourFiles.get(k) === this.fileOf.get(k)).length
   }
 
   /** Live readings from the Worker: seconds old, where meta.json's are 10 to 35 minutes old. */
