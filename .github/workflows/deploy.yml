@@ -1,5 +1,5 @@
 # Two jobs, so that new data never means rebuilding the app:
-# - data: fetch the latest AROME 0.01° run, AROME-PI gusts, tide and a fallback copy of the
+# - data: fetch the latest AROME 0.01° run, AROME-PI gusts, MFWAM waves, tide and a fallback copy of the
 #   station readings, and upload them to Cloudflare R2 (bucket kite-data), which the Worker
 #   (worker/) serves to the app at /data/. No build, no deployment.
 # - app: build the app and publish it on GitHub Pages, only when the code changes (push) or on
@@ -53,14 +53,14 @@ jobs:
 
       - run: pip install -r pipeline/requirements.txt
 
-      - name: Données AROME + AROME-PI + marée + stations
+      - name: Données AROME + AROME-PI + houle + marée + stations
         id: data
         env:
           METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
           API_MAREE_KEY: ${{ secrets.API_MAREE_KEY }}
         run: |
           # Runs currently online, to reuse AROME and to tell whether anything changed.
-          runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), m.get('runThrough'), (m.get('pi') or {}).get('run'))"; }
+          runs() { python -c "import json,sys; m=json.load(sys.stdin); print(m.get('run'), m.get('runThrough'), (m.get('pi') or {}).get('run'), (m.get('wave') or {}).get('run'))"; }
           curl -sf "$DATA_URL/meta.json" -o published.json || echo '{}' > published.json
           published=$(runs < published.json || echo "none")
           python pipeline/fetch_arome.py --out public/data --reuse-from "$DATA_URL" --meta-only
@@ -75,6 +75,8 @@ jobs:
               json.dump(meta, open("public/data/meta.json", "w"), indent=1)
               print(f"AROME-PI unavailable: kept the published run {pub['pi']['run']}")
           EOF
+          # MFWAM waves: a new run every 6 h, otherwise (or if the bucket fails) the published one.
+          python pipeline/fetch_mfwam.py --out public/data --reuse-from "$DATA_URL"
           python pipeline/fetch_tide.py --out public/data
           python pipeline/fetch_obs.py --out public/data
           fresh=$(runs < public/data/meta.json)

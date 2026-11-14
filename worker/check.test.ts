@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aromeCandidates, decide, firstStepUrl } from './check'
+import { aromeCandidates, decide, firstStepUrl, waveCandidates, waveReadyUrl } from './check'
 
 const at = (iso: string) => Date.parse(iso)
 const pub = { run: '2026-11-07T09:00:00Z', pi: { run: '2026-11-07T16:00:00Z' } }
@@ -34,6 +34,23 @@ describe('scheduled check', () => {
     expect(decide(partial, null, now, now - 3 * 60_000).dispatch).toBe(false)
     expect(decide(partial, null, now, now - 5 * 60_000).dispatch).toBe(true)
     expect(decide({ ...partial, pi: { run: '2026-11-07T19:00:00Z' } }, null, at('2026-11-07T19:30:00Z'), null).reason).toBe('rien de nouveau')
+  })
+
+  it('looks for MFWAM runs only once they may be out', () => {
+    expect(waveCandidates(at('2026-11-14T15:00:00Z'))).toEqual(['2026-11-14T06:00:00Z', '2026-11-14T00:00:00Z'])
+    expect(waveCandidates(at('2026-11-14T10:00:00Z'))).toEqual(['2026-11-14T06:00:00Z', '2026-11-14T00:00:00Z', '2026-11-13T18:00:00Z'])
+    expect(waveReadyUrl('2026-11-14T06:00:00Z')).toBe(
+      'https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/2026-11-14T06:00:00Z/vague-surcote/MFWAM/0025/SP1/vague-surcote-MFWAM__0025__SP1__048H__2026-11-14T06:00:00Z.grib2',
+    )
+  })
+
+  it('wakes the workflow up for a new wave run, once', () => {
+    const now = at('2026-11-07T17:00:00Z')
+    const withWave = { ...pub, wave: { run: '2026-11-07T06:00:00Z' } }
+    expect(decide(withWave, null, now, null, '2026-11-07T12:00:00Z')).toEqual({ dispatch: true, reason: 'nouveau run de houle 2026-11-07T12:00:00Z' })
+    expect(decide(withWave, null, now, now - 3 * 60_000, '2026-11-07T12:00:00Z').dispatch).toBe(false)
+    expect(decide(withWave, null, now, null, '2026-11-07T06:00:00Z').reason).toBe('rien de nouveau')
+    expect(decide(pub, null, now, null, '2026-11-07T12:00:00Z').dispatch).toBe(true) // none published yet
   })
 
   it('fills an empty bucket', () => {

@@ -12,7 +12,7 @@
     "dev:phone": "vite --host",
     "worker:dev": "npx wrangler@4.151.2 dev --config worker/wrangler.toml",
     "worker:deploy": "npx wrangler@4.151.2 deploy --config worker/wrangler.toml",
-    "data": "python pipeline/fetch_arome.py --out public/data --max-step 12 && python pipeline/fetch_aromepi.py --out public/data && python pipeline/fetch_tide.py --out public/data && python pipeline/fetch_obs.py --out public/data"
+    "data": "python pipeline/fetch_arome.py --out public/data --max-step 12 && python pipeline/fetch_aromepi.py --out public/data && python pipeline/fetch_mfwam.py --out public/data && python pipeline/fetch_tide.py --out public/data && python pipeline/fetch_obs.py --out public/data"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

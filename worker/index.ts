@@ -5,7 +5,7 @@
  * - GET /data/<key> → forecast files (meta.json, hour files) from the R2 bucket kite-data,
  *   written by the GitHub workflow after each new run.
  * - Every 5 min (scheduled): wake the GitHub workflow up when a new AROME or AROME-PI run is
- *   due (worker/check.ts). GET /status shows what it would decide now, without waking it.
+ *   due, or a new MFWAM wave run is out (worker/check.ts). GET /status shows what it would decide now, without waking it.
  *   Also records the Météo-France and Weameter readings for /history (worker/record.ts).
  *
  * Runs on Cloudflare Workers (free plan). The Météo-France key stays here as a secret
@@ -19,7 +19,7 @@
  * Deploy: see worker/README.md.
  */
 import { fetchAllObs, fetchHistory, fetchRecordedObs, isRecorded, isStation } from '../src/lib/wind/obsSources'
-import { aromeCandidates, decide, firstStepUrl, type Decision, type Published } from './check'
+import { aromeCandidates, decide, firstStepUrl, waveCandidates, waveReadyUrl, type Decision, type Published } from './check'
 import { addReadings, pointsOf, RECORD_KEY, RECORD_STEP, type Recorded } from './record'
 
 interface R2Object {
@@ -54,10 +54,19 @@ async function status(env: Env, now = Date.now()) {
       break
     }
   }
+  // Same for MFWAM waves.
+  let latestWave: string | null = null
+  for (const run of waveCandidates(now).filter((r) => !pub?.wave || r > pub.wave.run)) {
+    const r = await fetch(waveReadyUrl(run), { method: 'HEAD' }).catch(() => null)
+    if (r?.ok) {
+      latestWave = run
+      break
+    }
+  }
   const last = await env.DATA.get(LAST_DISPATCH)
   const lastDispatch = last ? Number(await last.text()) : null
-  const decision: Decision = decide(pub, latestArome, now, lastDispatch)
-  return { published: pub && { run: pub.run, runThrough: pub.runThrough ?? null, pi: pub.pi?.run ?? null }, latestArome, lastDispatch: lastDispatch && new Date(lastDispatch).toISOString(), decision }
+  const decision: Decision = decide(pub, latestArome, now, lastDispatch, latestWave)
+  return { published: pub && { run: pub.run, runThrough: pub.runThrough ?? null, pi: pub.pi?.run ?? null, wave: pub.wave?.run ?? null }, latestArome, latestWave, lastDispatch: lastDispatch && new Date(lastDispatch).toISOString(), decision }
 }
 
 async function scheduledCheck(env: Env) {
