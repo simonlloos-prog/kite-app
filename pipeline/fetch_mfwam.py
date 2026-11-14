@@ -114,20 +114,46 @@ def encode(fields: dict[str, np.ndarray]) -> bytes:
     return b"".join(np.where(land, LAND, a).astype(np.uint8).tobytes() for a in (hs, tp, d))
 
 
+MAX_GAP = 3  # hours: +48 → +51, the steps Météo-France never publishes
+
+
+def fill_gaps(by_step: dict[int, dict[str, np.ndarray]]) -> list[int]:
+    """Missing hours between two published ones (+49 and +50), linearly in time: otherwise the
+    map is blank for two hours. Direction through its unit vector, so 350° and 10° give 0°."""
+    filled = []
+    known = sorted(by_step)
+    for a, b in zip(known, known[1:]):
+        if b - a < 2 or b - a > MAX_GAP:
+            continue
+        fa, fb = by_step[a], by_step[b]
+        ra, rb = np.radians(fa["dir"]), np.radians(fb["dir"])
+        for s in range(a + 1, b):
+            t = (s - a) / (b - a)
+            mix = lambda k: (1 - t) * fa[k] + t * fb[k]  # noqa: E731
+            e = (1 - t) * np.sin(ra) + t * np.sin(rb)
+            n = (1 - t) * np.cos(ra) + t * np.cos(rb)
+            by_step[s] = {"hs": mix("hs"), "tp": mix("tp"), "dir": np.degrees(np.arctan2(e, n)) % 360}
+            filled.append(s)
+    return filled
+
+
 def write_run(run: str, steps: list[int], grid: dict, out: Path) -> dict:
     """Download these steps and write the run file: the "wave" entry of meta.json."""
     run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     shape = (grid["rows"], grid["cols"])
-    parts, times = [], []
+    by_step: dict[int, dict[str, np.ndarray]] = {}
     with tempfile.TemporaryDirectory() as tmp, ThreadPoolExecutor(6) as pool:
         downloads = {s: pool.submit(download, file_url(run, s), Path(tmp) / f"{s:03d}.grib2") for s in steps}
         for s in steps:
             path = downloads[s].result()
-            fields = read_fields(path)
+            by_step[s] = read_fields(path)
             path.unlink()
-            assert fields["hs"].shape == shape, f"+{s} h: grid {fields['hs'].shape}, expected {shape}"
-            parts.append(encode(fields))
-            times.append(f"{run_time + timedelta(hours=s):%Y-%m-%dT%H:%MZ}")
+            assert by_step[s]["hs"].shape == shape, f"+{s} h: grid {by_step[s]['hs'].shape}, expected {shape}"
+    filled = fill_gaps(by_step)
+    parts = [encode(by_step[s]) for s in sorted(by_step)]
+    times = [f"{run_time + timedelta(hours=s):%Y-%m-%dT%H:%MZ}" for s in sorted(by_step)]
+    if filled:
+        print(f"  interpolated: {', '.join(f'+{s} h' for s in filled)}")
     # Grid and fields fingerprint in the name: phones cache these files forever.
     name = f"wave-{data_folder(run, {**grid, 'fields': list(FIELDS)})}.bin"
     (out / name).write_bytes(b"".join(parts))
