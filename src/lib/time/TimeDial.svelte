@@ -1,8 +1,9 @@
 <script lang="ts">
   import ObsCard from '../map/ObsCard.svelte'
-  import { windPointOf } from '../spots/spots'
+  import { isOcean, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { tideLabel } from '../wind/tide'
+  import { fmtWave } from '../wind/wave'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -19,6 +20,8 @@
           name: app.picked.name,
           w: app.windAt(windPointOf(app.picked)),
           piGust: app.piGustAt(windPointOf(app.picked)),
+          // Ocean beaches only: inside the Bassin and on the lakes, MFWAM has nothing useful.
+          wave: isOcean(app.picked) ? app.waveAt(windPointOf(app.picked)) : null,
           // A station's measurement, while it is fresh and the current hour is shown.
           obs: app.picked.obs && app.obs.find((o) => o.id === app.picked!.obs!.id),
         }
@@ -165,6 +168,9 @@
     {/if}
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
+  {#if app.hour && picked?.w && picked.wave}
+    <div class="wave">houle {fmtWave(picked.wave)}</div>
+  {/if}
   {#if picked?.obs}
     <!-- One card per station: its "Historique complet" choice does not follow to the next. -->
     {#key picked.obs.id}
@@ -296,6 +302,10 @@
   .pi {
     color: var(--muted);
     font-size: 12px;
+  }
+  .wave {
+    padding: 2px 6px 0;
+    font-size: 13px;
   }
   .progress {
     margin-left: auto;

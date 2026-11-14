@@ -89,6 +89,9 @@ export const SPOTS: Spot[] = [
   { id: 'ispe', name: 'Ispe', area: 'Lac de Biscarrosse', lat: 44.444679, lon: -1.192241, windPoint: { lat: 44.446166, lon: -1.189892 }, good: ['N', 'NE', 'E', 'SE'], ok: ['NO'], offshore: ['S', 'SO', 'O'], level: 'Débutant', note: "Interdit l'été", danger: "Toute petite plage, arbres, dévente : partir de l'eau" },
 ]
 
+/** An ocean beach (Médoc and south of the Bassin): straight coast, waves. */
+export const isOcean = (spot: { area?: string }) => spot.area?.startsWith('Océan') ?? false
+
 /** Where to read the wind of a spot, or of a picked point that may be one. */
 export const windPointOf = (p: LatLon & { windPoint?: LatLon }): LatLon => p.windPoint ?? p
 

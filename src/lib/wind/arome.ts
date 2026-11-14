@@ -1,6 +1,7 @@
 /** Data written by pipeline/fetch_arome.py: one meta file and one binary file per forecast hour. */
 import type { Obs } from './obs'
 import type { TideSeries } from './tide'
+import type { WaveMeta } from './wave'
 
 export interface LatLon {
   lat: number
@@ -38,6 +39,8 @@ export interface Meta {
     /** uint8 per cell and hour, hours one after another, `scale` kn per unit. */
     file: string
   }
+  /** Latest MFWAM waves, on their own grid (see pipeline/fetch_mfwam.py). */
+  wave?: WaveMeta
   /** Sea level at the Bassin inlet, when the pipeline could fetch it (see pipeline/fetch_tide.py). */
   tide?: TideSeries
   /** Latest wind at Météo-France stations, when the pipeline could fetch it (see pipeline/fetch_obs.py). */

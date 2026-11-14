@@ -1,10 +1,11 @@
 <script lang="ts">
   import { rateSpot } from '../spots/rating'
-  import { SPOTS, windPointOf } from '../spots/spots'
+  import { isOcean, SPOTS, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { nearestObs, obsClock } from '../wind/obs'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector } from '../wind/units'
+  import { fmtWave } from '../wind/wave'
   import { windColor } from '../wind/windColor'
   import PiBadge from './PiBadge.svelte'
 
@@ -17,6 +18,7 @@
         rating: rateSpot(spot, w, app.tide, app.selectedTime),
         trend: app.gustTrendAt(windPointOf(spot)),
         obs: app.obsLive ? nearestObs(windPointOf(spot), app.obs) : null,
+        wave: isOcean(spot) ? app.waveAt(windPointOf(spot)) : null,
       }
     }).sort((a, b) => b.rating.score - a.rating.score || (b.w?.speed ?? 0) - (a.w?.speed ?? 0)),
   )
@@ -36,7 +38,7 @@
     </p>
   {/if}
   <ul>
-    {#each rows as { spot, w, rating, trend, obs } (spot.id)}
+    {#each rows as { spot, w, rating, trend, obs, wave } (spot.id)}
       <li>
         <button type="button" onclick={() => app.flyTo(spot)}>
           <span class="dot" style:background={rating.color}></span>
@@ -52,6 +54,7 @@
                 {sector(obs.dir)} · station {obs.name}, {obsClock(obs.time)}
               </small>
             {/if}
+            {#if wave}<small class="wave">houle {fmtWave(wave)}</small>{/if}
             <small class="meta">
               {spot.level}{spot.tide ? ` · PM ±${spot.tide} h` : ''}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>
@@ -119,7 +122,8 @@
     color: var(--muted);
     font-size: 12px;
   }
-  .measured {
+  .measured,
+  .wave {
     display: block;
     color: var(--text);
   }

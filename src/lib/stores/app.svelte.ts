@@ -5,6 +5,7 @@ import { freshObs, mergeObs, type Obs, type ObsHistory } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
+import { checkWave, waveAt, type WaveAt, type WaveMeta } from '../wind/wave'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
 
@@ -13,6 +14,8 @@ export type Snap = 'closed' | 'half' | 'full'
 
 export interface Picked extends LatLon {
   name?: string
+  /** A spot's area: ocean beaches show waves. */
+  area?: string
   /** A spot's wind point, out on the water. */
   windPoint?: LatLon
   /** A Météo-France station: its measured wind. */
@@ -93,6 +96,8 @@ class AppState {
   private pi = new Map<string, Float32Array>()
   /** Tide at the Bassin inlet per Paris hour key. */
   private tides = new Map<string, Tide>()
+  /** MFWAM waves: the run loaded, its file, and the hour index of each Paris hour key. */
+  private wave: { meta: WaveMeta; data: Uint8Array; hourOf: Map<string, number> } | null = null
 
   get timeIndex() {
     return this.times.indexOf(this.selectedTime)
@@ -164,6 +169,25 @@ class AppState {
     return gustTrend([...this.pi].map(([key, gusts]) => [this.hours.get(key)?.gust[k] ?? NaN, gusts[k]]))
   }
 
+  /** Waves at the sea cell nearest to a point for the selected hour; null on land or outside the run. */
+  waveAt(p: LatLon): WaveAt | null {
+    void this.dataVersion
+    const h = this.wave?.hourOf.get(this.selectedTime)
+    return h === undefined ? null : waveAt(this.wave!.meta, this.wave!.data, h, p)
+  }
+
+  private async loadWave(wave: WaveMeta) {
+    const { rows, cols } = wave.grid
+    try {
+      const buf = await fetchBin(DATA_URL + wave.file, wave.times.length * wave.fields.length * rows * cols)
+      const hourOf = new Map(wave.times.map((t, i) => [parisHourKey(new Date(t)), i]))
+      this.wave = { meta: wave, data: checkWave(buf, wave), hourOf }
+      this.dataVersion++
+    } catch {
+      // Optional: without it, ocean spots simply show no waves.
+    }
+  }
+
   private async loadPi(meta: Meta) {
     const pi = meta.pi!
     const n = meta.grid.rows * meta.grid.cols
@@ -197,6 +221,8 @@ class AppState {
     this.error = null
     // AROME-PI runs every hour, AROME every 3 h: refresh it even when the AROME run is the same.
     if (meta.pi && meta.pi.run !== this.piRun) this.loadPi(meta)
+    // Waves: a new run every 6 h, on their own grid.
+    if (meta.wave && meta.wave.file !== this.wave?.meta.file) this.loadWave(meta.wave)
     const tides = meta.tide ? tideByTime(meta.tide) : new Map<string, Tide>()
     this.tides = new Map([...tides].map(([t, tide]) => [parisHourKey(new Date(t)), tide]))
     this.metaObs = meta.obs ?? []

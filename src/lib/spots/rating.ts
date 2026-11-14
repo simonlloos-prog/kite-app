@@ -1,7 +1,7 @@
 import type { WindAt } from '../wind/arome'
 import type { Tide } from '../wind/tide'
 import { angleDiff, sectorAngle } from '../wind/units'
-import type { Spot } from './spots'
+import { isOcean, type Spot } from './spots'
 
 export interface Rating {
   /** Higher is better, for sorting: 3 good, 2 strong, 1 light or average direction, 0 not rideable. */
@@ -29,7 +29,6 @@ export type DirQuality = 'good' | 'ok' | 'offshore' | 'bad'
  */
 const OCEAN_SIDE_OFF_FROM = 180
 const OCEAN_SW_FROM = 195
-const isOcean = (spot: Spot) => spot.area.startsWith('Océan')
 const isSideOff = (spot: Spot, dir: number) => isOcean(spot) && dir >= OCEAN_SIDE_OFF_FROM && dir < OCEAN_SW_FROM
 
 export function dirQuality(spot: Spot, dir: number): DirQuality {
