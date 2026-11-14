@@ -11,9 +11,13 @@
   import {
     addWindLayers,
     gridBounds,
+    clearFieldData,
     setBandsData,
     setLayerVisibility,
     setLinesData,
+    setWaveBandsData,
+    setWaveLinesData,
+    setWaterForWaves,
     setObsData,
     setPickedData,
     setSpotsData,
@@ -91,13 +95,28 @@
   })
 
   $effect(() => {
+    const waves = app.waves
+    if (ready) setWaterForWaves(app.map!, waves)
+  })
+
+  $effect(() => {
+    if (!ready || !app.waves) return
+    // Waves: their own grid and run. Outside it, nothing rather than the wind under a "houle" legend.
+    const w = app.waveMap
+    const { bounds, zoom, unit } = app
+    if (!w) return clearFieldData(app.map!)
+    if (app.layers.field) setWaveBandsData(app.map!, w.meta.grid, w.meta.file, w.time, w.field)
+    if (bounds) setWaveLinesData(app.map!, w.meta.grid, w.field, { zoom, bounds, unit })
+  })
+
+  $effect(() => {
     const { meta, hour } = app
-    if (ready && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, app.hourFile ?? meta.run, app.selectedTime, hour, app.kind)
+    if (ready && !app.waves && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, app.hourFile ?? meta.run, app.selectedTime, hour, app.kind)
   })
 
   $effect(() => {
     const { meta, hour, bounds, zoom, unit } = app
-    if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
+    if (ready && !app.waves && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
   })
 
   $effect(() => {

@@ -104,7 +104,7 @@ const MAX_STEPS = 600
  * it point where the wind goes. Directions are interpolated as vectors (350° and 10° give 0°).
  * Distances are physical: longitude cells are narrower by cos(lat).
  */
-export function streamlines(g: Grid, h: Hour, sep: number, bounds: Bounds): [number, number][][] {
+export function streamlines(g: Grid, h: Pick<Hour, 'u' | 'v'>, sep: number, bounds: Bounds): [number, number][][] {
   const cosLat = Math.cos(((g.south + (g.rows * g.step) / 2) * Math.PI) / 180)
   // Integration step in cells: fine enough to stay smooth on screen at every zoom.
   const H = Math.min(0.25, sep * 0.2)

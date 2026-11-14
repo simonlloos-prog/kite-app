@@ -8,6 +8,7 @@ import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bou
 import type { Obs } from '../wind/obs'
 import type { Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
+import { fmtHeight, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
@@ -36,6 +37,8 @@ const COAST_FILTER: FilterSpecification = [
 const LINE_SEP_PX = 14
 /** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
 const LABEL_PX = 14
+/** Wave heights read « 0,5 »: wider than a wind value. */
+const WAVE_LABEL_PX = 22
 
 export interface Layers {
   field: boolean
@@ -245,12 +248,20 @@ const bandMemo = new Map<string, FeatureCollection<MultiPolygon>>()
 
 /** `source` names the data (its file): the same hour changes file while a run comes out. */
 export function setBandsData(map: MlMap, g: Grid, source: string, time: string, h: Hour, kind: Kind) {
-  const key = `${source}|${time}|${kind}`
+  drawBands(map, `${source}|${time}|${kind}`, () => isobands(g, valuesOf(h, kind), BINS.map(([min]) => min)), BINS)
+}
+
+/** Wave heights, on the wave grid. `source` names the run file. */
+export function setWaveBandsData(map: MlMap, g: Grid, source: string, time: string, f: WaveField) {
+  drawBands(map, `${source}|${time}|wave`, () => isobands(g, f.hs, WAVE_BINS.map(([min]) => min)), WAVE_BINS)
+}
+
+function drawBands(map: MlMap, key: string, bands: () => ReturnType<typeof isobands>, bins: [number, string][]) {
   let fc = bandMemo.get(key)
   if (!fc) {
-    const colors = new Map(BINS)
+    const colors = new Map(bins)
     fc = empty<MultiPolygon>()
-    for (const b of isobands(g, valuesOf(h, kind), BINS.map(([min]) => min))) {
+    for (const b of bands()) {
       fc.features.push({ type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: b.polygons }, properties: { color: colors.get(b.min) } })
     }
     if (bandMemo.size > 60) bandMemo.clear()
@@ -266,17 +277,41 @@ export interface View {
 }
 
 export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) {
+  drawLines(map, g, h, valuesOf(h, kind), (kn) => fmtSpeed(kn, v.unit), LABEL_PX, v)
+}
+
+/** Lines along the primary swell, and wave heights. */
+export function setWaveLinesData(map: MlMap, g: Grid, f: WaveField, v: View) {
+  drawLines(map, g, f, f.hs, fmtHeight, WAVE_LABEL_PX, v)
+}
+
+function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float32Array, fmt: (x: number) => string, labelPx: number, v: View) {
   const lines = empty<LineString>()
-  for (const coords of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
+  for (const coords of streamlines(g, uv, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
     lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
   }
   ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
 
-  const values = empty()
-  for (const l of labels(g, valuesOf(h, kind), strideFor(g, v.zoom, LABEL_PX), v.bounds)) {
-    values.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmtSpeed(l.value, v.unit) } })
+  const fc = empty()
+  for (const l of labels(g, values, strideFor(g, v.zoom, labelPx), v.bounds)) {
+    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmt(l.value) } })
   }
-  ;(map.getSource('wind-values') as GeoJSONSource).setData(values)
+  ;(map.getSource('wind-values') as GeoJSONSource).setData(fc)
+}
+
+/** Basemap water while the waves are shown: grey, so lakes and the shore strip MFWAM does not
+ * cover never read as a light-blue wave height. Its own colour otherwise. */
+const WATER_NO_WAVES = '#d5d9df'
+let waterColor: unknown = null
+export function setWaterForWaves(map: MlMap, waves: boolean) {
+  if (!map.getLayer('water')) return
+  waterColor ??= map.getPaintProperty('water', 'fill-color')
+  map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : (waterColor as string))
+}
+
+/** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */
+export function clearFieldData(map: MlMap) {
+  for (const id of ['wind-bands', 'wind-lines', 'wind-values']) (map.getSource(id) as GeoJSONSource).setData(empty())
 }
 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null) {

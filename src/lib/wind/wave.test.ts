@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkWave, fmtWave, waveAt, type WaveMeta } from './wave'
+import { checkWave, fmtWave, waveAt, waveField, type WaveMeta } from './wave'
 
 // 3 rows × 4 cols at 0.025°, from 45.00 N / 1.30 W; the east column (−1.225) is land.
 const meta: WaveMeta = {
@@ -37,6 +37,15 @@ describe('waves', () => {
     // On the land column, 0.003° west of it: the sea cell next door (col 2).
     expect(waveAt(meta, data, 0, { lat: 45.05, lon: -1.228 })!.hs).toBeCloseTo((10 + 10) * 0.05)
     expect(waveAt(meta, data, 0, { lat: 45.05, lon: -1.1 })).toBeNull()
+  })
+
+  it('builds the map fields: height, and where the swell goes', () => {
+    const f = waveField(meta, data, 0)
+    expect(f.hs[5]).toBeCloseTo(0.75)
+    expect(Number.isNaN(f.hs[3])).toBe(true)
+    // From the west (270°): goes east.
+    expect(f.u[5]).toBeCloseTo(1)
+    expect(f.v[5]).toBeCloseTo(0)
   })
 
   it('formats like the spot list', () => {

@@ -37,10 +37,19 @@
   <button
     type="button"
     class="kind on"
-    title="Vent moyen ou rafales"
-    aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
-    onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
+    title="Carte du vent ou de la houle"
+    aria-label={app.waves ? 'Afficher le vent' : 'Afficher la houle'}
+    onclick={() => (app.waves = !app.waves)}>{app.waves ? 'Houle' : 'Vent'}</button
   >
+  {#if !app.waves}
+    <button
+      type="button"
+      class="kind on"
+      title="Vent moyen ou rafales"
+      aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
+      onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
+    >
+  {/if}
   <button
     type="button"
     class="kind on"

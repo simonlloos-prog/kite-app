@@ -67,8 +67,61 @@ export function waveAt(meta: WaveMeta, data: Uint8Array, h: number, p: LatLon): 
   return { hs: field('hs') * meta.scales.hs, tp: field('tp') * meta.scales.tp, dir: (field('dir') * 360) / 256 }
 }
 
+/**
+ * Stepped wave height scale for the map, metres: `[lower bound, colour]`, ascending. Same colour
+ * logic as the wind (blues for small, then green to purple), so the map reads the same way.
+ */
+export const WAVE_BINS: [number, string][] = [
+  [0, '#ffffff'],
+  [0.25, '#dcecff'],
+  [0.5, '#b3d4fb'],
+  [0.75, '#84b4f2'],
+  [1, '#5590e3'],
+  [1.25, '#2f6bcf'],
+  [1.5, '#19c27a'],
+  [2, '#b4e61e'],
+  [2.5, '#f2e01a'],
+  [3, '#f7861a'],
+  [4, '#ef4b2a'],
+  [5, '#b0127a'],
+  [6, '#5b21b6'],
+]
+
+export interface WaveField {
+  /** Wave height per cell, m, NaN on land. */
+  hs: Float32Array
+  /** Unit vector where the primary swell goes (east, north), NaN on land: for the lines. */
+  u: Float32Array
+  v: Float32Array
+}
+
+/** Map fields of hour `h`, on the wave grid. */
+export function waveField(meta: WaveMeta, data: Uint8Array, h: number): WaveField {
+  const n = meta.grid.rows * meta.grid.cols
+  const base = h * meta.fields.length * n
+  const at = (name: string) => base + meta.fields.indexOf(name) * n
+  const [ihs, idir] = [at('hs'), at('dir')]
+  const hs = new Float32Array(n)
+  const u = new Float32Array(n)
+  const v = new Float32Array(n)
+  for (let k = 0; k < n; k++) {
+    if (data[ihs + k] === LAND) {
+      hs[k] = u[k] = v[k] = NaN
+      continue
+    }
+    hs[k] = data[ihs + k] * meta.scales.hs
+    const to = ((data[idir + k] * 360) / 256 + 180) * (Math.PI / 180)
+    u[k] = Math.sin(to)
+    v[k] = Math.cos(to)
+  }
+  return { hs, u, v }
+}
+
+/** Map value: « 0,5 », « 1,3 ». */
+export const fmtHeight = (m: number) => m.toFixed(1).replace('.', ',')
+
 /** « 0,5 m · 13 s · O » */
 export function fmtWave(w: WaveAt): string {
-  const hs = w.hs.toFixed(1).replace('.', ',')
+  const hs = fmtHeight(w.hs)
   return `${hs} m · ${Math.round(w.tp)} s · ${sector(w.dir)}`
 }

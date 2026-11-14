@@ -5,7 +5,7 @@ import { freshObs, mergeObs, type Obs, type ObsHistory } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
-import { checkWave, waveAt, type WaveAt, type WaveMeta } from '../wind/wave'
+import { checkWave, waveAt, waveField, type WaveAt, type WaveField, type WaveMeta } from '../wind/wave'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
 
@@ -63,6 +63,8 @@ class AppState {
   loaded = $state(0)
   error = $state<string | null>(null)
   kind = $state<Kind>('speed')
+  /** The map shows the waves (MFWAM) instead of the wind. */
+  waves = $state(false)
   picked = $state<Picked | null>(null)
   snap = $state<Snap>('closed')
   /** Bottom padding of the map: what the open spots sheet covers. */
@@ -98,6 +100,8 @@ class AppState {
   private tides = new Map<string, Tide>()
   /** MFWAM waves: the run loaded, its file, and the hour index of each Paris hour key. */
   private wave: { meta: WaveMeta; data: Uint8Array; hourOf: Map<string, number> } | null = null
+  /** Map fields of the wave hours already drawn, per hour index of the loaded run. */
+  private waveFields = new Map<number, WaveField>()
 
   get timeIndex() {
     return this.times.indexOf(this.selectedTime)
@@ -176,12 +180,26 @@ class AppState {
     return h === undefined ? null : waveAt(this.wave!.meta, this.wave!.data, h, p)
   }
 
+  /** Wave map of the selected hour: its run, grid and fields; null outside the run or before it loads. */
+  get waveMap(): { meta: WaveMeta; time: string; field: WaveField } | null {
+    void this.dataVersion
+    const h = this.wave?.hourOf.get(this.selectedTime)
+    if (h === undefined) return null
+    let field = this.waveFields.get(h)
+    if (!field) {
+      field = waveField(this.wave!.meta, this.wave!.data, h)
+      this.waveFields.set(h, field)
+    }
+    return { meta: this.wave!.meta, time: this.selectedTime, field }
+  }
+
   private async loadWave(wave: WaveMeta) {
     const { rows, cols } = wave.grid
     try {
       const buf = await fetchBin(DATA_URL + wave.file, wave.times.length * wave.fields.length * rows * cols)
       const hourOf = new Map(wave.times.map((t, i) => [parisHourKey(new Date(t)), i]))
       this.wave = { meta: wave, data: checkWave(buf, wave), hourOf }
+      this.waveFields.clear()
       this.dataVersion++
     } catch {
       // Optional: without it, ocean spots simply show no waves.

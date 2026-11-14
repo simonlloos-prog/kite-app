@@ -4,14 +4,19 @@
   import { runProgress } from '../wind/arome'
   import { staleHours } from '../wind/time'
   import { fmtSpeed, UNIT_LABEL } from '../wind/units'
+  import { fmtHeight, WAVE_BINS } from '../wind/wave'
   import { BINS } from '../wind/windColor'
 
   const LABELED = new Set([4, 8, 12, 16, 20, 25, 31, 40])
-  const runHour = $derived(
-    app.meta
-      ? new Date(app.meta.run).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', hour: 'numeric' })
-      : '',
-  )
+  const WAVE_LABELED = new Set([0.5, 1, 1.5, 2, 3, 4, 6])
+  const hourOfRun = (run: string) =>
+    new Date(run).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', hour: 'numeric' })
+  const runHour = $derived(app.meta ? hourOfRun(app.meta.run) : '')
+  // Wind or waves: the scale, its labels and the run shown.
+  const wave = $derived(app.waves ? app.waveMap : null)
+  const bins = $derived(app.waves ? WAVE_BINS : BINS)
+  const tick = (min: number) =>
+    app.waves ? (WAVE_LABELED.has(min) ? fmtHeight(min).replace(',0', '') : null) : LABELED.has(min) ? fmtSpeed(min, app.unit) : null
 
   // Clock for the "late" warning: the app may stay open for hours.
   let now = $state(Date.now())
@@ -31,23 +36,31 @@
 </script>
 
 {#if app.layers.field}
-  <div class="legend" bind:clientHeight={height} aria-label="Échelle du vent en {UNIT_LABEL[app.unit]}">
-    <span class="unit">{app.kind === 'gust' ? 'raf.' : 'moy.'} {UNIT_LABEL[app.unit]}</span>
+  <div
+    class="legend"
+    bind:clientHeight={height}
+    aria-label={app.waves ? 'Échelle de la houle en mètres' : `Échelle du vent en ${UNIT_LABEL[app.unit]}`}
+  >
+    <span class="unit">{app.waves ? 'houle m' : `${app.kind === 'gust' ? 'raf.' : 'moy.'} ${UNIT_LABEL[app.unit]}`}</span>
     <!-- Values sit under the bar, centred on the boundary where their bin starts: inside the
          colour boxes they overflowed onto the next colour. -->
     <div class="scale">
       <div class="bar">
-        {#each BINS as [min, color] (min)}
+        {#each bins as [min, color] (min)}
           <div class="bin" style:background={color}></div>
         {/each}
       </div>
       <div class="ticks">
-        {#each BINS as [min], i (min)}
-          {#if LABELED.has(min)}<span style:left="{(i / BINS.length) * 100}%">{fmtSpeed(min, app.unit)}</span>{/if}
+        {#each bins as [min], i (min)}
+          {#if tick(min)}<span style:left="{(i / bins.length) * 100}%">{tick(min)}</span>{/if}
         {/each}
       </div>
     </div>
-    {#if app.meta}
+    {#if app.waves}
+      <span class="run">
+        {#if wave}{wave.meta.model} · run {hourOfRun(wave.meta.run)}{:else}houle indisponible à cette heure{/if}
+      </span>
+    {:else if app.meta}
       <span class="run">
         {app.meta.model} · run {runHour}{#if progress !== null}{` · en cours (jusqu'à +${progress} h)`}{/if}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
       </span>
