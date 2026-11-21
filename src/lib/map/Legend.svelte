@@ -65,6 +65,10 @@
         {app.meta.model} · run {runHour}{#if progress !== null}{` · en cours (jusqu'à +${progress} h)`}{/if}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
       </span>
     {/if}
+    {#if app.mix && !app.waves}
+      <!-- Mix: how to read the crests along the beaches. -->
+      <span class="run">vagues ) ) ) : vers où va la houle · couleur, épaisseur, rangées = hauteur · arcs courts = période courte</span>
+    {/if}
     {#if app.tide}
       <span class="dry">
         <i style:--sand={DRY_SAND} style:--hatch={DRY_HATCH}></i> à sec dans le Bassin (marée)

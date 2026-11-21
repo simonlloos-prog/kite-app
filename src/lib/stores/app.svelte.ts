@@ -65,6 +65,8 @@ class AppState {
   kind = $state<Kind>('speed')
   /** The map shows the waves (MFWAM) instead of the wind. */
   waves = $state(false)
+  /** The wind, lighter, with wave crests along the ocean beaches (surf.ts). */
+  mix = $state(false)
   picked = $state<Picked | null>(null)
   snap = $state<Snap>('closed')
   /** Bottom padding of the map: what the open spots sheet covers. */

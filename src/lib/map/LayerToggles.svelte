@@ -37,9 +37,14 @@
   <button
     type="button"
     class="kind on"
-    title="Carte du vent ou de la houle"
-    aria-label={app.waves ? 'Afficher le vent' : 'Afficher la houle'}
-    onclick={() => (app.waves = !app.waves)}>{app.waves ? 'Houle' : 'Vent'}</button
+    title="Carte du vent, de la houle, ou des deux (Mix)"
+    aria-label={app.waves ? 'Afficher le vent et la houle' : app.mix ? 'Afficher le vent' : 'Afficher la houle'}
+    onclick={() => {
+      // Vent → Houle → Mix → Vent.
+      if (app.waves) [app.waves, app.mix] = [false, true]
+      else if (app.mix) app.mix = false
+      else app.waves = true
+    }}>{app.waves ? 'Houle' : app.mix ? 'Mix' : 'Vent'}</button
   >
   {#if !app.waves}
     <button

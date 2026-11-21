@@ -7,6 +7,7 @@
   import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import type { Obs } from '../wind/obs'
+  import { oceanCoast, surfArcs } from '../wind/surf'
   import { setObsMarkers } from './obsMarkers'
   import {
     addWindLayers,
@@ -18,6 +19,8 @@
     setWaveBandsData,
     setWaveLinesData,
     setWaterForWaves,
+    setSurfData,
+    setWindLight,
     setObsData,
     setPickedData,
     setSpotsData,
@@ -97,6 +100,19 @@
   $effect(() => {
     const waves = app.waves
     if (ready) setWaterForWaves(app.map!, waves)
+  })
+
+  // Mix: lighter wind, wave crests along the beaches.
+  $effect(() => {
+    const mix = app.mix && !app.waves
+    if (ready) setWindLight(app.map!, mix)
+  })
+
+  $effect(() => {
+    if (!ready) return
+    const { bounds, zoom } = app
+    if (!app.mix || app.waves || !bounds) return setSurfData(app.map!, [])
+    setSurfData(app.map!, surfArcs(oceanCoast(), (p) => app.waveAt(p), zoom, bounds))
   })
 
   $effect(() => {
