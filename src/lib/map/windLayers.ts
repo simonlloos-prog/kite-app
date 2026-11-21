@@ -12,6 +12,7 @@ import { fmtHeight, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
+import land from './land.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
@@ -28,11 +29,8 @@ const BIG_LAKES = [
   1705749, // Soustons
   301878862, // Hossegor
 ]
-const COAST_FILTER: FilterSpecification = [
-  'any',
-  ['==', ['get', 'class'], 'ocean'],
-  ['all', ['==', ['get', 'class'], 'lake'], ['in', ['get', 'id'], ['literal', BIG_LAKES]]],
-]
+const LAKES_FILTER: FilterSpecification = ['all', ['==', ['get', 'class'], 'lake'], ['in', ['get', 'id'], ['literal', BIG_LAKES]]]
+const COAST_FILTER: FilterSpecification = ['any', ['==', ['get', 'class'], 'ocean'], LAKES_FILTER]
 /** Screen distance between wind lines: tight, so local bends show up. */
 const LINE_SEP_PX = 14
 /** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
@@ -122,6 +120,32 @@ export function addWindLayers(map: MlMap) {
       type: 'line',
       source: 'wind-bands',
       paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7 },
+    },
+    firstLabel,
+  )
+  // Wave map only: MFWAM's 2.5 km cells, spread a little inland (wave.ts, fillCoast), are cut at
+  // the real coastline by the land drawn over them; the large lakes, where MFWAM says nothing, grey.
+  map.addSource('wave-land', { type: 'geojson', data: { type: 'Feature', geometry: land as MultiPolygon, properties: {} } })
+  const landColor = map.getLayer('background') ? map.getPaintProperty('background', 'background-color') : undefined
+  map.addLayer(
+    {
+      id: 'wave-land',
+      type: 'fill',
+      source: 'wave-land',
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': (landColor as string) ?? '#f8f4f0', 'fill-antialias': false },
+    },
+    firstLabel,
+  )
+  map.addLayer(
+    {
+      id: 'wave-lakes',
+      type: 'fill',
+      source: 'openmaptiles',
+      'source-layer': 'water',
+      filter: LAKES_FILTER,
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': WATER_NO_WAVES },
     },
     firstLabel,
   )
@@ -253,7 +277,7 @@ export function setBandsData(map: MlMap, g: Grid, source: string, time: string, 
 
 /** Wave heights, on the wave grid. `source` names the run file. */
 export function setWaveBandsData(map: MlMap, g: Grid, source: string, time: string, f: WaveField) {
-  drawBands(map, `${source}|${time}|wave`, () => isobands(g, f.hs, WAVE_BINS.map(([min]) => min)), WAVE_BINS)
+  drawBands(map, `${source}|${time}|wave`, () => isobands(g, f.bands, WAVE_BINS.map(([min]) => min)), WAVE_BINS)
 }
 
 function drawBands(map: MlMap, key: string, bands: () => ReturnType<typeof isobands>, bins: [number, string][]) {
@@ -307,6 +331,7 @@ export function setWaterForWaves(map: MlMap, waves: boolean) {
   if (!map.getLayer('water')) return
   waterColor ??= map.getPaintProperty('water', 'fill-color')
   map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : (waterColor as string))
+  for (const id of ['wave-land', 'wave-lakes']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
 }
 
 /** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */

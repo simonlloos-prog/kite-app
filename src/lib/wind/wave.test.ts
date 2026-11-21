@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkWave, fmtWave, waveAt, waveField, type WaveMeta } from './wave'
+import { checkWave, fillCoast, fmtWave, waveAt, waveField, type WaveMeta } from './wave'
 
 // 3 rows × 4 cols at 0.025°, from 45.00 N / 1.30 W; the east column (−1.225) is land.
 const meta: WaveMeta = {
@@ -46,6 +46,19 @@ describe('waves', () => {
     // From the west (270°): goes east.
     expect(f.u[5]).toBeCloseTo(1)
     expect(f.v[5]).toBeCloseTo(0)
+  })
+
+  it('spreads the bands onto the land next to the sea, not the values', () => {
+    const f = waveField(meta, data, 0)
+    // Land col 3, row 1: mean of its sea neighbours in col 2 (cells 2, 6, 10).
+    expect(f.bands[7]).toBeCloseTo(((12 + 16 + 20) / 3) * 0.05)
+    expect(Number.isNaN(f.hs[7])).toBe(true)
+    expect(f.bands[5]).toBe(f.hs[5])
+  })
+
+  it('fills ring after ring, and no further', () => {
+    const v = new Float32Array([1, NaN, NaN, NaN])
+    expect(Array.from(fillCoast(v, 1, 4, 2))).toEqual([1, 1, 1, NaN])
   })
 
   it('formats like the spot list', () => {

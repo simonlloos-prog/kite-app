@@ -88,8 +88,11 @@ export const WAVE_BINS: [number, string][] = [
 ]
 
 export interface WaveField {
-  /** Wave height per cell, m, NaN on land. */
+  /** Wave height per cell, m, NaN on land: for the values. */
   hs: Float32Array
+  /** The same, spread COAST_CELLS cells inland (fillCoast): for the bands, which the map then
+   * cuts at the real coastline. MFWAM calls "land" the cells that touch the beach. */
+  bands: Float32Array
   /** Unit vector where the primary swell goes (east, north), NaN on land: for the lines. */
   u: Float32Array
   v: Float32Array
@@ -114,7 +117,41 @@ export function waveField(meta: WaveMeta, data: Uint8Array, h: number): WaveFiel
     u[k] = Math.sin(to)
     v[k] = Math.cos(to)
   }
-  return { hs, u, v }
+  return { hs, bands: fillCoast(hs, meta.grid.rows, meta.grid.cols, COAST_CELLS), u, v }
+}
+
+/** How far the bands are spread inland, in cells (2.5 km each): every beach is within 2 km of a sea cell. */
+const COAST_CELLS = 2
+
+/**
+ * `values` with its NaN cells next to known ones filled by the mean of their known neighbours
+ * (8 around), ring after ring, `rings` times. The rest stays NaN.
+ */
+export function fillCoast(values: Float32Array, rows: number, cols: number, rings: number): Float32Array {
+  let cur = values
+  for (let ring = 0; ring < rings; ring++) {
+    const next = cur.slice()
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const k = r * cols + c
+        if (!Number.isNaN(cur[k])) continue
+        let sum = 0
+        let count = 0
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const rr = r + dr
+            const cc = c + dc
+            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue
+            const x = cur[rr * cols + cc]
+            if (!Number.isNaN(x)) (sum += x), count++
+          }
+        }
+        if (count) next[k] = sum / count
+      }
+    }
+    cur = next
+  }
+  return cur
 }
 
 /** Map value: « 0,5 », « 1,3 ». */
