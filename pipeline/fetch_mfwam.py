@@ -5,10 +5,14 @@ comes out in one block 4 h 30 to 5 h 20 after its time, on the same bucket as AR
 the MFWAM grid cut to BOX (0.025°, its own lattice, coarser than AROME):
   hs   significant height of combined wind waves and swell   (discipline 10, cat 0, number 3)
   tp   peak wave period                                      (10, 0, 34)
-  dir  direction of the primary swell, where it comes from   (10, 0, 194, Météo-France local)
+  dir  direction of the dominant waves, where they come from: of the wind sea (10, 0, 4) or of
+       the primary swell (10, 0, 194, Météo-France local), whichever is higher (10, 0, 5 and 192)
 The local numbers 192-197 are, from their values, the primary (192 height, 194 direction,
-195 period) and secondary swell (193, 196, 197): the primary swell gives a clearer direction
-than the mean one, which mixes swell and wind sea.
+195 period) and secondary swell (193, 196, 197). The primary swell alone went wrong when a storm
+came in (22 nov. 2026): 3.6 m of wind sea from the west, and a 0.2 m swell from the south shown
+as the direction of the whole 3.6 m. The mean direction (10, 0, 14) mixes both: a 1 m wind sea
+from the south and a 1.2 m swell from the west gave the south-west. The dominant one goes with
+the peak period, which is that of the highest waves too, like Windguru's direction.
 
 Output, next to the AROME files:
   <out>/wave-<run>_<grid>.bin  uint8, hours one after another, then fields in FIELDS order, then
@@ -42,7 +46,11 @@ MAX_STEP = 51
 # The run comes out in one block: this step (the last of the continuous series, +49 and +50
 # are missing) tells it is there.
 READY_STEP = 48
-FIELDS = {"hs": (10, 0, 3), "tp": (10, 0, 34), "dir": (10, 0, 194)}
+FIELDS = ["hs", "tp", "dir"]
+# GRIB fields read: dir is worked out from the last four (dominant_dir).
+GRIB = {"hs": (10, 0, 3), "tp": (10, 0, 34), "sea_h": (10, 0, 5), "sea_dir": (10, 0, 4), "swell_h": (10, 0, 192), "swell_dir": (10, 0, 194)}
+# How dir is made, in meta.json and in the file name: a run published by an older rule is redone.
+DIR_RULE = "dominant"
 HS_SCALE = 0.05  # m per unit: up to 12.7 m
 TP_SCALE = 0.1  # s per unit: up to 25.4 s
 LAND = 255
@@ -69,9 +77,24 @@ def grid_of_box() -> dict:
     return {"south": BOX["south"], "west": BOX["west"], "step": STEP, "rows": rows, "cols": cols}
 
 
+def dominant_dir(g: dict[str, np.ndarray]) -> np.ndarray:
+    """Direction of the wind sea or of the primary swell, whichever is higher; either when the
+    other is missing (no wind sea, no swell)."""
+    sea = np.nan_to_num(g["sea_h"], nan=-1)
+    swell = np.nan_to_num(g["swell_h"], nan=-1)
+    d = np.where(sea >= swell, g["sea_dir"], g["swell_dir"])
+    return np.where(np.isnan(d), np.where(sea >= swell, g["swell_dir"], g["sea_dir"]), d)
+
+
 def read_fields(path: Path) -> dict[str, np.ndarray]:
     """FIELDS cropped to BOX, row 0 = south, NaN on land."""
-    wanted = {v: k for k, v in FIELDS.items()}
+    g = read_grib(path)
+    return {"hs": g["hs"], "tp": g["tp"], "dir": dominant_dir(g)}
+
+
+def read_grib(path: Path) -> dict[str, np.ndarray]:
+    """GRIB fields cropped to BOX, row 0 = south, NaN on land."""
+    wanted = {v: k for k, v in GRIB.items()}
     out: dict[str, np.ndarray] = {}
     with open(path, "rb") as f:
         while (h := eccodes.codes_grib_new_from_file(f)) is not None:
@@ -90,7 +113,7 @@ def read_fields(path: Path) -> dict[str, np.ndarray]:
                 out[wanted[key]] = crop(values, lat1, lon1)
             finally:
                 eccodes.codes_release(h)
-    absent = set(FIELDS) - set(out)
+    absent = set(GRIB) - set(out)
     if absent:
         raise RuntimeError(f"{path.name}: no {', '.join(sorted(absent))}")
     return out
@@ -155,14 +178,15 @@ def write_run(run: str, steps: list[int], grid: dict, out: Path) -> dict:
     if filled:
         print(f"  interpolated: {', '.join(f'+{s} h' for s in filled)}")
     # Grid and fields fingerprint in the name: phones cache these files forever.
-    name = f"wave-{data_folder(run, {**grid, 'fields': list(FIELDS)})}.bin"
+    name = f"wave-{data_folder(run, {**grid, 'fields': FIELDS, 'dir': DIR_RULE})}.bin"
     (out / name).write_bytes(b"".join(parts))
     print(f"wrote {name}, {len(times)} hours, {len(b''.join(parts)) // 1024} KB")
     return {
         "model": MODEL,
         "run": run,
         "grid": grid,
-        "fields": list(FIELDS),
+        "fields": FIELDS,
+        "dir": DIR_RULE,
         "scales": {"hs": HS_SCALE, "tp": TP_SCALE},
         "times": times,
         "file": name,
@@ -195,7 +219,7 @@ def main() -> None:
         run = args.run or latest_run(now)
         if run is None:
             return keep("no run out in the last day")
-        if published and published.get("run") == run and published.get("grid") == grid:
+        if published and published.get("run") == run and published.get("grid") == grid and published.get("dir") == DIR_RULE:
             return keep(f"run {run} already published")
         print(f"MFWAM run {run}")
         run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)

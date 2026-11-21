@@ -1,5 +1,5 @@
 /**
- * MFWAM waves (pipeline/fetch_mfwam.py): wave height, peak period and primary swell direction on
+ * MFWAM waves (pipeline/fetch_mfwam.py): wave height, peak period and dominant wave direction on
  * their own 0.025° grid, coarser than AROME. Only the sea has values: next to the beach, the
  * nearest sea cell is read.
  */
@@ -27,7 +27,7 @@ export interface WaveAt {
   hs: number
   /** Peak period, s. */
   tp: number
-  /** Primary swell direction, where it comes from, degrees. */
+  /** Direction of the dominant waves (wind sea or primary swell), where they come from, degrees. */
   dir: number
 }
 
@@ -95,7 +95,7 @@ export interface WaveField {
   /** The same, spread COAST_CELLS cells inland (fillCoast): for the bands, which the map then
    * cuts at the real coastline. MFWAM calls "land" the cells that touch the beach. */
   bands: Float32Array
-  /** Unit vector where the primary swell goes (east, north), NaN on land: for the lines. */
+  /** Unit vector where the dominant waves go (east, north), NaN on land: for the lines. */
   u: Float32Array
   v: Float32Array
 }

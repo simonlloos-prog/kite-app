@@ -348,7 +348,7 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
   drawLines(map, g, h, valuesOf(h, kind), (kn) => fmtSpeed(kn, v.unit), LABEL_PX, v)
 }
 
-/** Lines along the primary swell, and wave heights. */
+/** Lines along the dominant waves, and wave heights. */
 export function setWaveLinesData(map: MlMap, g: Grid, f: WaveField, v: View) {
   // MFWAM's coastal cells reach onto the beach: lines and values stop at the coast, like the bands.
   drawLines(map, g, f, f.hs, fmtHeight, WAVE_LABEL_PX, v, true)
