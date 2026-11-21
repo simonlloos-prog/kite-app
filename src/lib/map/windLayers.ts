@@ -8,7 +8,7 @@ import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bou
 import type { Obs } from '../wind/obs'
 import type { Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
-import { fmtHeight, WAVE_BINS, type WaveField } from '../wind/wave'
+import { fmtHeight, passesFade, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
@@ -121,6 +121,19 @@ export function addWindLayers(map: MlMap) {
       type: 'line',
       source: 'wind-bands',
       paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7 },
+    },
+    firstLabel,
+  )
+  // Wave map only: the swell fades out through the passes (passesFade), into the plain water
+  // colour, under the land; the inner passes and the Bassin are left without it.
+  map.addSource('wave-fade', { type: 'image', url: passesFadeImage(waterColorOf(map)), coordinates: FADE_CORNERS })
+  map.addLayer(
+    {
+      id: 'wave-fade',
+      type: 'raster',
+      source: 'wave-fade',
+      layout: { visibility: 'none' },
+      paint: { 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
     },
     firstLabel,
   )
@@ -339,6 +352,39 @@ function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float
 /** Basemap water while the waves are shown: grey, so lakes and the shore strip MFWAM does not
  * cover never read as a light-blue wave height. Its own colour otherwise. */
 const WATER_NO_WAVES = '#d5d9df'
+/** Where the passes fade is drawn, lon/lat: top left, top right, bottom right, bottom left. */
+const FADE_BOX = { west: -1.26, east: -1.15, south: 44.565, north: 44.685 }
+const FADE_CORNERS: [[number, number], [number, number], [number, number], [number, number]] = [
+  [FADE_BOX.west, FADE_BOX.north],
+  [FADE_BOX.east, FADE_BOX.north],
+  [FADE_BOX.east, FADE_BOX.south],
+  [FADE_BOX.west, FADE_BOX.south],
+]
+
+/** The water colour, more and more opaque into the passes: passesFade, one pixel every ~50 m. */
+function passesFadeImage(color: string): string {
+  const [w, h] = [176, 264]
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')!
+  g.fillStyle = color
+  g.fillRect(0, 0, 1, 1)
+  const [r, gr, b] = g.getImageData(0, 0, 1, 1).data
+  const img = g.createImageData(w, h)
+  for (let y = 0; y < h; y++) {
+    const lat = FADE_BOX.north - ((y + 0.5) / h) * (FADE_BOX.north - FADE_BOX.south)
+    for (let x = 0; x < w; x++) {
+      const lon = FADE_BOX.west + ((x + 0.5) / w) * (FADE_BOX.east - FADE_BOX.west)
+      const k = (y * w + x) * 4
+      ;[img.data[k], img.data[k + 1], img.data[k + 2]] = [r, gr, b]
+      img.data[k + 3] = Math.round(passesFade(lon, lat) * 255)
+    }
+  }
+  g.putImageData(img, 0, 0)
+  return c.toDataURL()
+}
+
 let waterColor: unknown = null
 /** The basemap's own water colour, read before the wave map turns it grey. */
 function waterColorOf(map: MlMap): string {
@@ -348,7 +394,7 @@ function waterColorOf(map: MlMap): string {
 export function setWaterForWaves(map: MlMap, waves: boolean) {
   if (!map.getLayer('water')) return
   map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : waterColorOf(map))
-  for (const id of ['wave-land', 'wave-lakes', 'wave-bassin']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
+  for (const id of ['wave-fade', 'wave-land', 'wave-lakes', 'wave-bassin']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
 }
 
 /** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */

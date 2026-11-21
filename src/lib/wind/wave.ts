@@ -124,8 +124,48 @@ export function waveField(meta: WaveMeta, data: Uint8Array, h: number): WaveFiel
 }
 
 /**
- * Cells left without waves: the Bassin, east of the Bélisaire – Jetée Thiers line (bassin.json).
- * The swell does not get in, and MFWAM's few cells there only drew grey and « 0,1 ». Per grid.
+ * The swell dies out through the passes (lines drawn by the user on the map, nov. 2026): full
+ * west of the black line along the Banc d'Arguin, nothing north of the red line from the tip of
+ * Cap Ferret to Le Moulleau, a fade in between. Lon/lat.
+ */
+const RED_LAT = 44.6239
+const RED_WEST = -1.2561
+const BLACK: [number, number][] = [
+  [-1.2522, 44.6239],
+  [-1.2561, 44.6087],
+  [-1.2482, 44.5919],
+  [-1.2443, 44.5722],
+]
+const BLACK_SOUTH = BLACK[BLACK.length - 1][1]
+const PASSES_NORTH = 44.68
+const PASSES_EAST = -1.15
+
+/** How much of the swell is hidden at a point, 0 (all of it shown) to 1 (none): the map fades with it. */
+export function passesFade(lon: number, lat: number): number {
+  // North, the passes end at the Bassin (bassin.json); east, at Arcachon.
+  if (lat < BLACK_SOUTH || lat > PASSES_NORTH || lon < RED_WEST || lon > PASSES_EAST) return 0
+  if (lat >= RED_LAT) return 1
+  // Black line's longitude at this latitude: west of it, the open sea.
+  let blackLon = BLACK[0][0]
+  for (let i = 1; i < BLACK.length; i++) {
+    const [[x0, y0], [x1, y1]] = [BLACK[i - 1], BLACK[i]]
+    if (lat <= y0 && lat >= y1) blackLon = x0 + ((x1 - x0) * (lat - y0)) / (y1 - y0)
+  }
+  if (lon <= blackLon) return 0
+  const kmLon = 111.32 * Math.cos((lat * Math.PI) / 180)
+  const toBlack = (lon - blackLon) * kmLon
+  const toRed = (RED_LAT - lat) * 111.32
+  // Squared distances: a smooth blend, near nothing far from the red line.
+  const blend = toBlack ** 2 / (toBlack ** 2 + toRed ** 2)
+  // And none at all at the south end of the black line: no edge there.
+  const south = Math.min(1, (lat - BLACK_SOUTH) / ((RED_LAT - BLACK_SOUTH) / 2))
+  return blend * south * south * (3 - 2 * south)
+}
+
+/**
+ * Cells left without waves: the Bassin, east of the Bélisaire – Jetée Thiers line (bassin.json),
+ * where the swell does not get in and MFWAM's few cells only drew grey and « 0,1 », and the inner
+ * passes, more than half faded (passesFade): no value or line there. Per grid.
  */
 const noWavesMemo = new Map<string, Uint8Array>()
 function noWaves(g: Grid): Uint8Array {
@@ -136,7 +176,10 @@ function noWaves(g: Grid): Uint8Array {
     // Outer rings only: the islands (Île aux Oiseaux) are holes in the water, but in the Bassin too.
     const area = (bassin as MultiPolygon).coordinates.map((poly) => [poly[0]])
     for (let r = 0; r < g.rows; r++) {
-      for (let c = 0; c < g.cols; c++) if (inPolygons(area, g.west + c * g.step, g.south + r * g.step)) out[r * g.cols + c] = 1
+      for (let c = 0; c < g.cols; c++) {
+        const [lon, lat] = [g.west + c * g.step, g.south + r * g.step]
+        if (inPolygons(area, lon, lat) || passesFade(lon, lat) >= 0.5) out[r * g.cols + c] = 1
+      }
     }
     noWavesMemo.set(key, out)
   }

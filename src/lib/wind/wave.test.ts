@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkWave, fillCoast, fmtWave, inPolygons, waveAt, waveField, type WaveMeta } from './wave'
+import { checkWave, fillCoast, fmtWave, inPolygons, passesFade, waveAt, waveField, type WaveMeta } from './wave'
 
 // 3 rows × 4 cols at 0.025°, from 45.00 N / 1.30 W; the east column (−1.225) is land.
 const meta: WaveMeta = {
@@ -77,6 +77,17 @@ describe('waves', () => {
     expect(inPolygons(polys, 2, 2)).toBe(true)
     expect(inPolygons(polys, 5, 5)).toBe(false)
     expect(inPolygons(polys, 12, 5)).toBe(false)
+  })
+
+  it('fades the swell out through the passes', () => {
+    expect(passesFade(-1.3, 44.6)).toBe(0) // open sea
+    expect(passesFade(-1.22, 44.64)).toBe(1) // inner passes, north of the red line
+    expect(passesFade(-1.2, 44.5)).toBe(0) // dune du Pilat, south of the black line
+    const mid = passesFade(-1.23, 44.61)
+    expect(mid).toBeGreaterThan(0.3)
+    expect(mid).toBeLessThan(1)
+    // Closer to the red line, more hidden.
+    expect(passesFade(-1.23, 44.62)).toBeGreaterThan(mid)
   })
 
   it('formats like the spot list', () => {
