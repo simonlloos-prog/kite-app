@@ -39,6 +39,13 @@ export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
   '1317': ['La Jenny', 44.8566, -1.21987],
 }
 
+/** FFVL beacons, read from their page on balisemeteo.com (the FFVL API needs a key from the federation). */
+const FFVL = (id: string) => `https://www.balisemeteo.com/balise.php?idBalise=${id}`
+/** FFVL beacon id → name and position (from its page). Its owner (La Teste Pyla Vol Libre) agreed, nov. 2026. */
+export const FFVL_BEACONS: Record<string, [string, number, number]> = {
+  '64': ['Pyla', 44.5761, -1.2247],
+}
+
 const round1 = (x: number) => Math.round(x * 10) / 10
 
 interface MeteoFranceRecord {
@@ -78,6 +85,34 @@ export function fromWeameter(slug: string, d: WeameterLive): Obs {
     dir: last10.wdir,
     gust: round1(last10.gmax),
   }
+}
+
+/**
+ * An FFVL beacon's page: « Relevé du 21/11/2026 - 10:43 » (Paris time), then its values in order:
+ * mean wind « SE : 134° », « 16 km/h », max wind « SE : 134° », « 28 km/h »… A reading every
+ * 10 minutes. The page is Latin-1 sent as UTF-8: accented letters are never relied on.
+ */
+export function fromFfvl(id: string, page: string): Obs | null {
+  const when = page.match(/Relev\S{1,3} du (\d{2})\/(\d{2})\/(\d{4}) - (\d{2}):(\d{2})/)
+  const values = [...page.matchAll(/class="valeur">(.*?)<\/td>/gs)].map(([, v]) => v.replace(/<[^>]*>/g, '').trim())
+  const dir = values[0]?.match(/:\s*(\d+)/)
+  const speed = values[1]?.match(/^(\d+(?:\.\d+)?)\s*km\/h/)
+  const gust = values[3]?.match(/^(\d+(?:\.\d+)?)\s*km\/h/)
+  if (!when || !dir || !speed) return null
+  const [, d, mo, y, h, mi] = when.map(Number)
+  const [name, lat, lon] = FFVL_BEACONS[id]
+  const o: Obs = {
+    id: `ffvl-${id}`,
+    name,
+    source: 'FFVL',
+    lat,
+    lon,
+    time: parisToUtc(y, mo, d, h, mi, 0).toISOString().replace(/\.\d+Z$/, 'Z'),
+    speed: round1(Number(speed[1]) * KMH_TO_KN),
+    dir: Number(dir[1]),
+  }
+  if (gust) o.gust = round1(Number(gust[1]) * KMH_TO_KN)
+  return o
 }
 
 /** Last Sunday of a month, 01:00 UTC: when Europe switches summer time. */
@@ -186,12 +221,15 @@ const WEAMETER_HEADERS = { ...ua, 'Accept-Encoding': 'gzip' }
 const WEAMETER_WINDOWS = ["10'", "30'", '1h', '2h', '4h']
 /** Is this one of our stations? */
 export const isStation = (id: string) =>
-  id in MF_STATIONS || WEAMETER_STATIONS[id.replace('weameter-', '')] !== undefined || HOLFUY_BEACONS[id.replace('holfuy-', '')] !== undefined
+  id in MF_STATIONS ||
+  WEAMETER_STATIONS[id.replace('weameter-', '')] !== undefined ||
+  HOLFUY_BEACONS[id.replace('holfuy-', '')] !== undefined ||
+  FFVL_BEACONS[id.replace('ffvl-', '')] !== undefined
 
 /**
  * What a station's source gives of its recent past: 8 hours of readings (Holfuy, the archive API's
- * maximum), its rolling averages (Weameter), or nothing (Météo-France). The Worker adds what it
- * recorded itself for the last two (worker/record.ts).
+ * maximum), its rolling averages (Weameter), or nothing (Météo-France, FFVL: a picture of a graph).
+ * The Worker adds what it recorded itself for the last three (worker/record.ts).
  */
 export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Promise<ObsHistory> {
   let points: ObsPoint[] = []
@@ -210,7 +248,7 @@ export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Pro
 }
 
 /** Stations without a history of their own: the Worker records them (worker/record.ts). */
-export const isRecorded = (id: string) => id in MF_STATIONS || id.startsWith('weameter-')
+export const isRecorded = (id: string) => id in MF_STATIONS || id.startsWith('weameter-') || id.startsWith('ffvl-')
 
 const settle = async (tasks: Promise<Obs | null>[]): Promise<Obs[]> =>
   (await Promise.all(tasks.map((t) => t.catch(() => null)))).filter((o): o is Obs => o !== null)
@@ -227,14 +265,21 @@ const weameterTasks = () =>
     return d ? fromWeameter(slug, d) : null
   })
 
-/** The stations the Worker records: Météo-France and Weameter. */
-export const fetchRecordedObs = (meteoFranceKey: string): Promise<Obs[]> => settle([...meteoFranceTasks(meteoFranceKey), ...weameterTasks()])
+const ffvlTasks = () =>
+  Object.keys(FFVL_BEACONS).map(async (id) => {
+    const page = await get(FFVL(id), { headers: ua }, (r) => r.text())
+    return page ? fromFfvl(id, page) : null
+  })
+
+/** The stations the Worker records: Météo-France, Weameter and FFVL. */
+export const fetchRecordedObs = (meteoFranceKey: string): Promise<Obs[]> => settle([...meteoFranceTasks(meteoFranceKey), ...weameterTasks(), ...ffvlTasks()])
 
 /** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
 export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}): Promise<Obs[]> {
   return settle([
     ...meteoFranceTasks(meteoFranceKey),
     ...weameterTasks(),
+    ...ffvlTasks(),
     ...Object.keys(HOLFUY_BEACONS).map(async (id) => {
       const points = await holfuyPoints(id, holfuyKeys, 12)
       return points && summarize(id, points)

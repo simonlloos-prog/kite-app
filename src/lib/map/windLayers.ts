@@ -296,7 +296,7 @@ export function addWindLayers(map: MlMap) {
   })
   // Stations are drawn as animated HTML markers (obsMarkers.ts). This invisible layer only
   // carries their credits: MapLibre lists the attribution of sources a visible layer uses.
-  map.addSource('obs', { type: 'geojson', data: empty(), attribution: 'Stations : Météo-France · Balises : Holfuy (CVA, APCK, La Jenny) · Andernos, Lachanau : Weameter' })
+  map.addSource('obs', { type: 'geojson', data: empty(), attribution: 'Stations : Météo-France · Balises : Holfuy (CVA, APCK, La Jenny) · Andernos, Lachanau : Weameter · Pyla : FFVL (La Teste Pyla Vol Libre)' })
   map.addLayer({ id: 'obs-credit', type: 'circle', source: 'obs', paint: { 'circle-radius': 1, 'circle-opacity': 0 } })
   map.addLayer({
     id: 'picked',

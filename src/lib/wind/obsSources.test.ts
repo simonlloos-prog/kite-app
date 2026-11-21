@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bucketize } from './obs'
-import { archivePoints, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
+import { archivePoints, fromFfvl, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
 
 describe('obs sources', () => {
   it('turns Paris local time into UTC, summer and winter', () => {
@@ -52,5 +52,27 @@ describe('bucketize', () => {
       { t: t0, speed: 10, gust: 15, dir: 2 },
       { t: t0 + 5 * 60_000, speed: 5, gust: 6, dir: 90 },
     ])
+  })
+
+  it('reads an FFVL beacon page: km/h, Paris time, Latin-1 shown as UTF-8', () => {
+    const page =
+      '<div class="Titre" >Relev� du 21/11/2026 - 10:43</div><div class="Data"><table ><tr><th colspan="2" >Vent</th></tr>' +
+      '<tr><td class="label">Direction :</td><td class="valeur"><b><big><font color = "#0000FF">SE : 134�</font></big></b></td></tr>' +
+      '<tr><td class="label">Vitesse :</td><td class="valeur"><b><big><font color = "#0000FF">16 km/h</font></big></b></td></tr>' +
+      '<tr><td class="label">Direction :</td><td class="valeur"><b><big><font color = "#FF0000">SE : 134�</font></big></b></td></tr>' +
+      '<tr><td class="label">Vitesse :</td><td class="valeur"><b><big><font color = "#FF0000">28 km/h</font></b></big></big></td></tr>' +
+      '<tr><td class="label">Vitesse minimum :</td><td class="valeur">7 km/h</td></tr>'
+    expect(fromFfvl('64', page)).toEqual({
+      id: 'ffvl-64',
+      name: 'Pyla',
+      source: 'FFVL',
+      lat: 44.5761,
+      lon: -1.2247,
+      time: '2026-11-21T09:43:00Z',
+      speed: 8.6, // 16 km/h
+      dir: 134,
+      gust: 15.1, // 28 km/h
+    })
+    expect(fromFfvl('64', '<html>maintenance</html>')).toBeNull()
   })
 })

@@ -9,6 +9,9 @@
   no key. Not an API: it may change without notice, and the beacon then just goes missing.
   About 5 days, one reading every 2 min, km/h as integers, times in Paris local time. We take
   the last 10 minutes: mean speed, max gust, mean direction.
+- FFVL beacon at the Pyla (its owner, La Teste Pyla Vol Libre, agreed): its page on
+  balisemeteo.com, no key (the FFVL API needs one from the federation). A reading every
+  10 minutes: mean and max wind in km/h, Paris local time. The page is Latin-1.
 
 Output: <out>/meta.json gains an "obs" entry: one record per station that measured wind, with
 its source, time (ISO UTC), mean speed (kn), direction it blows from (degrees) and gust (kn) if
@@ -110,6 +113,45 @@ def weameter(slug: str) -> dict | None:
         return None
 
 
+FFVL = "https://www.balisemeteo.com/balise.php?idBalise={}"
+# FFVL beacon id → name and position (from its page).
+FFVL_BEACONS = {
+    "64": ("Pyla", 44.5761, -1.2247),
+}
+
+
+def ffvl(beacon: str) -> dict | None:
+    """An FFVL beacon's page: « Relevé du 21/11/2026 - 10:43 », then its values in order:
+    mean wind « SE : 134° », « 16 km/h », max wind « SE : 134° », « 28 km/h »…"""
+    name, lat, lon = FFVL_BEACONS[beacon]
+    req = urllib.request.Request(FFVL.format(beacon), headers={"User-Agent": "kite-app"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            page = r.read().decode("latin-1")
+        when = re.search(r"Relev\S{1,3} du (\d{2})/(\d{2})/(\d{4}) - (\d{2}):(\d{2})", page)
+        values = [re.sub(r"<[^>]*>", "", v).strip() for v in re.findall(r'class="valeur">(.*?)</td>', page, re.S)]
+        d, mo, y, h, mi = map(int, when.groups())
+        direction = int(re.search(r":\s*(\d+)", values[0]).group(1))
+        speed = float(re.match(r"(\d+(?:\.\d+)?)\s*km/h", values[1]).group(1))
+        gust = re.match(r"(\d+(?:\.\d+)?)\s*km/h", values[3]) if len(values) > 3 else None
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError, IndexError) as e:
+        print(f"  {name} unavailable: {e}", file=sys.stderr)
+        return None
+    o = {
+        "id": f"ffvl-{beacon}",
+        "name": name,
+        "source": "FFVL",
+        "lat": lat,
+        "lon": lon,
+        "time": f"{paris_to_utc(datetime(y, mo, d, h, mi)):%Y-%m-%dT%H:%M:%SZ}",
+        "speed": round(speed * KMH_TO_KN, 1),
+        "dir": direction,
+    }
+    if gust:
+        o["gust"] = round(float(gust.group(1)) * KMH_TO_KN, 1)
+    return o
+
+
 def paris_to_utc(local: datetime) -> datetime:
     """EU rule: summer time (UTC+2) from the last Sunday of March to the last Sunday of
     October, switching at 01:00 UTC. Avoids tzdata, missing from Python on Windows."""
@@ -187,7 +229,7 @@ def main() -> None:
             o["gust"] = round(r["fxi10"] * MS_TO_KN, 1)
         obs.append(o)
         print(f"  {name} {o['time']}: {o['speed']} kn from {o['dir']} deg")
-    for o in [*map(weameter, WEAMETER_STATIONS), *map(holfuy, BEACONS)]:
+    for o in [*map(weameter, WEAMETER_STATIONS), *map(holfuy, BEACONS), *map(ffvl, FFVL_BEACONS)]:
         if o:
             obs.append(o)
             print(f"  {o['name']} {o['time']}: {o['speed']} kn from {o['dir']} deg")
