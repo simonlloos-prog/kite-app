@@ -3,6 +3,8 @@
  * their own 0.025° grid, coarser than AROME. Only the sea has values: next to the beach, the
  * nearest sea cell is read.
  */
+import type { MultiPolygon } from 'geojson'
+import bassin from '../map/bassin.json'
 import type { Grid, LatLon } from './arome'
 import { sector } from './units'
 
@@ -107,8 +109,9 @@ export function waveField(meta: WaveMeta, data: Uint8Array, h: number): WaveFiel
   const hs = new Float32Array(n)
   const u = new Float32Array(n)
   const v = new Float32Array(n)
+  const out = noWaves(meta.grid)
   for (let k = 0; k < n; k++) {
-    if (data[ihs + k] === LAND) {
+    if (data[ihs + k] === LAND || out[k]) {
       hs[k] = u[k] = v[k] = NaN
       continue
     }
@@ -118,6 +121,41 @@ export function waveField(meta: WaveMeta, data: Uint8Array, h: number): WaveFiel
     v[k] = Math.cos(to)
   }
   return { hs, bands: fillCoast(hs, meta.grid.rows, meta.grid.cols, COAST_CELLS), u, v }
+}
+
+/**
+ * Cells left without waves: the Bassin, east of the Bélisaire – Jetée Thiers line (bassin.json).
+ * The swell does not get in, and MFWAM's few cells there only drew grey and « 0,1 ». Per grid.
+ */
+const noWavesMemo = new Map<string, Uint8Array>()
+function noWaves(g: Grid): Uint8Array {
+  const key = `${g.south}|${g.west}|${g.step}|${g.rows}|${g.cols}`
+  let out = noWavesMemo.get(key)
+  if (!out) {
+    out = new Uint8Array(g.rows * g.cols)
+    // Outer rings only: the islands (Île aux Oiseaux) are holes in the water, but in the Bassin too.
+    const area = (bassin as MultiPolygon).coordinates.map((poly) => [poly[0]])
+    for (let r = 0; r < g.rows; r++) {
+      for (let c = 0; c < g.cols; c++) if (inPolygons(area, g.west + c * g.step, g.south + r * g.step)) out[r * g.cols + c] = 1
+    }
+    noWavesMemo.set(key, out)
+  }
+  return out
+}
+
+/** Even-odd rule over every ring: holes count. */
+export function inPolygons(polys: number[][][][], x: number, y: number): boolean {
+  let inside = false
+  for (const poly of polys) {
+    for (const ring of poly) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i]
+        const [xj, yj] = ring[j]
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+      }
+    }
+  }
+  return inside
 }
 
 /** How far the bands are spread inland, in cells (2.5 km each): every beach is within 2 km of a sea cell. */

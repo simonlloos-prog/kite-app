@@ -12,6 +12,7 @@ import { fmtHeight, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
+import bassin from './bassin.json'
 import land from './land.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
@@ -146,6 +147,18 @@ export function addWindLayers(map: MlMap) {
       filter: LAKES_FILTER,
       layout: { visibility: 'none' },
       paint: { 'fill-color': WATER_NO_WAVES },
+    },
+    firstLabel,
+  )
+  // The Bassin: no swell gets in. Its plain basemap water, rather than grey or « 0,1 ».
+  map.addSource('wave-bassin', { type: 'geojson', data: { type: 'Feature', geometry: bassin as MultiPolygon, properties: {} } })
+  map.addLayer(
+    {
+      id: 'wave-bassin',
+      type: 'fill',
+      source: 'wave-bassin',
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': waterColorOf(map) },
     },
     firstLabel,
   )
@@ -327,11 +340,15 @@ function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float
  * cover never read as a light-blue wave height. Its own colour otherwise. */
 const WATER_NO_WAVES = '#d5d9df'
 let waterColor: unknown = null
+/** The basemap's own water colour, read before the wave map turns it grey. */
+function waterColorOf(map: MlMap): string {
+  waterColor ??= map.getLayer('water') ? map.getPaintProperty('water', 'fill-color') : '#9cc0e6'
+  return waterColor as string
+}
 export function setWaterForWaves(map: MlMap, waves: boolean) {
   if (!map.getLayer('water')) return
-  waterColor ??= map.getPaintProperty('water', 'fill-color')
-  map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : (waterColor as string))
-  for (const id of ['wave-land', 'wave-lakes']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
+  map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : waterColorOf(map))
+  for (const id of ['wave-land', 'wave-lakes', 'wave-bassin']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
 }
 
 /** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */
