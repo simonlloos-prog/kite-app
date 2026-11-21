@@ -13,6 +13,7 @@ import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
 import bassin from './bassin.json'
+import { isLand, seaPieces } from './land'
 import land from './land.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
@@ -332,18 +333,22 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
 
 /** Lines along the primary swell, and wave heights. */
 export function setWaveLinesData(map: MlMap, g: Grid, f: WaveField, v: View) {
-  drawLines(map, g, f, f.hs, fmtHeight, WAVE_LABEL_PX, v)
+  // MFWAM's coastal cells reach onto the beach: lines and values stop at the coast, like the bands.
+  drawLines(map, g, f, f.hs, fmtHeight, WAVE_LABEL_PX, v, true)
 }
 
-function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float32Array, fmt: (x: number) => string, labelPx: number, v: View) {
+function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float32Array, fmt: (x: number) => string, labelPx: number, v: View, seaOnly = false) {
   const lines = empty<LineString>()
-  for (const coords of streamlines(g, uv, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
-    lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
+  for (const line of streamlines(g, uv, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
+    for (const coords of seaOnly ? seaPieces(line) : [line]) {
+      lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
+    }
   }
   ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
 
   const fc = empty()
   for (const l of labels(g, values, strideFor(g, v.zoom, labelPx), v.bounds)) {
+    if (seaOnly && isLand(l.coord[0], l.coord[1])) continue
     fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmt(l.value) } })
   }
   ;(map.getSource('wind-values') as GeoJSONSource).setData(fc)
