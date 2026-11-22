@@ -2,12 +2,12 @@
  * "Mix" map: the wind, lighter, and the waves only where they matter, along the ocean beaches, as
  * short crest arcs in the water just off the sand, like « ) ) ) » rolling in: across the swell and
  * bulging the way it goes (its direction), in more and closer rows for a short period, fewer and
- * further apart for a long one (its period), wider and warmer in colour (WAVE_BINS) for a bigger
- * swell (its height). Every arc has the same length.
+ * further apart for a long one (its period), wider for a bigger swell (its height),
+ * always white foam on a blue halo (windLayers.ts). Every arc has the same length.
  */
 import { isLand } from '../map/land'
 import type { Bounds } from './field'
-import { WAVE_BINS, type WaveAt } from './wave'
+import type { WaveAt } from './wave'
 
 export interface CoastPoint {
   lat: number
@@ -37,16 +37,14 @@ export function oceanCoast(): CoastPoint[] {
 
 export interface Crest {
   coords: [number, number][]
-  /** Wave height, m: the line's width and colour. */
+  /** Wave height, m: the line's width. */
   hs: number
-  color: string
   width: number
 }
 
 /** Nearest crest to the sand, px: ~100 m at zoom 11, never on the coastline itself. */
 const FIRST_PX = 5
 
-export const waveColor = (hs: number) => WAVE_BINS.reduce((c, [min, col]) => (hs >= min ? col : c), WAVE_BINS[0][1])
 /** Line width, px: thin for a ripple, thick for a big swell. */
 export const crestWidth = (hs: number) => Math.min(5, 1 + hs * 1.1)
 /** Rows of crests, from the period: many close waves for a short one (wind sea), few for a long one (groundswell). */
@@ -105,7 +103,7 @@ export function surfArcs(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt
         coords.push(at(x, y))
       }
       if (coords.some(([lon, lat]) => isLand(lon, lat))) continue
-      out.push({ coords, hs: w.hs, color: waveColor(w.hs), width: crestWidth(w.hs) })
+      out.push({ coords, hs: w.hs, width: crestWidth(w.hs) })
     }
   }
   return out

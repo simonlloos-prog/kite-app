@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isLand } from '../map/land'
-import { crestRows, rowGap, oceanCoast, surfArcs, waveColor } from './surf'
+import { crestRows, rowGap, oceanCoast, surfArcs } from './surf'
 
 // Le Porge – Le Grand Crohot, zoom 10.5.
 const bounds = { south: 44.78, north: 44.92, west: -1.4, east: -1.0 }
@@ -28,10 +28,9 @@ describe('surf crests (Mix)', () => {
     expect(first[1]).not.toBeCloseTo(last[1], 3)
   })
 
-  it('shows the height in width and colour only', () => {
+  it('shows the height in the width only', () => {
     expect(arcs(2, 12, 270).length).toBe(arcs(0.5, 12, 270).length)
     expect(arcs(2, 12, 270)[0].width).toBeGreaterThan(arcs(0.5, 12, 270)[0].width)
-    expect(waveColor(2)).not.toBe(waveColor(0.5))
   })
 
   it('shows the period in rows: more and closer for a short one', () => {

@@ -261,14 +261,15 @@ export function addWindLayers(map: MlMap) {
     type: 'line',
     source: 'surf',
     layout: { 'line-cap': 'round' },
-    paint: { 'line-color': '#ffffff', 'line-width': ['+', ['get', 'width'], 2.5], 'line-opacity': 0.9 },
+    // Foam on water: a blurred blue halo under a white crest, the same for every sea (the width gives the height).
+    paint: { 'line-color': '#0d47a1', 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.55, 'line-blur': 1.5 },
   })
   map.addLayer({
     id: 'surf',
     type: 'line',
     source: 'surf',
     layout: { 'line-cap': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] },
+    paint: { 'line-color': '#ffffff', 'line-width': ['get', 'width'] },
   })
   map.addLayer({
     id: 'spots-circle',
@@ -422,7 +423,7 @@ export function setWaterForWaves(map: MlMap, waves: boolean) {
 /** Mix: crest arcs, or none. */
 export function setSurfData(map: MlMap, crests: Crest[]) {
   const fc = empty<LineString>()
-  for (const c of crests) fc.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: c.coords }, properties: { color: c.color, width: c.width } })
+  for (const c of crests) fc.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: c.coords }, properties: { width: c.width } })
   ;(map.getSource('surf') as GeoJSONSource).setData(fc)
 }
 
