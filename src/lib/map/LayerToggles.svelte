@@ -37,24 +37,10 @@
   <button
     type="button"
     class="kind on"
-    title="Carte du vent, de la houle, ou des deux (Mix)"
-    aria-label={app.waves ? 'Afficher le vent et la houle' : app.mix ? 'Afficher le vent' : 'Afficher la houle'}
-    onclick={() => {
-      // Vent → Houle → Mix → Vent.
-      if (app.waves) [app.waves, app.mix] = [false, true]
-      else if (app.mix) app.mix = false
-      else app.waves = true
-    }}>{app.waves ? 'Houle' : app.mix ? 'Mix' : 'Vent'}</button
+    title="Vent moyen ou rafales"
+    aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
+    onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
   >
-  {#if !app.waves}
-    <button
-      type="button"
-      class="kind on"
-      title="Vent moyen ou rafales"
-      aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
-      onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
-    >
-  {/if}
   <button
     type="button"
     class="kind on"

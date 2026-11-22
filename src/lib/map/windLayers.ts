@@ -9,13 +9,9 @@ import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bou
 import type { Obs } from '../wind/obs'
 import type { Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
-import { fmtHeight, passesFade, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
 import depthGrid from './bassin-depth.json'
-import bassin from './bassin.json'
-import { isLand, seaPieces } from './land'
-import land from './land.json'
 
 export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const FONT = ['Noto Sans Bold']
@@ -38,8 +34,8 @@ const COAST_FILTER: FilterSpecification = ['any', ['==', ['get', 'class'], 'ocea
 const LINE_SEP_PX = 14
 /** Screen distance between labels: one per grid point as soon as they fit, like Meteociel. */
 const LABEL_PX = 14
-/** Wave heights read « 0,5 »: wider than a wind value. */
-const WAVE_LABEL_PX = 22
+/** Opacity of the wind bands: light, under the wave crests. */
+const WIND_LIGHT = 0.45
 
 export interface Layers {
   field: boolean
@@ -106,14 +102,15 @@ export function addWindLayers(map: MlMap) {
   for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
   map.addSource('spots', { type: 'geojson', data: empty(), attribution: 'Infos spots : <a href="https://windspot.fr/">WindSpot</a>' })
 
-  // Opaque bands under the basemap labels, like Meteociel; the coastline is redrawn on top.
+  // Bands under the basemap labels, like Meteociel; the coastline is redrawn on top. The wind is
+  // drawn light (the former Mix mode, the only one since 22 nov. 2026), so the wave crests read on top.
   const firstLabel = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
   map.addLayer(
     {
       id: 'wind-bands',
       type: 'fill',
       source: 'wind-bands',
-      paint: { 'fill-color': ['get', 'color'], 'fill-antialias': false },
+      paint: { 'fill-color': ['get', 'color'], 'fill-antialias': false, 'fill-opacity': WIND_LIGHT },
     },
     firstLabel,
   )
@@ -122,58 +119,7 @@ export function addWindLayers(map: MlMap) {
       id: 'wind-band-edges',
       type: 'line',
       source: 'wind-bands',
-      paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7 },
-    },
-    firstLabel,
-  )
-  // Wave map only: the swell fades out through the passes (passesFade), into the plain water
-  // colour, under the land; the inner passes and the Bassin are left without it.
-  map.addSource('wave-fade', { type: 'image', url: passesFadeImage(waterColorOf(map)), coordinates: FADE_CORNERS })
-  map.addLayer(
-    {
-      id: 'wave-fade',
-      type: 'raster',
-      source: 'wave-fade',
-      layout: { visibility: 'none' },
-      paint: { 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
-    },
-    firstLabel,
-  )
-  // Wave map only: MFWAM's 2.5 km cells, spread a little inland (wave.ts, fillCoast), are cut at
-  // the real coastline by the land drawn over them; the large lakes, where MFWAM says nothing, grey.
-  map.addSource('wave-land', { type: 'geojson', data: { type: 'Feature', geometry: land as MultiPolygon, properties: {} } })
-  const landColor = map.getLayer('background') ? map.getPaintProperty('background', 'background-color') : undefined
-  map.addLayer(
-    {
-      id: 'wave-land',
-      type: 'fill',
-      source: 'wave-land',
-      layout: { visibility: 'none' },
-      paint: { 'fill-color': (landColor as string) ?? '#f8f4f0', 'fill-antialias': false },
-    },
-    firstLabel,
-  )
-  map.addLayer(
-    {
-      id: 'wave-lakes',
-      type: 'fill',
-      source: 'openmaptiles',
-      'source-layer': 'water',
-      filter: LAKES_FILTER,
-      layout: { visibility: 'none' },
-      paint: { 'fill-color': WATER_NO_WAVES },
-    },
-    firstLabel,
-  )
-  // The Bassin: no swell gets in. Its plain basemap water, rather than grey or « 0,1 ».
-  map.addSource('wave-bassin', { type: 'geojson', data: { type: 'Feature', geometry: bassin as MultiPolygon, properties: {} } })
-  map.addLayer(
-    {
-      id: 'wave-bassin',
-      type: 'fill',
-      source: 'wave-bassin',
-      layout: { visibility: 'none' },
-      paint: { 'fill-color': waterColorOf(map) },
+      paint: { 'line-color': 'rgba(11,19,32,.35)', 'line-width': 0.7, 'line-opacity': 0.3 },
     },
     firstLabel,
   )
@@ -224,7 +170,7 @@ export function addWindLayers(map: MlMap) {
     type: 'line',
     source: 'wind-lines',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': INK, 'line-width': 0.9, 'line-opacity': 0.65 },
+    paint: { 'line-color': INK, 'line-width': 0.9, 'line-opacity': 0.3 },
   })
   map.addLayer({
     id: 'wind-heads',
@@ -239,7 +185,7 @@ export function addWindLayers(map: MlMap) {
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': 0.8 },
+    paint: { 'icon-opacity': 0.35 },
   })
   map.addLayer({
     id: 'wind-values',
@@ -252,9 +198,9 @@ export function addWindLayers(map: MlMap) {
       'text-allow-overlap': true,
       'text-ignore-placement': true,
     },
-    paint: { 'text-color': INK, 'text-halo-color': 'rgba(255,255,255,.6)', 'text-halo-width': 1 },
+    paint: { 'text-color': INK, 'text-halo-color': 'rgba(255,255,255,.6)', 'text-halo-width': 1, 'text-opacity': 0.45 },
   })
-  // Mix: the wave height written off the crests (the crests themselves: surfCanvas.ts).
+  // The wave height written off the crests (the crests themselves: surfCanvas.ts).
   map.addSource('surf-labels', { type: 'geojson', data: empty() })
   map.addLayer({
     id: 'surf-labels',
@@ -309,20 +255,12 @@ const bandMemo = new Map<string, FeatureCollection<MultiPolygon>>()
 
 /** `source` names the data (its file): the same hour changes file while a run comes out. */
 export function setBandsData(map: MlMap, g: Grid, source: string, time: string, h: Hour, kind: Kind) {
-  drawBands(map, `${source}|${time}|${kind}`, () => isobands(g, valuesOf(h, kind), BINS.map(([min]) => min)), BINS)
-}
-
-/** Wave heights, on the wave grid. `source` names the run file. */
-export function setWaveBandsData(map: MlMap, g: Grid, source: string, time: string, f: WaveField) {
-  drawBands(map, `${source}|${time}|wave`, () => isobands(g, f.bands, WAVE_BINS.map(([min]) => min)), WAVE_BINS)
-}
-
-function drawBands(map: MlMap, key: string, bands: () => ReturnType<typeof isobands>, bins: [number, string][]) {
+  const key = `${source}|${time}|${kind}`
   let fc = bandMemo.get(key)
   if (!fc) {
-    const colors = new Map(bins)
+    const colors = new Map(BINS)
     fc = empty<MultiPolygon>()
-    for (const b of bands()) {
+    for (const b of isobands(g, valuesOf(h, kind), BINS.map(([min]) => min))) {
       fc.features.push({ type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: b.polygons }, properties: { color: colors.get(b.min) } })
     }
     if (bandMemo.size > 60) bandMemo.clear()
@@ -338,99 +276,24 @@ export interface View {
 }
 
 export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) {
-  drawLines(map, g, h, valuesOf(h, kind), (kn) => fmtSpeed(kn, v.unit), LABEL_PX, v)
-}
-
-/** Lines along the dominant waves, and wave heights. */
-export function setWaveLinesData(map: MlMap, g: Grid, f: WaveField, v: View) {
-  // MFWAM's coastal cells reach onto the beach: lines and values stop at the coast, like the bands.
-  drawLines(map, g, f, f.hs, fmtHeight, WAVE_LABEL_PX, v, true)
-}
-
-function drawLines(map: MlMap, g: Grid, uv: Pick<Hour, 'u' | 'v'>, values: Float32Array, fmt: (x: number) => string, labelPx: number, v: View, seaOnly = false) {
   const lines = empty<LineString>()
-  for (const line of streamlines(g, uv, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
-    for (const coords of seaOnly ? seaPieces(line) : [line]) {
-      lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} })
-    }
+  for (const line of streamlines(g, h, LINE_SEP_PX / pxPerCell(g, v.zoom), v.bounds)) {
+    lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: line }, properties: {} })
   }
   ;(map.getSource('wind-lines') as GeoJSONSource).setData(lines)
 
   const fc = empty()
-  for (const l of labels(g, values, strideFor(g, v.zoom, labelPx), v.bounds)) {
-    if (seaOnly && isLand(l.coord[0], l.coord[1])) continue
-    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmt(l.value) } })
+  for (const l of labels(g, valuesOf(h, kind), strideFor(g, v.zoom, LABEL_PX), v.bounds)) {
+    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: l.coord }, properties: { label: fmtSpeed(l.value, v.unit) } })
   }
   ;(map.getSource('wind-values') as GeoJSONSource).setData(fc)
 }
 
-/** Basemap water while the waves are shown: grey, so lakes and the shore strip MFWAM does not
- * cover never read as a light-blue wave height. Its own colour otherwise. */
-const WATER_NO_WAVES = '#d5d9df'
-/** Where the passes fade is drawn, lon/lat: top left, top right, bottom right, bottom left. */
-const FADE_BOX = { west: -1.26, east: -1.15, south: 44.565, north: 44.685 }
-const FADE_CORNERS: [[number, number], [number, number], [number, number], [number, number]] = [
-  [FADE_BOX.west, FADE_BOX.north],
-  [FADE_BOX.east, FADE_BOX.north],
-  [FADE_BOX.east, FADE_BOX.south],
-  [FADE_BOX.west, FADE_BOX.south],
-]
-
-/** The water colour, more and more opaque into the passes: passesFade, one pixel every ~50 m. */
-function passesFadeImage(color: string): string {
-  const [w, h] = [176, 264]
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')!
-  g.fillStyle = color
-  g.fillRect(0, 0, 1, 1)
-  const [r, gr, b] = g.getImageData(0, 0, 1, 1).data
-  const img = g.createImageData(w, h)
-  for (let y = 0; y < h; y++) {
-    const lat = FADE_BOX.north - ((y + 0.5) / h) * (FADE_BOX.north - FADE_BOX.south)
-    for (let x = 0; x < w; x++) {
-      const lon = FADE_BOX.west + ((x + 0.5) / w) * (FADE_BOX.east - FADE_BOX.west)
-      const k = (y * w + x) * 4
-      ;[img.data[k], img.data[k + 1], img.data[k + 2]] = [r, gr, b]
-      img.data[k + 3] = Math.round(passesFade(lon, lat) * 255)
-    }
-  }
-  g.putImageData(img, 0, 0)
-  return c.toDataURL()
-}
-
-let waterColor: unknown = null
-/** The basemap's own water colour, read before the wave map turns it grey. */
-function waterColorOf(map: MlMap): string {
-  waterColor ??= map.getLayer('water') ? map.getPaintProperty('water', 'fill-color') : '#9cc0e6'
-  return waterColor as string
-}
-export function setWaterForWaves(map: MlMap, waves: boolean) {
-  if (!map.getLayer('water')) return
-  map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : waterColorOf(map))
-  for (const id of ['wave-fade', 'wave-land', 'wave-lakes', 'wave-bassin']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
-}
-
-/** Mix: the wind fades into the background, so the crests read on top. */
-export function setWindLight(map: MlMap, light: boolean) {
-  map.setPaintProperty('wind-bands', 'fill-opacity', light ? 0.45 : 1)
-  map.setPaintProperty('wind-band-edges', 'line-opacity', light ? 0.3 : 1)
-  map.setPaintProperty('wind-lines', 'line-opacity', light ? 0.3 : 0.65)
-  map.setPaintProperty('wind-heads', 'icon-opacity', light ? 0.35 : 0.8)
-  map.setPaintProperty('wind-values', 'text-opacity', light ? 0.45 : 1)
-}
-
-/** Mix: the wave heights written along the beaches, or none. */
+/** The wave heights written along the beaches, or none. */
 export function setSurfLabels(map: MlMap, labels: SurfLabel[]) {
   const fc = empty()
   for (const l of labels) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lon, l.lat] }, properties: { text: l.text } })
   ;(map.getSource('surf-labels') as GeoJSONSource).setData(fc)
-}
-
-/** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */
-export function clearFieldData(map: MlMap) {
-  for (const id of ['wind-bands', 'wind-lines', 'wind-values']) (map.getSource(id) as GeoJSONSource).setData(empty())
 }
 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null) {

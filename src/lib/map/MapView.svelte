@@ -13,15 +13,10 @@
   import {
     addWindLayers,
     gridBounds,
-    clearFieldData,
     setBandsData,
     setLayerVisibility,
     setLinesData,
-    setWaveBandsData,
-    setWaveLinesData,
-    setWaterForWaves,
     setSurfLabels,
-    setWindLight,
     setObsData,
     setPickedData,
     setSpotsData,
@@ -100,21 +95,11 @@
     if (styleReady) app.map!.easeTo({ padding: { top: 0, left: 0, right: 0, bottom }, duration: 250 })
   })
 
-  $effect(() => {
-    const waves = app.waves
-    if (ready) setWaterForWaves(app.map!, waves)
-  })
-
-  // Mix: lighter wind, wave crests along the beaches.
-  $effect(() => {
-    const mix = app.mix && !app.waves
-    if (ready) setWindLight(app.map!, mix)
-  })
-
+  // Wave crests along the ocean beaches, over the lighter wind.
   $effect(() => {
     if (!ready) return
     const { bounds, zoom } = app
-    if (!app.mix || app.waves || !bounds) {
+    if (!bounds) {
       setSurfTrains(app.map!, [])
       return setSurfLabels(app.map!, [])
     }
@@ -124,23 +109,13 @@
   })
 
   $effect(() => {
-    if (!ready || !app.waves) return
-    // Waves: their own grid and run. Outside it, nothing rather than the wind under a "houle" legend.
-    const w = app.waveMap
-    const { bounds, zoom, unit } = app
-    if (!w) return clearFieldData(app.map!)
-    if (app.layers.field) setWaveBandsData(app.map!, w.meta.grid, w.meta.file, w.time, w.field)
-    if (bounds) setWaveLinesData(app.map!, w.meta.grid, w.field, { zoom, bounds, unit })
-  })
-
-  $effect(() => {
     const { meta, hour } = app
-    if (ready && !app.waves && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, app.hourFile ?? meta.run, app.selectedTime, hour, app.kind)
+    if (ready && meta && hour && app.layers.field) setBandsData(app.map!, meta.grid, app.hourFile ?? meta.run, app.selectedTime, hour, app.kind)
   })
 
   $effect(() => {
     const { meta, hour, bounds, zoom, unit } = app
-    if (ready && !app.waves && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
+    if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
   })
 
   $effect(() => {

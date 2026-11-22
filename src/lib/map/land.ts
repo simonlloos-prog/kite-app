@@ -1,6 +1,6 @@
 /**
- * Land or sea at a point, from land.json (pipeline/land_mask.mjs): the wave map's lines and values
- * stop at the coastline, like its bands. A ~200 m raster, built once by scanlines, so that a
+ * Land or sea at a point, from land.json (pipeline/land_mask.mjs): where the ocean coast is, for the
+ * Mix crests (surf.ts). A ~200 m raster, built once by scanlines, so that a
  * check costs nothing even for every point of every line.
  */
 import type { MultiPolygon } from 'geojson'
@@ -65,39 +65,4 @@ let raster: LandRaster | null = null
 export function isLand(lon: number, lat: number): boolean {
   raster ??= rasterize((land as MultiPolygon).coordinates, STEP)
   return onRaster(raster, lon, lat)
-}
-
-/** A line cut where it crosses the land, at the coast: the pieces at sea, two points at least. */
-export function seaPieces(line: [number, number][]): [number, number][][] {
-  const out: [number, number][][] = []
-  let cur: [number, number][] = []
-  let prev: [number, number] | null = null
-  let prevLand = false
-  for (const p of line) {
-    const onLand = isLand(p[0], p[1])
-    if (prev && onLand !== prevLand) {
-      const edge = coastBetween(prevLand ? p : prev, prevLand ? prev : p)
-      if (onLand) {
-        cur.push(edge)
-        if (cur.length > 1) out.push(cur)
-        cur = []
-      } else cur = [edge]
-    }
-    if (!onLand) cur.push(p)
-    prev = p
-    prevLand = onLand
-  }
-  if (cur.length > 1) out.push(cur)
-  return out
-}
-
-/** The coast between a sea point and a land point, by halving: lines end on it, not one step short. */
-function coastBetween(sea: [number, number], ashore: [number, number]): [number, number] {
-  let [a, b] = [sea, ashore]
-  for (let i = 0; i < 8; i++) {
-    const m: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-    if (isLand(m[0], m[1])) b = m
-    else a = m
-  }
-  return a
 }

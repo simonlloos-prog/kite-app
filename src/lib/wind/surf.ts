@@ -1,5 +1,5 @@
 /**
- * "Mix" map: the wind, lighter, and the waves only where they matter, along the ocean beaches, as
+ * The map (the former "Mix" mode, the only one since 22 nov. 2026): the wind, lighter, and the waves only where they matter, along the ocean beaches, as
  * short crest arcs in the water just off the sand, like « ) ) ) » rolling in: across the swell and
  * bulging the way it goes (its direction), in more and closer rows for a short period, fewer and
  * further apart for a long one (its period), wider for a bigger swell (its height),
