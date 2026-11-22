@@ -60,12 +60,14 @@ export function bucketize(points: ObsPoint[], minutes: number): ObsBucket[] {
 
 /**
  * Seconds per turn of a station's fan: faster with the wind, so strength reads at a glance.
- * Still under 1 kn; 8 s up to 2.5 kn, 5 s at 4 kn, 2 s at 10 kn, 1 s at 20 kn, 0.75 s from
- * 27 kn. Slowed down twice after trying it: light winds spun too fast.
+ * Still under 1 kn; about 11.4 s up to 2.5 kn, 7.1 s at 4 kn, 2.9 s at 10 kn, 1.4 s at 20 kn,
+ * 1.1 s from 27 kn. Slowed down three times after trying it: light winds spun too fast, then
+ * everything 30 % slower (22 nov. 2026).
  */
+const SPIN_SPEED = 0.7
 export function spinSeconds(kn: number): number {
   if (!(kn >= 1)) return 0
-  return Math.max(0.75, Math.min(8, 20 / kn))
+  return Math.max(0.75, Math.min(8, 20 / kn)) / SPIN_SPEED
 }
 
 /** Older than this, a record says nothing about now: the station stopped sending. */
