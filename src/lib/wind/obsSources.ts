@@ -37,6 +37,7 @@ export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
   '1383': ['Les Arbousiers', 44.64617, -1.19999],
   '1491': ['La Hume', 44.64542, -1.11327],
   '1317': ['La Jenny', 44.8566, -1.21987],
+  '1994': ['La Salie', 44.51475, -1.26108],
 }
 
 /**
