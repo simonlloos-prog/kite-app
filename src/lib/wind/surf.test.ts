@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isLand } from '../map/land'
-import { crestRows, rowGap, oceanCoast, surfArcs } from './surf'
+import { crestRows, rowGap, oceanCoast, surfArcs, surfTrains, trainCrests } from './surf'
 
 // Le Porge – Le Grand Crohot, zoom 10.5.
 const bounds = { south: 44.78, north: 44.92, west: -1.4, east: -1.0 }
@@ -31,6 +31,20 @@ describe('surf crests (Mix)', () => {
   it('shows the height in the width only', () => {
     expect(arcs(2, 12, 270).length).toBe(arcs(0.5, 12, 270).length)
     expect(arcs(2, 12, 270)[0].width).toBeGreaterThan(arcs(0.5, 12, 270)[0].width)
+  })
+
+  it('rolls the crests in towards the sand, fading there and back from the far row', () => {
+    const degPx = 360 / (512 * 2 ** 10.5)
+    const tr = surfTrains(oceanCoast(), () => ({ hs: 1, tp: 9, dir: 270 }), 10.5, bounds).find((t) => t.lead === 0)!
+    // Swell from the west: crests are west of the foot (x < 0); their middle comes closer to it with time.
+    const middleX = (rows: number) => trainCrests(tr, rows, degPx).map((c) => c.pts[4][0])
+    const [a, b] = [middleX(0.2), middleX(0.5)]
+    expect(a.length).toBe(b.length)
+    a.forEach((x, i) => expect(b[i]).toBeGreaterThan(x))
+    // Just before reaching the sand a crest is almost gone; it comes back faint from the far row.
+    const near = trainCrests(tr, 0.95, degPx).sort((p, q) => q.pts[4][0] - p.pts[4][0])
+    expect(near[0].alpha).toBeLessThan(0.2)
+    expect(trainCrests(tr, 1.05, degPx).every((c) => c.alpha > 0)).toBe(true)
   })
 
   it('shows the period in rows: more and closer for a short one', () => {

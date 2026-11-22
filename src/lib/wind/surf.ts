@@ -79,32 +79,83 @@ function samples(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null,
 
 /** Arc length, px, the same for every sea: the bulge shows where the waves go. */
 export const ARC = { length: 24, bulge: 0.28 }
+/**
+ * Seconds for a crest to move in by one row. The same for every sea, so a long period (wide gaps)
+ * rolls in faster than a short one, as real swell does (its speed grows with the period).
+ */
+export const ROW_SECONDS = 2.5
 
-/** Crest arcs along the beaches in view, for a zoom (MapLibre's, 512 px tiles). */
-export function surfArcs(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null, zoom: number, bounds: Bounds): Crest[] {
+/** The crests rolling in at one point of the beach: where they come from and how they look. */
+export interface Train {
+  /** Foot of the train, on the coastline. */
+  lon: number
+  lat: number
+  cos: number
+  /** Where the swell goes, across it and offshore: unit vectors (east, north) in screen pixels. */
+  t: [number, number]
+  c: [number, number]
+  off: [number, number]
+  gap: number
+  rows: number
+  width: number
+  hs: number
+  /** Rows of head start: every other train is half a row ahead, so they do not march in step. */
+  lead: number
+}
+
+/** Rolling trains of crests along the beaches in view, for a zoom (MapLibre's, 512 px tiles). */
+export function surfTrains(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null, zoom: number, bounds: Bounds): Train[] {
   const degPx = 360 / (512 * 2 ** zoom)
-  const out: Crest[] = []
-  const L = ARC.length
-  for (const { p, w, cos, row } of samples(points, waveAt, degPx, bounds, () => L * 1.25 + 6)) {
+  return samples(points, waveAt, degPx, bounds, () => ARC.length * 1.25 + 6).map(({ p, w, cos, row }) => {
     const t = travel(w.dir)
-    const c: [number, number] = [t[1], -t[0]]
     // Offshore: against the swell when it comes in from the sea, else straight west.
-    const off = t[0] > 0.3 ? [-t[0], -t[1]] : [-1, 0]
-    const gap = rowGap(w.tp)
-    const at = (x: number, y: number): [number, number] => [p.lon + x * degPx, p.lat + y * degPx * cos]
-    for (let k = 0; k < crestRows(w.tp); k++) {
-      // Rows staggered: every other sample shifts its arcs by half a gap.
-      const d = FIRST_PX + L * ARC.bulge + k * gap + (row % 2) * gap * 0.5
-      const coords: [number, number][] = []
-      for (let i = 0; i <= 8; i++) {
-        const u = i / 4 - 1
-        const x = off[0] * d + c[0] * (u * L) / 2 + t[0] * L * ARC.bulge * (1 - u * u)
-        const y = off[1] * d + c[1] * (u * L) / 2 + t[1] * L * ARC.bulge * (1 - u * u)
-        coords.push(at(x, y))
-      }
-      if (coords.some(([lon, lat]) => isLand(lon, lat))) continue
-      out.push({ coords, hs: w.hs, width: crestWidth(w.hs) })
+    const off: [number, number] = t[0] > 0.3 ? [-t[0], -t[1]] : [-1, 0]
+    return { lon: p.lon, lat: p.lat, cos, t, c: [t[1], -t[0]], off, gap: rowGap(w.tp), rows: crestRows(w.tp), width: crestWidth(w.hs), hs: w.hs, lead: (row % 2) * 0.5 }
+  })
+}
+
+/** A crest of a train: its points in screen pixels from the train's foot (east, north), and how visible it is. */
+export interface TrainCrest {
+  pts: [number, number][]
+  alpha: number
+}
+
+/**
+ * The crests of a train after `rows` rows travelled: each moves in towards the sand, fades out
+ * there and comes back from the far row, faded in. Crests that touch land are left out.
+ */
+export function trainCrests(tr: Train, rows: number, degPx: number): TrainCrest[] {
+  const L = ARC.length
+  const out: TrainCrest[] = []
+  for (let k = 0; k < tr.rows; k++) {
+    // Distance out, in rows: decreasing with time, back to the far end once it reaches the sand.
+    const s = (((k - rows - tr.lead) % tr.rows) + tr.rows) % tr.rows
+    const alpha = Math.min(1, s / 0.6) * Math.min(1, (tr.rows - s) / 0.8)
+    if (alpha <= 0.02) continue
+    const d = FIRST_PX + L * ARC.bulge + s * tr.gap
+    const pts: [number, number][] = []
+    for (let i = 0; i <= 8; i++) {
+      const u = i / 4 - 1
+      const bulge = L * ARC.bulge * (1 - u * u)
+      pts.push([tr.off[0] * d + tr.c[0] * (u * L) / 2 + tr.t[0] * bulge, tr.off[1] * d + tr.c[1] * (u * L) / 2 + tr.t[1] * bulge])
     }
+    if (pts.some(([x, y]) => isLand(tr.lon + x * degPx, tr.lat + y * degPx * tr.cos))) continue
+    out.push({ pts, alpha })
   }
   return out
+}
+
+/** Where still trains stop (no animation): no crest half faded at either end. */
+export const STILL_ROWS = -0.75
+
+/** Still crest arcs along the beaches in view, as map coordinates (the trains at rest). */
+export function surfArcs(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null, zoom: number, bounds: Bounds): Crest[] {
+  const degPx = 360 / (512 * 2 ** zoom)
+  return surfTrains(points, waveAt, zoom, bounds).flatMap((tr) =>
+    trainCrests(tr, STILL_ROWS, degPx).map(({ pts }) => ({
+      coords: pts.map(([x, y]): [number, number] => [tr.lon + x * degPx, tr.lat + y * degPx * tr.cos]),
+      hs: tr.hs,
+      width: tr.width,
+    })),
+  )
 }

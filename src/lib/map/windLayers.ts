@@ -8,7 +8,6 @@ import { isobands, labels, pxPerCell, streamlines, strideFor, valuesOf, type Bou
 import type { Obs } from '../wind/obs'
 import type { Tide } from '../wind/tide'
 import { fmtSpeed, type Unit } from '../wind/units'
-import type { Crest } from '../wind/surf'
 import { fmtHeight, passesFade, WAVE_BINS, type WaveField } from '../wind/wave'
 import { BINS } from '../wind/windColor'
 import depthUrl from './bassin-depth.bin?url'
@@ -254,23 +253,6 @@ export function addWindLayers(map: MlMap) {
     },
     paint: { 'text-color': INK, 'text-halo-color': 'rgba(255,255,255,.6)', 'text-halo-width': 1 },
   })
-  // Mix: wave crests along the beaches, over the lighter wind (surf.ts).
-  map.addSource('surf', { type: 'geojson', data: empty() })
-  map.addLayer({
-    id: 'surf-casing',
-    type: 'line',
-    source: 'surf',
-    layout: { 'line-cap': 'round' },
-    // Foam on water: a blurred blue halo under a white crest, the same for every sea (the width gives the height).
-    paint: { 'line-color': '#0d47a1', 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.55, 'line-blur': 1.5 },
-  })
-  map.addLayer({
-    id: 'surf',
-    type: 'line',
-    source: 'surf',
-    layout: { 'line-cap': 'round' },
-    paint: { 'line-color': '#ffffff', 'line-width': ['get', 'width'] },
-  })
   map.addLayer({
     id: 'spots-circle',
     type: 'circle',
@@ -418,13 +400,6 @@ export function setWaterForWaves(map: MlMap, waves: boolean) {
   if (!map.getLayer('water')) return
   map.setPaintProperty('water', 'fill-color', waves ? WATER_NO_WAVES : waterColorOf(map))
   for (const id of ['wave-fade', 'wave-land', 'wave-lakes', 'wave-bassin']) map.setLayoutProperty(id, 'visibility', waves ? 'visible' : 'none')
-}
-
-/** Mix: crest arcs, or none. */
-export function setSurfData(map: MlMap, crests: Crest[]) {
-  const fc = empty<LineString>()
-  for (const c of crests) fc.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: c.coords }, properties: { width: c.width } })
-  ;(map.getSource('surf') as GeoJSONSource).setData(fc)
 }
 
 /** Mix: the wind fades into the background, so the crests read on top. */
