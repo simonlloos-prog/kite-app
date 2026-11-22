@@ -127,6 +127,7 @@ src/
 - **La page ne zoome jamais**, seule la carte zoome : `touch-action: pan-x pan-y` sur `html`/`body`, `user-scalable=no` (Android), et `gesturestart` bloqué hors carte (iOS ignore `user-scalable`).
 - **Trait de côte** : la classe `ocean` de la couche `water`, plus les **grands lacs** choisis par leur identifiant OSM (`BIG_LAKES` dans `windLayers.ts` : Hourtin, Lacanau, Cazaux, Parentis-Biscarrosse, Petit étang de Biscarrosse, Aureilhan, Léon, Soustons, Hossegor), en ligne sombre sur un liseré clair. Tous les « lakes » OSM incluraient les réservoirs à poissons de Piraillan, qui dessinaient un rectangle dans l'eau, et les tuiles ne donnent pas la surface. Les identifiants ont été relevés en décodant les tuiles OpenFreeMap (z10) : si un lac disparaît après une mise à jour du fond de carte, revérifier son identifiant.
 - **Rotation de la carte désactivée** : nord en haut.
+- **Zoom maximum 13** (`maxZoom`, 22 nov. 2026, demandé par l'utilisateur) : au-delà, une case AROME (~1 km) remplit l'écran, il ne reste qu'une ou deux zones et des valeurs isolées.
 - **Mises à jour** : une nouvelle version s'installe et recharge la page toute seule (`lib/pwa.ts`). Elle est vérifiée au retour sur l'app, toutes les 30 min, et avec ⟳ (`app.refresh()` : nouvelle version, puis nouvelles données).
 - **Diagnostic écran** (appui long sur ⟳) : il affiche innerHeight, vh/lvh/dvh, les zones de sécurité, le mode installé, la barre d'état, la position de la carte… Ça sert à déboguer depuis une capture du téléphone ce qu'on ne reproduit pas sur ordinateur.
 

@@ -48,6 +48,8 @@
       style: STYLE_URL,
       center: [-1.2, 44.66],
       zoom: 11,
+      // Beyond, an AROME cell (~1 km) fills the screen: a couple of flat bands and lone values.
+      maxZoom: 13,
       // Added below, top right: in the bottom corner it hid under the phone's rounded edge.
       attributionControl: false,
     })
