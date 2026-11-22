@@ -35,6 +35,8 @@ interface Env {
   HOLFUY_JENNY_CLE?: string
   /** FFVL API key (Pyla beacon), given by the federation for non-commercial use: without it, its page. */
   FFVL_CLE?: string
+  /** Infoclimat open data key (Lacanau-Océan station), the user's, non-commercial: without it, no Lacanau. */
+  INFOCLIMAT_CLE?: string
   /** Fine-grained GitHub token, kite-app only, Actions: read and write. */
   GITHUB_TOKEN: string
   DATA: { get(key: string): Promise<R2Object | null>; put(key: string, value: string): Promise<unknown> }
@@ -110,7 +112,7 @@ async function recordObs(env: Env) {
 
 /** What a station measured lately: its source's history, or what this Worker recorded (FFVL: only when its API failed). */
 async function history(id: string, env: Env): Promise<string> {
-  const [h, store] = await Promise.all([fetchHistory(id, holfuyKeys(env), env.FFVL_CLE ?? ''), isRecorded(id) ? readRecorded(env) : null])
+  const [h, store] = await Promise.all([fetchHistory(id, holfuyKeys(env), env.FFVL_CLE ?? '', env.INFOCLIMAT_CLE ?? ''), isRecorded(id) ? readRecorded(env) : null])
   return JSON.stringify(store && !h.points.length ? { ...h, points: pointsOf(store, id), step: RECORD_STEP } : h)
 }
 
@@ -164,7 +166,7 @@ export default {
 
     // Concurrent requests share the same round of fetches.
     if (!cached || Date.now() - cached.at > TTL_MS) {
-      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', holfuyKeys(env), env.FFVL_CLE ?? '').then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
+      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', holfuyKeys(env), env.FFVL_CLE ?? '', env.INFOCLIMAT_CLE ?? '').then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
       cached = { at: Date.now(), body }
       body.catch(() => (cached = null))
     }

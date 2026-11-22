@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bucketize } from './obs'
-import { archivePoints, ffvlApiPoints, ffvlObs, fromFfvl, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
+import { archivePoints, ffvlApiPoints, ffvlObs, fromFfvl, fromHolfuy, fromMeteoFrance, fromWeameter, infoclimatObs, infoclimatPoints, parisToUtc } from './obsSources'
 
 describe('obs sources', () => {
   it('turns Paris local time into UTC, summer and winter', () => {
@@ -90,5 +90,17 @@ describe('bucketize', () => {
     expect(ffvlObs('64', points)).toEqual({ id: 'ffvl-64', name: 'Pyla', source: 'FFVL', lat: 44.5761, lon: -1.2247, time: '2026-11-22T09:33:06Z', speed: 36.2, dir: 292, gust: 42.1 })
     expect(ffvlApiPoints('64', { code: 2, data: null })).toBeNull() // Invalid API key
     expect(ffvlApiPoints('64', { code: 0, data: [] })).toBeNull()
+  })
+
+  it('reads an Infoclimat station: 10-minute readings in km/h, UTC', () => {
+    const row = (dh: string, moy: number | null, raf10: number | null, dir: number | null) => ({ dh_utc: dh, vent_moyen: moy, vent_rafales: null, vent_rafales_10min: raf10, vent_direction: dir })
+    const d = { hourly: { '000DZ': [row('2026-11-22 20:10:00', 15, 27.4, 245), row('2026-11-22 20:00:00', 17.7, 32.2, 245), row('2026-11-22 20:20:00', null, null, null)], _params: ['complements'] } }
+    const points = infoclimatPoints('000DZ', d)!
+    expect(points).toEqual([
+      { t: Date.UTC(2026, 10, 22, 20, 0), speed: 9.6, gust: 17.4, dir: 245 },
+      { t: Date.UTC(2026, 10, 22, 20, 10), speed: 8.1, gust: 14.8, dir: 245 },
+    ])
+    expect(infoclimatObs('000DZ', points)).toEqual({ id: 'infoclimat-000DZ', name: 'Lacanau', source: 'Infoclimat', lat: 45.00135, lon: -1.19415, time: '2026-11-22T20:10:00Z', speed: 8.1, dir: 245, gust: 14.8 })
+    expect(infoclimatPoints('000DZ', { hourly: {} })).toBeNull()
   })
 })

@@ -41,6 +41,45 @@ export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
 }
 
 /**
+ * Infoclimat stations (their open data API, with the user's key; CC BY, credit Infoclimat): one
+ * reading every 10 minutes, km/h, UTC. Station id → name and position (from its page). The owner
+ * of Lacanau-Océan agreed, nov. 2026.
+ */
+const INFOCLIMAT = (id: string, key: string, start: string, end: string) =>
+  `https://www.infoclimat.fr/opendata/?version=2&method=get&format=json&stations[]=${id}&start=${start}&end=${end}&token=${encodeURIComponent(key)}`
+export const INFOCLIMAT_STATIONS: Record<string, [string, number, number]> = {
+  '000DZ': ['Lacanau', 45.00135, -1.19415],
+}
+
+export interface InfoclimatAnswer {
+  hourly?: Record<string, { dh_utc: string; vent_moyen: number | null; vent_rafales: number | null; vent_rafales_10min: number | null; vent_direction: number | null }[] | unknown>
+}
+
+/** A station's readings in Infoclimat's answer, oldest first; null when there are none. */
+export function infoclimatPoints(id: string, d: InfoclimatAnswer): ObsPoint[] | null {
+  const rows = d.hourly?.[id]
+  if (!Array.isArray(rows)) return null
+  const points = rows
+    .filter((r) => r.vent_moyen != null && r.vent_direction != null)
+    .map((r) => ({
+      t: Date.parse(`${r.dh_utc.replace(' ', 'T')}Z`),
+      speed: round1(r.vent_moyen * KMH_TO_KN),
+      gust: round1((r.vent_rafales_10min ?? r.vent_rafales ?? r.vent_moyen) * KMH_TO_KN),
+      dir: r.vent_direction,
+    }))
+    .filter((p) => !Number.isNaN(p.t))
+    .sort((a, b) => a.t - b.t)
+  return points.length ? points : null
+}
+
+/** The latest of an Infoclimat station's readings, as a station. */
+export function infoclimatObs(id: string, points: ObsPoint[]): Obs {
+  const last = points.at(-1)!
+  const [name, lat, lon] = INFOCLIMAT_STATIONS[id]
+  return { id: `infoclimat-${id}`, name, source: 'Infoclimat', lat, lon, time: new Date(last.t).toISOString().replace(/\.\d+Z$/, 'Z'), speed: last.speed, dir: last.dir, gust: last.gust }
+}
+
+/**
  * FFVL beacons: the federation's API (SpotAiR's), with the key it gave us (non-commercial use,
  * FFVL credited, nov. 2026); their page on balisemeteo.com when there is no key or the API fails.
  */
@@ -248,6 +287,16 @@ async function ffvlApi(id: string, key: string, minutes: number): Promise<ObsPoi
   return d && ffvlApiPoints(id, d)
 }
 
+/** An Infoclimat station's readings of the last `minutes` (the API asks for whole UTC days). */
+async function infoclimatApi(id: string, key: string, minutes: number): Promise<ObsPoint[] | null> {
+  if (!key) return null
+  const day = (t: number) => new Date(t).toISOString().slice(0, 10)
+  const now = Date.now()
+  const d = await get(INFOCLIMAT(id, key, day(now - minutes * 60_000), day(now)), { headers: ua }, (r) => r.json() as Promise<InfoclimatAnswer>)
+  const recent = (d && infoclimatPoints(id, d))?.filter((p) => p.t >= now - minutes * 60_000)
+  return recent?.length ? recent : null
+}
+
 /** A Holfuy beacon's readings: the archive API when it has a key, else (and as a fallback) its graph file. */
 async function holfuyPoints(id: string, keys: HolfuyKeys, minutes: number): Promise<ObsPoint[] | null> {
   const key = keys[id]
@@ -265,17 +314,21 @@ export const isStation = (id: string) =>
   id in MF_STATIONS ||
   WEAMETER_STATIONS[id.replace('weameter-', '')] !== undefined ||
   HOLFUY_BEACONS[id.replace('holfuy-', '')] !== undefined ||
-  FFVL_BEACONS[id.replace('ffvl-', '')] !== undefined
+  FFVL_BEACONS[id.replace('ffvl-', '')] !== undefined ||
+  INFOCLIMAT_STATIONS[id.replace('infoclimat-', '')] !== undefined
 
 /**
  * What a station's source gives of its recent past: 8 hours of readings (Holfuy, the archive API's
  * maximum), its rolling averages (Weameter), or nothing (Météo-France, FFVL: a picture of a graph).
  * The Worker adds what it recorded itself for the last three (worker/record.ts).
  */
-export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = ''): Promise<ObsHistory> {
+export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = '', infoclimatKey = ''): Promise<ObsHistory> {
   let points: ObsPoint[] = []
   let windows: ObsWindow[] = []
-  if (id.startsWith('ffvl-') && ffvlKey) {
+  if (id.startsWith('infoclimat-')) {
+    points = (await infoclimatApi(id.slice('infoclimat-'.length), infoclimatKey, 480)) ?? []
+    return { id, points, windows, step: 10 }
+  } else if (id.startsWith('ffvl-') && ffvlKey) {
     points = (await ffvlApi(id.slice('ffvl-'.length), ffvlKey, 480)) ?? []
     if (points.length) return { id, points, windows, step: 10 }
   } else if (id.startsWith('holfuy-')) {
@@ -323,10 +376,14 @@ export const fetchRecordedObs = (meteoFranceKey: string, ffvlKey = ''): Promise<
 
 /**
  * Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key,
- * when there is one; `ffvlKey`: the FFVL API key.
+ * when there is one; `ffvlKey`: the FFVL API key; `infoclimatKey`: Infoclimat's (without it, no Lacanau).
  */
-export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = ''): Promise<Obs[]> {
+export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = '', infoclimatKey = ''): Promise<Obs[]> {
   return settle([
+    ...Object.keys(INFOCLIMAT_STATIONS).map(async (id) => {
+      const points = await infoclimatApi(id, infoclimatKey, 60)
+      return points && infoclimatObs(id, points)
+    }),
     ...meteoFranceTasks(meteoFranceKey),
     ...weameterTasks(),
     ...ffvlTasks(ffvlKey),

@@ -5,9 +5,9 @@
   import { nearestObs, obsClock } from '../wind/obs'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector } from '../wind/units'
-  import { fmtWave } from '../wind/wave'
   import { windColor } from '../wind/windColor'
   import PiBadge from './PiBadge.svelte'
+  import WaveLine from './WaveLine.svelte'
 
   const rows = $derived(
     SPOTS.map((spot) => {
@@ -54,7 +54,7 @@
                 {sector(obs.dir)} · station {obs.name}, {obsClock(obs.time)}
               </small>
             {/if}
-            {#if wave}<small class="wave">houle {fmtWave(wave)}</small>{/if}
+            {#if wave}<small class="wave"><WaveLine {wave} /></small>{/if}
             <small class="meta">
               {spot.level}{spot.tide ? ` · PM ±${spot.tide} h` : ''}{spot.note ? ` · ${spot.note}` : ''} · {spot.area}
             </small>

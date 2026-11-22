@@ -6,8 +6,8 @@
   import { nearestObs, obsClock } from '../wind/obs'
   import { tideLabel } from '../wind/tide'
   import { fmtSpeed, sector, sectorAngle, type Sector } from '../wind/units'
-  import { fmtWave } from '../wind/wave'
   import PiBadge from './PiBadge.svelte'
+  import WaveLine from './WaveLine.svelte'
 
   /**
    * A tapped spot: how it works at the hour shown, when it works over the coming hours (a strip
@@ -76,7 +76,7 @@
   </header>
 
   {#if !info}
-    {#if wave}<p class="line">houle {fmtWave(wave)}</p>{/if}
+    {#if wave}<p class="line"><WaveLine {wave} /></p>{/if}
     {#if spot.tide !== undefined && app.tide}
       <p class="line">{tideLabel(app.tide)} · navigable à ±{spot.tide} h de la pleine mer</p>
     {/if}

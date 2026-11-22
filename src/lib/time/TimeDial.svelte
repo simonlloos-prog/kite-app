@@ -4,7 +4,7 @@
   import { isOcean, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { tideLabel } from '../wind/tide'
-  import { fmtWave } from '../wind/wave'
+  import WaveLine from '../sheet/WaveLine.svelte'
   import { formatHour } from '../wind/time'
   import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
@@ -170,7 +170,7 @@
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
   {#if app.hour && picked?.w && picked.wave && !app.picked?.spot}
-    <div class="wave">houle {fmtWave(picked.wave)}</div>
+    <div class="wave"><WaveLine wave={picked.wave} /></div>
   {/if}
   {#if picked?.obs}
     <!-- One card per station: its "Historique complet" choice does not follow to the next. -->
