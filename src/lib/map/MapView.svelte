@@ -25,6 +25,8 @@
   } from './windLayers'
 
   let el: HTMLDivElement
+  /** Reach of a tap around a spot's dot, screen pixels: a 44 px target, as for buttons. */
+  const TAP_PX = 22
   let styleReady = $state(false)
   /** Wind layers exist: the style is loaded and the grid is known. */
   let ready = $state(false)
@@ -65,8 +67,24 @@
     map.on('moveend', () => trackView(map))
     map.on('click', (e) => {
       // Stations are HTML markers: their taps never reach here (pickStation).
-      const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
-      const s = spot && SPOTS.find((s) => s.id === spot.properties.id)
+      // A spot is a 14 px dot: a finger landing up to TAP_PX around it, or on its name, still picks
+      // it (the nearest one when several are in reach).
+      const { x, y } = e.point
+      const near = map.queryRenderedFeatures(
+        [
+          [x - TAP_PX, y - TAP_PX],
+          [x + TAP_PX, y + TAP_PX],
+        ],
+        { layers: ['spots-circle', 'spots-label'] },
+      )
+      const dist = (s: (typeof SPOTS)[number]) => {
+        const p = map.project([s.lon, s.lat])
+        return Math.hypot(p.x - x, p.y - y)
+      }
+      const s = near
+        .map((f) => SPOTS.find((s) => s.id === f.properties.id))
+        .filter((s) => s !== undefined)
+        .sort((a, b) => dist(a) - dist(b))[0]
       if (s) {
         app.picked = { lat: s.lat, lon: s.lon, name: s.name, area: s.area, windPoint: s.windPoint, spot: s }
       } else {

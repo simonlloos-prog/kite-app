@@ -43,7 +43,8 @@ export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
 /**
  * Infoclimat stations (their open data API, with the user's key; CC BY, credit Infoclimat): one
  * reading every 10 minutes, km/h, UTC. Station id → name and position (from its page). The owner
- * of Lacanau-Océan agreed, nov. 2026.
+ * of Lacanau-Océan agreed, nov. 2026. Dormant: the key is tied to one IP address and a Worker has
+ * none of its own, so the Worker has no key and makes no call (CLAUDE.md, « À faire »).
  */
 const INFOCLIMAT = (id: string, key: string, start: string, end: string) =>
   `https://www.infoclimat.fr/opendata/?version=2&method=get&format=json&stations[]=${id}&start=${start}&end=${end}&token=${encodeURIComponent(key)}`
