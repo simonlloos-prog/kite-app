@@ -68,7 +68,7 @@
       const spot = map.queryRenderedFeatures(e.point, { layers: ['spots-circle'] })[0]
       const s = spot && SPOTS.find((s) => s.id === spot.properties.id)
       if (s) {
-        app.picked = { lat: s.lat, lon: s.lon, name: s.name, windPoint: s.windPoint }
+        app.picked = { lat: s.lat, lon: s.lon, name: s.name, area: s.area, windPoint: s.windPoint, spot: s }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
       }

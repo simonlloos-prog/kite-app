@@ -40,6 +40,7 @@ Le code sert de **bac à sable** pour tester des variantes sur téléphone. Il d
   - **Interdictions** (`ban` dans `spots.ts`) : aux dates et heures connues exactement (La Hume, Mayotte, Navarrosse, Arbousiers), le spot est gris et noté « Interdit (saison) », quel que soit le vent. Un « l'été » sans dates reste du texte dans `note`, sans effet sur la note.
   - **Dangers** (`danger`) : courant et obstacles, une ligne ⚠ dans la liste, sans effet sur la note. Dangers et règlements viennent de windspot.fr, reformulés, avec l'accord de son auteur (message Facebook à l'utilisateur, nov. 2026) ; crédit dans ⓘ. Toutes les plages océanes ont les dangers du Grand Crohot (dit par l'utilisateur). L'Aérium et Taussat sont autorisés l'été (dit par l'utilisateur, contre WindSpot).
   - **Tri** : la liste est triée par note, puis par force.
+- **Carte d'un spot** (`SpotCard`, 22 nov. 2026, idée de l'utilisateur) : toucher un spot, sur la carte ou dans la liste, ouvre une carte au-dessus du module de temps, comme celle des balises. En haut, la note à l'heure choisie et le badge PI ; puis la houle (plages océanes), la marée et son créneau (Bassin), la balise la plus proche (heure actuelle) ; puis une **frise des heures à venir** (une barre par heure, hauteur = vent moyen, couleur = note du spot ; repères à 12 et 25 kn ; toucher une heure y amène le module de temps) et les **créneaux navigables** d'au moins 2 h (« Navigable : auj. 13 h – 16 h · mar. 10 h – 18 h », `spots/timeline.ts`). La liste dit où aller, la carte quand. Le bouton **« Info spot »** remplace la prévision par le détail : rose des 8 directions (bonnes en vert, moyennes en jaune, offshore en rouge, le vent de l'heure en flèche au centre), niveau, marée, règles, dangers. Le spot touché est dans `app.picked.spot`.
 - **Zone** (`BOX`, 43,55–45,85 N, 2,00–0,60 O) : elle couvre tous les spots, avec du large pour voir le vent arriver. La carte est **bloquée sur cette zone** (`maxBounds`) pour qu'on ne dézoome jamais sur un bord sans données.
 - **Changer d'heure doit rester le geste le plus simple** : un module flottant indépendant, qui ne s'ouvre pas, et qu'on swipe **vers la droite pour avancer**. Changer d'heure ne fait aucune requête : toutes les heures sont chargées en arrière-plan.
 
@@ -107,10 +108,10 @@ src/
     map/                   MapView, LayerToggles (couches, Moy/Raf, kn/km/h, ☰, ⟳), Legend, windLayers.ts (sources/couches),
                            obsMarkers.ts (balises animées), surfCanvas.ts (vagues animées), ObsCard (carte d'une balise touchée), land.ts (terre ou mer en un point, trait de côte des vagues)
     time/                  TimeDial (module flottant : heure, gestes, frise, point touché)
-    sheet/                 SpotsSheet (fermé / half / full), SpotList, PiBadge
+    sheet/                 SpotsSheet (fermé / half / full), SpotList, PiBadge, SpotCard (carte d'un spot touché)
     wind/                  arome.ts (format, décodage, vent en un point), field.ts (valeurs, interpolation, isobandes,
                            lignes de vent, grille de valeurs), pi.ts (AROME-PI), wave.ts (houle MFWAM), surf.ts (trains de vagues le long des plages), obs.ts (vent mesuré), obsSources.ts (lecture des stations, pour le Worker), units.ts, time.ts, tide.ts (marée), windColor.ts (paliers)
-    spots/                 spots.ts (spots, orientations, niveau, restrictions), rating.ts (note)
+    spots/                 spots.ts (spots, orientations, niveau, restrictions), rating.ts (note), timeline.ts (note heure par heure, créneaux)
     stores/app.svelte.ts   état global (run, heures, AROME-PI, heure choisie, point touché, couches, vue, préférences)
     pwa.ts                 enregistrement du service worker, vérification des mises à jour
     Diagnostics.svelte     diagnostic écran (appui long sur ⟳)

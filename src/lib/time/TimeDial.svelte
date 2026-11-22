@@ -1,5 +1,6 @@
 <script lang="ts">
   import ObsCard from '../map/ObsCard.svelte'
+  import SpotCard from '../sheet/SpotCard.svelte'
   import { isOcean, windPointOf } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import { tideLabel } from '../wind/tide'
@@ -168,13 +169,18 @@
     {/if}
     {#if !app.online}<span class="badge">hors-ligne</span>{/if}
   </div>
-  {#if app.hour && picked?.w && picked.wave}
+  {#if app.hour && picked?.w && picked.wave && !app.picked?.spot}
     <div class="wave">houle {fmtWave(picked.wave)}</div>
   {/if}
   {#if picked?.obs}
     <!-- One card per station: its "Historique complet" choice does not follow to the next. -->
     {#key picked.obs.id}
       <ObsCard obs={picked.obs} />
+    {/key}
+  {:else if app.picked?.spot}
+    <!-- One card per spot: its Info spot choice does not follow to the next. -->
+    {#key app.picked.spot.id}
+      <SpotCard spot={app.picked.spot} />
     {/key}
   {/if}
 </div>

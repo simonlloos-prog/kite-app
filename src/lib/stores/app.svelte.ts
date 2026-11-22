@@ -5,6 +5,7 @@ import { freshObs, mergeObs, type Obs, type ObsHistory } from '../wind/obs'
 import { decodePi, gustTrend, type GustTrend } from '../wind/pi'
 import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
+import type { Spot } from '../spots/spots'
 import { checkWave, waveAt, type WaveAt, type WaveMeta } from '../wind/wave'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
@@ -20,6 +21,8 @@ export interface Picked extends LatLon {
   windPoint?: LatLon
   /** A Météo-France station: its measured wind. */
   obs?: Obs
+  /** A spot: its card (SpotCard). */
+  spot?: Spot
 }
 
 /** Forecast files: R2 through the Worker in production (VITE_DATA_URL), public/data in development. */
@@ -147,6 +150,18 @@ class AppState {
   /** The hour shown is now: measurements compare with it. On later hours they are only greyed hints. */
   get obsLive(): boolean {
     return this.timeIndex === 0
+  }
+
+  /** Wind at a point at an hour, null while that hour is not downloaded. */
+  windAtTime(p: LatLon, time: string): WindAt | null {
+    void this.dataVersion
+    return this.meta ? windAt(this.meta.grid, this.hours.get(time), p) : null
+  }
+
+  /** Tide in the Bassin at an hour, when known. */
+  tideAt(time: string): Tide | null {
+    void this.dataVersion
+    return this.tides.get(time) ?? null
   }
 
   windAt(p: LatLon): WindAt | null {

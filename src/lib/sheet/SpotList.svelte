@@ -40,7 +40,7 @@
   <ul>
     {#each rows as { spot, w, rating, trend, obs, wave } (spot.id)}
       <li>
-        <button type="button" onclick={() => app.flyTo(spot)}>
+        <button type="button" onclick={() => app.flyTo({ ...spot, spot })}>
           <span class="dot" style:background={rating.color}></span>
           <span class="name">
             {spot.name}
