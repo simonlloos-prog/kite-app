@@ -260,7 +260,7 @@ export function addWindLayers(map: MlMap) {
     id: 'surf-labels',
     type: 'symbol',
     source: 'surf-labels',
-    layout: { 'text-field': ['get', 'text'], 'text-font': FONT, 'text-size': 12 },
+    layout: { 'text-field': ['get', 'text'], 'text-font': FONT, 'text-size': 11 },
     paint: { 'text-color': '#ffffff', 'text-halo-color': '#0d47a1', 'text-halo-width': 1.6 },
   })
   map.addLayer({

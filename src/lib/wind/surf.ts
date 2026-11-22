@@ -46,11 +46,11 @@ export interface Crest {
 const FIRST_PX = 5
 
 /** Line width, px: thin for a ripple, thick for a big swell. */
-export const crestWidth = (hs: number) => Math.min(5, 1 + hs * 1.1)
+export const crestWidth = (hs: number) => Math.min(3.5, 1 + hs * 0.65)
 /** Rows of crests, from the period: many close waves for a short one (wind sea), few for a long one (groundswell). */
 export const crestRows = (tp: number) => (tp < 7 ? 4 : tp < 11 ? 3 : 2)
 /** Gap between rows, px: tight for a short period, wide for a long one, like the wavelength. */
-export const rowGap = (tp: number) => Math.min(24, Math.max(8, tp * 1.6))
+export const rowGap = (tp: number) => Math.min(16, Math.max(6, tp * 1.1))
 /** Where the swell goes (east, north), unit vector. */
 const travel = (dir: number): [number, number] => {
   const to = ((dir + 180) * Math.PI) / 180
@@ -78,7 +78,9 @@ function samples(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null,
 }
 
 /** Arc length, px, the same for every sea: the bulge shows where the waves go. */
-export const ARC = { length: 24, bulge: 0.28 }
+export const ARC = { length: 16, bulge: 0.28 }
+/** Screen px between trains along the beach. */
+const TRAIN_EVERY = 36
 /**
  * Seconds for a crest to move in by one row. The same for every sea, so a long period (wide gaps)
  * rolls in faster than a short one, as real swell does (its speed grows with the period).
@@ -106,7 +108,7 @@ export interface Train {
 /** Rolling trains of crests along the beaches in view, for a zoom (MapLibre's, 512 px tiles). */
 export function surfTrains(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null, zoom: number, bounds: Bounds): Train[] {
   const degPx = 360 / (512 * 2 ** zoom)
-  return samples(points, waveAt, degPx, bounds, () => ARC.length * 1.25 + 6).map(({ p, w, cos, row }) => {
+  return samples(points, waveAt, degPx, bounds, () => TRAIN_EVERY).map(({ p, w, cos, row }) => {
     const t = travel(w.dir)
     // Offshore: against the swell when it comes in from the sea, else straight west.
     const off: [number, number] = t[0] > 0.3 ? [-t[0], -t[1]] : [-1, 0]
@@ -156,7 +158,7 @@ export interface SurfLabel {
 const LABEL_EVERY = 110
 const LABEL_SOONER = 55
 /** Beyond the farthest row, px. */
-const LABEL_OUT = 16
+const LABEL_OUT = 10
 
 export const heightText = (hs: number) => `${hs.toFixed(1).replace('.', ',')} m`
 

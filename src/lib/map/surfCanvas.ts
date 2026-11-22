@@ -56,10 +56,10 @@ function draw(map: MlMap, now = performance.now()) {
       pts.forEach(([x, y], i) => (i ? ctx.lineTo(foot.x + x, foot.y - y) : ctx.moveTo(foot.x + x, foot.y - y)))
       // Halo: two soft blue strokes (canvas blur filters are missing on iOS Safari), then the foam.
       ctx.strokeStyle = `rgba(13, 71, 161, ${0.25 * alpha})`
-      ctx.lineWidth = tr.width + 7
+      ctx.lineWidth = tr.width + 4
       ctx.stroke()
       ctx.strokeStyle = `rgba(13, 71, 161, ${0.4 * alpha})`
-      ctx.lineWidth = tr.width + 4
+      ctx.lineWidth = tr.width + 2.5
       ctx.stroke()
       ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`
       ctx.lineWidth = tr.width
