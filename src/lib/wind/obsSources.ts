@@ -39,8 +39,12 @@ export const HOLFUY_BEACONS: Record<string, [string, number, number]> = {
   '1317': ['La Jenny', 44.8566, -1.21987],
 }
 
-/** FFVL beacons, read from their page on balisemeteo.com (the FFVL API needs a key from the federation). */
+/**
+ * FFVL beacons: the federation's API (SpotAiR's), with the key it gave us (non-commercial use,
+ * FFVL credited, nov. 2026); their page on balisemeteo.com when there is no key or the API fails.
+ */
 const FFVL = (id: string) => `https://www.balisemeteo.com/balise.php?idBalise=${id}`
+const FFVL_API = 'https://data.spotair.mobi/balises/releves-get.php'
 /** FFVL beacon id → name and position (from its page). Its owner (La Teste Pyla Vol Libre) agreed, nov. 2026. */
 export const FFVL_BEACONS: Record<string, [string, number, number]> = {
   '64': ['Pyla', 44.5761, -1.2247],
@@ -113,6 +117,31 @@ export function fromFfvl(id: string, page: string): Obs | null {
   }
   if (gust) o.gust = round1(Number(gust[1]) * KMH_TO_KN)
   return o
+}
+
+export interface FfvlApiAnswer {
+  code: number
+  data: { provider_key: string; balise_id: string; releves?: { date_releve: number; direction: number | null; vmoy: number | null; vmax: number | null }[] }[] | null
+}
+
+/**
+ * A beacon's readings in the FFVL API's answer, oldest first: one every 10 minutes, each already
+ * a 10-minute mean (vmoy) and maximum (vmax), km/h, UTC seconds. Null when it is not there.
+ */
+export function ffvlApiPoints(id: string, d: FfvlApiAnswer): ObsPoint[] | null {
+  const b = d.code === 0 ? d.data?.find((x) => x.provider_key === 'ffvl' && x.balise_id === id) : undefined
+  const points = (b?.releves ?? [])
+    .filter((r) => r.vmoy != null && r.direction != null)
+    .map((r) => ({ t: r.date_releve * 1000, speed: round1(r.vmoy! * KMH_TO_KN), gust: round1((r.vmax ?? r.vmoy!) * KMH_TO_KN), dir: r.direction! }))
+    .sort((a, b) => a.t - b.t)
+  return points.length ? points : null
+}
+
+/** The latest of an FFVL beacon's readings, as a station. */
+export function ffvlObs(id: string, points: ObsPoint[]): Obs {
+  const last = points.at(-1)!
+  const [name, lat, lon] = FFVL_BEACONS[id]
+  return { id: `ffvl-${id}`, name, source: 'FFVL', lat, lon, time: new Date(last.t).toISOString().replace(/\.\d+Z$/, 'Z'), speed: last.speed, dir: last.dir, gust: last.gust }
 }
 
 /** Last Sunday of a month, 01:00 UTC: when Europe switches summer time. */
@@ -199,13 +228,24 @@ const ua = { 'User-Agent': 'kite-app (simonlloos-prog.github.io/kite-app)' }
 async function get<T>(url: string, init: RequestInit, read: (r: Response) => Promise<T>): Promise<T | null> {
   try {
     const r = await fetch(url, { ...init, signal: AbortSignal.timeout(15_000) })
+    if (!r.ok) console.log(`${new URL(url).host} : HTTP ${r.status} ${(await r.text()).slice(0, 200)}`)
     return r.ok ? await read(r) : null
-  } catch {
+  } catch (e) {
+    console.log(`${new URL(url).host} : ${e}`)
     return null
   }
 }
 
 type HolfuyKeys = Record<string, string | undefined>
+
+/** An FFVL beacon's readings of the last `minutes` from the API, asked for a small box around it. */
+async function ffvlApi(id: string, key: string, minutes: number): Promise<ObsPoint[] | null> {
+  const [, lat, lon] = FFVL_BEACONS[id]
+  const body = new URLSearchParams({ nord: String(lat + 0.01), sud: String(lat - 0.01), ouest: String(lon - 0.01), est: String(lon + 0.01), histo: String(minutes) })
+  const init = { method: 'POST', headers: { ...ua, 'X-Spotair-Apikey': key, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body }
+  const d = await get(FFVL_API, init, (r) => r.json() as Promise<FfvlApiAnswer>)
+  return d && ffvlApiPoints(id, d)
+}
 
 /** A Holfuy beacon's readings: the archive API when it has a key, else (and as a fallback) its graph file. */
 async function holfuyPoints(id: string, keys: HolfuyKeys, minutes: number): Promise<ObsPoint[] | null> {
@@ -231,10 +271,13 @@ export const isStation = (id: string) =>
  * maximum), its rolling averages (Weameter), or nothing (Météo-France, FFVL: a picture of a graph).
  * The Worker adds what it recorded itself for the last three (worker/record.ts).
  */
-export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}): Promise<ObsHistory> {
+export async function fetchHistory(id: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = ''): Promise<ObsHistory> {
   let points: ObsPoint[] = []
   let windows: ObsWindow[] = []
-  if (id.startsWith('holfuy-')) {
+  if (id.startsWith('ffvl-') && ffvlKey) {
+    points = (await ffvlApi(id.slice('ffvl-'.length), ffvlKey, 480)) ?? []
+    if (points.length) return { id, points, windows, step: 10 }
+  } else if (id.startsWith('holfuy-')) {
     const all = (await holfuyPoints(id.slice('holfuy-'.length), holfuyKeys, 480)) ?? []
     const end = all.at(-1)?.t ?? 0
     points = all.filter((p) => p.t >= end - 8 * 3_600_000)
@@ -265,21 +308,27 @@ const weameterTasks = () =>
     return d ? fromWeameter(slug, d) : null
   })
 
-const ffvlTasks = () =>
+const ffvlTasks = (key: string) =>
   Object.keys(FFVL_BEACONS).map(async (id) => {
+    const points = key ? await ffvlApi(id, key, 30) : null
+    if (points) return ffvlObs(id, points)
     const page = await get(FFVL(id), { headers: ua }, (r) => r.text())
     return page ? fromFfvl(id, page) : null
   })
 
-/** The stations the Worker records: Météo-France, Weameter and FFVL. */
-export const fetchRecordedObs = (meteoFranceKey: string): Promise<Obs[]> => settle([...meteoFranceTasks(meteoFranceKey), ...weameterTasks(), ...ffvlTasks()])
+/** The stations the Worker records: Météo-France, Weameter and FFVL (recorded in case its API fails). */
+export const fetchRecordedObs = (meteoFranceKey: string, ffvlKey = ''): Promise<Obs[]> =>
+  settle([...meteoFranceTasks(meteoFranceKey), ...weameterTasks(), ...ffvlTasks(ffvlKey)])
 
-/** Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key, when there is one. */
-export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}): Promise<Obs[]> {
+/**
+ * Every station at once; a source that fails is just missing. `holfuyKeys`: beacon id → API key,
+ * when there is one; `ffvlKey`: the FFVL API key.
+ */
+export function fetchAllObs(meteoFranceKey: string, holfuyKeys: HolfuyKeys = {}, ffvlKey = ''): Promise<Obs[]> {
   return settle([
     ...meteoFranceTasks(meteoFranceKey),
     ...weameterTasks(),
-    ...ffvlTasks(),
+    ...ffvlTasks(ffvlKey),
     ...Object.keys(HOLFUY_BEACONS).map(async (id) => {
       const points = await holfuyPoints(id, holfuyKeys, 12)
       return points && summarize(id, points)

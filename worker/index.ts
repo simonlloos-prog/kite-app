@@ -33,6 +33,8 @@ interface Env {
   METEOFRANCE_API_KEY: string
   /** Holfuy API key of the La Jenny beacon (1317): the other beacons use their graph file. */
   HOLFUY_JENNY_CLE?: string
+  /** FFVL API key (Pyla beacon), given by the federation for non-commercial use: without it, its page. */
+  FFVL_CLE?: string
   /** Fine-grained GitHub token, kite-app only, Actions: read and write. */
   GITHUB_TOKEN: string
   DATA: { get(key: string): Promise<R2Object | null>; put(key: string, value: string): Promise<unknown> }
@@ -100,16 +102,16 @@ async function readRecorded(env: Env): Promise<Recorded> {
 
 /** Every 5 min: the latest Météo-France and Weameter readings, added to their history in R2. */
 async function recordObs(env: Env) {
-  const obs = await fetchRecordedObs(env.METEOFRANCE_API_KEY ?? '')
+  const obs = await fetchRecordedObs(env.METEOFRANCE_API_KEY ?? '', env.FFVL_CLE ?? '')
   const store = addReadings(await readRecorded(env), obs, Date.now())
   await env.DATA.put(RECORD_KEY, JSON.stringify(store))
   console.log(`historique : ${obs.length} relevés, ${Object.keys(store).length} stations`)
 }
 
-/** What a station measured lately: its source's history, plus what this Worker recorded. */
+/** What a station measured lately: its source's history, or what this Worker recorded (FFVL: only when its API failed). */
 async function history(id: string, env: Env): Promise<string> {
-  const [h, store] = await Promise.all([fetchHistory(id, holfuyKeys(env)), isRecorded(id) ? readRecorded(env) : null])
-  return JSON.stringify(store ? { ...h, points: pointsOf(store, id), step: RECORD_STEP } : h)
+  const [h, store] = await Promise.all([fetchHistory(id, holfuyKeys(env), env.FFVL_CLE ?? ''), isRecorded(id) ? readRecorded(env) : null])
+  return JSON.stringify(store && !h.points.length ? { ...h, points: pointsOf(store, id), step: RECORD_STEP } : h)
 }
 
 const TTL_MS = 30_000
@@ -162,7 +164,7 @@ export default {
 
     // Concurrent requests share the same round of fetches.
     if (!cached || Date.now() - cached.at > TTL_MS) {
-      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', holfuyKeys(env)).then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
+      const body = fetchAllObs(env.METEOFRANCE_API_KEY ?? '', holfuyKeys(env), env.FFVL_CLE ?? '').then((obs) => JSON.stringify({ time: new Date().toISOString(), obs }))
       cached = { at: Date.now(), body }
       body.catch(() => (cached = null))
     }

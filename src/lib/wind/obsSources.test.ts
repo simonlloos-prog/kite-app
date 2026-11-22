@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bucketize } from './obs'
-import { archivePoints, fromFfvl, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
+import { archivePoints, ffvlApiPoints, ffvlObs, fromFfvl, fromHolfuy, fromMeteoFrance, fromWeameter, parisToUtc } from './obsSources'
 
 describe('obs sources', () => {
   it('turns Paris local time into UTC, summer and winter', () => {
@@ -74,5 +74,21 @@ describe('bucketize', () => {
       gust: 15.1, // 28 km/h
     })
     expect(fromFfvl('64', '<html>maintenance</html>')).toBeNull()
+  })
+
+  it('reads the FFVL API: km/h, UTC seconds, newest reading last', () => {
+    const releve = (date_releve: number, vmoy: number | null, vmax: number, direction: number) => ({ date_releve, vmoy, vmax, direction })
+    const answer = {
+      code: 0,
+      data: [
+        { provider_key: 'ffvl', balise_id: '12', releves: [releve(1795339986, 10, 20, 90)] },
+        { provider_key: 'ffvl', balise_id: '64', releves: [releve(1795339986, 67, 78, 292), releve(1795339386, 60, 74, 270), releve(1795338786, null, 70, 270)] },
+      ],
+    }
+    const points = ffvlApiPoints('64', answer)!
+    expect(points.map((p) => p.t)).toEqual([1795339386000, 1795339986000]) // oldest first, no reading without wind
+    expect(ffvlObs('64', points)).toEqual({ id: 'ffvl-64', name: 'Pyla', source: 'FFVL', lat: 44.5761, lon: -1.2247, time: '2026-11-22T09:33:06Z', speed: 36.2, dir: 292, gust: 42.1 })
+    expect(ffvlApiPoints('64', { code: 2, data: null })).toBeNull() // Invalid API key
+    expect(ffvlApiPoints('64', { code: 0, data: [] })).toBeNull()
   })
 })

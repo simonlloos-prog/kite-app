@@ -23,6 +23,7 @@ npx wrangler@4.151.2 login                                                   # u
 npx wrangler@4.151.2 secret put METEOFRANCE_API_KEY --config worker/wrangler.toml   # une fois, colle la clé
 npx wrangler@4.151.2 secret put GITHUB_TOKEN --config worker/wrangler.toml         # une fois, jeton GitHub (Actions, kite-app)
 npx wrangler@4.151.2 secret put HOLFUY_JENNY_CLE --config worker/wrangler.toml     # une fois, clé Holfuy de La Jenny
+npx wrangler@4.151.2 secret put FFVL_CLE --config worker/wrangler.toml             # une fois, clé API FFVL (Pyla), depuis bash : PowerShell ajoute un BOM invisible qui fait refuser la clé
 npm run worker:deploy                                                        # à chaque changement du Worker
 ```
 Adresse publique : `https://kite-obs.kite-app.workers.dev`, dans `.env.production` (`VITE_OBS_URL`,
