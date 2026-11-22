@@ -31,7 +31,8 @@
   const end = $derived(points.at(-1)?.t ?? Date.now())
   const start = $derived(end - view.hours * 3_600_000)
   const minutes = $derived(Math.max(view.bucket, history?.step ?? 0))
-  const buckets = $derived(bucketize(points.filter((p) => p.t >= start), minutes))
+  /** From one period before the chart: the bar that starts before it fills its left edge (clipped by x), no gap there. */
+  const buckets = $derived(bucketize(points.filter((p) => p.t >= start - minutes * 60_000), minutes))
   /** Arrow centre, unclamped: an arrow that does not fit whole in the chart is not drawn (never half of one). */
   const arrowX = (a: ObsBucket) => LEFT + ((a.t + (view.arrow * 60_000) / 2 - start) / (end - start || 1)) * (W - LEFT)
   const ARROW_HALF = 5
@@ -76,7 +77,7 @@
     {/if}
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.picked = null)}>✕</button>
   </header>
-  <p class="who"><b>{obs.name}</b> · moyenne 10 min · {obsClock(obs.time)}{#if age > 1} (il y a {age} min){/if} · {obs.source}</p>
+  <p class="who"><b>{obs.name}</b> · moyenne 10 min · {obsClock(obs.time)}{#if age > 1}{' '}(il y a {age} min){/if} · {obs.source}</p>
 
   {#if buckets.length > 1}
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Vent des {view.hours} dernières heures">
