@@ -3,6 +3,7 @@
  * can be sailed ("quand y aller"), the spots list answering "où".
  */
 import type { WindAt } from '../wind/arome'
+import { isDayHour } from '../wind/sun'
 import type { Tide } from '../wind/tide'
 import { rateSpot, type Rating } from './rating'
 import type { Spot } from './spots'
@@ -13,12 +14,14 @@ export interface SpotHour {
   /** Null while the hour is not downloaded. */
   w: WindAt | null
   rating: Rating
+  /** Most of the hour in daylight: night hours are greyed and never a slot. */
+  day: boolean
 }
 
 export function spotHours(spot: Spot, times: string[], windAt: (t: string) => WindAt | null, tideAt: (t: string) => Tide | null): SpotHour[] {
   return times.map((time) => {
     const w = windAt(time)
-    return { time, w, rating: rateSpot(spot, w, tideAt(time), time) }
+    return { time, w, rating: rateSpot(spot, w, tideAt(time), time), day: isDayHour(time, spot) }
   })
 }
 
@@ -31,14 +34,14 @@ export interface Window {
 }
 
 /**
- * Stretches of rideable hours (score ≥ 1), each at least `minHours` long: one hour alone is
- * rarely worth the trip.
+ * Stretches of rideable daylight hours (score ≥ 1), each at least `minHours` long: one hour
+ * alone is rarely worth the trip, and nobody sails at night.
  */
 export function rideableWindows(hours: SpotHour[], minHours = 2): Window[] {
   const out: Window[] = []
   let start = -1
   for (let i = 0; i <= hours.length; i++) {
-    const on = i < hours.length && hours[i].rating.score > 0
+    const on = i < hours.length && hours[i].day && hours[i].rating.score > 0
     if (on && start < 0) start = i
     if (!on && start >= 0) {
       if (i - start >= minHours) {

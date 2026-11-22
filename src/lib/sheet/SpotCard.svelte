@@ -94,9 +94,20 @@
         <line class="grid" x1={LEFT} x2={W} y1={y(kn)} y2={y(kn)} />
         <text class="axis" x={LEFT - 2} y={y(kn) + 3} text-anchor="end">{fmtSpeed(kn, app.unit)}</text>
       {/each}
+      <!-- Night: a grey band behind, faded bars; never counted as a slot. -->
+      {#each hours as h, i (h.time)}
+        {#if !h.day}<rect class="night" x={LEFT + i * barW} width={barW + 0.2} y={0} height={H - BOTTOM} />{/if}
+      {/each}
       {#each hours as h, i (h.time)}
         {#if h.w}
-          <rect x={LEFT + i * barW + 0.3} width={barW - 0.6} y={y(h.w.speed)} height={H - BOTTOM - y(h.w.speed)} fill={h.rating.color} />
+          <rect
+            x={LEFT + i * barW + 0.3}
+            width={barW - 0.6}
+            y={y(h.w.speed)}
+            height={H - BOTTOM - y(h.w.speed)}
+            fill={h.rating.color}
+            opacity={h.day ? 1 : 0.35}
+          />
         {/if}
         {#if h.time.endsWith('T00:00')}
           <line class="day" x1={LEFT + i * barW} x2={LEFT + i * barW} y1={2} y2={H - 2} />
@@ -111,7 +122,7 @@
         <span class="muted">Navigable :</span>
         {windows.map((x) => windowLabel(x, today)).join(' · ')}
       {:else if hours.every((h) => h.w)}
-        <span class="muted">Pas de créneau navigable sur les {hours.length} h à venir</span>
+        <span class="muted">Pas de créneau navigable de jour sur les {hours.length} h à venir</span>
       {:else}
         <span class="muted">Chargement des heures…</span>
       {/if}
@@ -244,6 +255,10 @@
   .axis {
     fill: var(--muted);
     font: 8px var(--font);
+  }
+  .night {
+    fill: var(--border);
+    opacity: 0.55;
   }
   .now {
     fill: none;

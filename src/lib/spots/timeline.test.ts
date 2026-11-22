@@ -20,6 +20,13 @@ describe('spot timeline', () => {
     expect(rideableWindows(hours, 1)).toHaveLength(2)
   })
 
+  it('never counts the night', () => {
+    const night = [20, 21, 22, 23].map((h) => key(22, h))
+    const dark = spotHours(crohot, night, () => ({ speed: 18, gust: 25, dir: 270 }), () => null)
+    expect(dark.every((h) => h.rating.score === 3 && !h.day)).toBe(true)
+    expect(rideableWindows(dark)).toEqual([])
+  })
+
   it('leaves out the hours not downloaded yet', () => {
     const none = spotHours(crohot, times, () => null, () => null)
     expect(rideableWindows(none)).toEqual([])
