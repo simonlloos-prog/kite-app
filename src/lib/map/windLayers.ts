@@ -1,5 +1,6 @@
 import type { FeatureCollection, Geometry, LineString, MultiPolygon, Point } from 'geojson'
 import type { FilterSpecification, GeoJSONSource, Map as MlMap } from 'maplibre-gl'
+import type { SurfLabel } from '../wind/surf'
 import type { Picked } from '../stores/app.svelte'
 import { rateSpot } from '../spots/rating'
 import { SPOTS, windPointOf } from '../spots/spots'
@@ -253,6 +254,15 @@ export function addWindLayers(map: MlMap) {
     },
     paint: { 'text-color': INK, 'text-halo-color': 'rgba(255,255,255,.6)', 'text-halo-width': 1 },
   })
+  // Mix: the wave height written off the crests (the crests themselves: surfCanvas.ts).
+  map.addSource('surf-labels', { type: 'geojson', data: empty() })
+  map.addLayer({
+    id: 'surf-labels',
+    type: 'symbol',
+    source: 'surf-labels',
+    layout: { 'text-field': ['get', 'text'], 'text-font': FONT, 'text-size': 12 },
+    paint: { 'text-color': '#ffffff', 'text-halo-color': '#0d47a1', 'text-halo-width': 1.6 },
+  })
   map.addLayer({
     id: 'spots-circle',
     type: 'circle',
@@ -409,6 +419,13 @@ export function setWindLight(map: MlMap, light: boolean) {
   map.setPaintProperty('wind-lines', 'line-opacity', light ? 0.3 : 0.65)
   map.setPaintProperty('wind-heads', 'icon-opacity', light ? 0.35 : 0.8)
   map.setPaintProperty('wind-values', 'text-opacity', light ? 0.45 : 1)
+}
+
+/** Mix: the wave heights written along the beaches, or none. */
+export function setSurfLabels(map: MlMap, labels: SurfLabel[]) {
+  const fc = empty()
+  for (const l of labels) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lon, l.lat] }, properties: { text: l.text } })
+  ;(map.getSource('surf-labels') as GeoJSONSource).setData(fc)
 }
 
 /** Nothing to draw (waves not loaded, or outside their run): clear the bands, lines and values. */

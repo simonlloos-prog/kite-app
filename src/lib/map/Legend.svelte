@@ -67,7 +67,7 @@
     {/if}
     {#if app.mix && !app.waves}
       <!-- Mix: how to read the crests along the beaches. -->
-      <span class="run">vagues ) ) ) : vers où va la houle · épaisseur = hauteur · rangées nombreuses et serrées = période courte</span>
+      <span class="run">vagues ) ) ) : vers où va la houle · « 2,5 m » = hauteur des vagues · rangées nombreuses et serrées = période courte</span>
     {/if}
     {#if app.tide}
       <span class="dry">

@@ -7,7 +7,7 @@
   import { SPOTS } from '../spots/spots'
   import { app } from '../stores/app.svelte'
   import type { Obs } from '../wind/obs'
-  import { oceanCoast, surfTrains } from '../wind/surf'
+  import { oceanCoast, surfLabels, surfTrains } from '../wind/surf'
   import { setObsMarkers } from './obsMarkers'
   import { setSurfTrains } from './surfCanvas'
   import {
@@ -20,6 +20,7 @@
     setWaveBandsData,
     setWaveLinesData,
     setWaterForWaves,
+    setSurfLabels,
     setWindLight,
     setObsData,
     setPickedData,
@@ -111,8 +112,13 @@
   $effect(() => {
     if (!ready) return
     const { bounds, zoom } = app
-    if (!app.mix || app.waves || !bounds) return setSurfTrains(app.map!, [])
-    setSurfTrains(app.map!, surfTrains(oceanCoast(), (p) => app.waveAt(p), zoom, bounds))
+    if (!app.mix || app.waves || !bounds) {
+      setSurfTrains(app.map!, [])
+      return setSurfLabels(app.map!, [])
+    }
+    const trains = surfTrains(oceanCoast(), (p) => app.waveAt(p), zoom, bounds)
+    setSurfTrains(app.map!, trains)
+    setSurfLabels(app.map!, surfLabels(trains, zoom))
   })
 
   $effect(() => {

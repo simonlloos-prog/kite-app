@@ -145,6 +145,40 @@ export function trainCrests(tr: Train, rows: number, degPx: number): TrainCrest[
   return out
 }
 
+/** A wave height written beside the crests, offshore: the width alone does not tell a size. */
+export interface SurfLabel {
+  lon: number
+  lat: number
+  text: string
+}
+
+/** Screen px between labels along the beach; sooner when the height changes. */
+const LABEL_EVERY = 110
+const LABEL_SOONER = 55
+/** Beyond the farthest row, px. */
+const LABEL_OUT = 16
+
+export const heightText = (hs: number) => `${hs.toFixed(1).replace('.', ',')} m`
+
+/** Height labels along the beaches in view, just off the farthest crests of their train. */
+export function surfLabels(trains: Train[], zoom: number): SurfLabel[] {
+  const degPx = 360 / (512 * 2 ** zoom)
+  const out: SurfLabel[] = []
+  let last: Train | null = null
+  for (const tr of trains) {
+    if (last) {
+      const dist = Math.hypot((tr.lon - last.lon) / degPx, (tr.lat - last.lat) / (degPx * tr.cos))
+      // Sooner only for a real change: 4,8 then 4,7 m is the same sea.
+      const changed = Math.abs(tr.hs - last.hs) >= Math.max(0.3, last.hs * 0.15)
+      if (dist < (changed ? LABEL_SOONER : LABEL_EVERY)) continue
+    }
+    const d = FIRST_PX + ARC.length * ARC.bulge + tr.rows * tr.gap + LABEL_OUT
+    out.push({ lon: tr.lon + tr.off[0] * d * degPx, lat: tr.lat + tr.off[1] * d * degPx * tr.cos, text: heightText(tr.hs) })
+    last = tr
+  }
+  return out
+}
+
 /** Where still trains stop (no animation): no crest half faded at either end. */
 export const STILL_ROWS = -0.75
 

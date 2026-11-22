@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isLand } from '../map/land'
-import { crestRows, rowGap, oceanCoast, surfArcs, surfTrains, trainCrests } from './surf'
+import { crestRows, heightText, rowGap, oceanCoast, surfArcs, surfLabels, surfTrains, trainCrests } from './surf'
 
 // Le Porge – Le Grand Crohot, zoom 10.5.
 const bounds = { south: 44.78, north: 44.92, west: -1.4, east: -1.0 }
@@ -45,6 +45,17 @@ describe('surf crests (Mix)', () => {
     const near = trainCrests(tr, 0.95, degPx).sort((p, q) => q.pts[4][0] - p.pts[4][0])
     expect(near[0].alpha).toBeLessThan(0.2)
     expect(trainCrests(tr, 1.05, degPx).every((c) => c.alpha > 0)).toBe(true)
+  })
+
+  it('writes the height off the crests, every so often along the beach', () => {
+    expect(heightText(2.46)).toBe('2,5 m')
+    const trains = surfTrains(oceanCoast(), (p) => ({ hs: p.lat > 44.85 ? 2 : 1, tp: 9, dir: 270 }), 10.5, bounds)
+    const labels = surfLabels(trains, 10.5)
+    expect(labels.length).toBeGreaterThan(1)
+    expect(labels.length).toBeLessThanOrEqual(trains.length / 3)
+    expect(new Set(labels.map((l) => l.text))).toEqual(new Set(['1,0 m', '2,0 m']))
+    // Offshore of the crests: west of the coastline, at sea.
+    for (const l of labels) expect(isLand(l.lon, l.lat)).toBe(false)
   })
 
   it('shows the period in rows: more and closer for a short one', () => {
