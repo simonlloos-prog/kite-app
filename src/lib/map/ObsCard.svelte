@@ -4,14 +4,15 @@
   import { fmtSpeed, sector, UNIT_LABEL } from '../wind/units'
   import { windColor } from '../wind/windColor'
 
-  /** What a station measured lately: the last hour, or 8 on demand, when its source keeps them; its averages otherwise. */
+  /** What a station measured lately: the last hour, or 8 on demand, when its source is detailed (Holfuy);
+   * straight away the long period when it gives one reading every 6 to 10 min (a last hour in 6 wide
+   * bars said little); its averages otherwise. The period is always written next to the chart. */
   const { obs }: { obs: Obs } = $props()
 
   /** Chart settings: period, bar, arrow and hour-label steps in minutes. */
   const SHORT = { hours: 1, bucket: 2, arrow: 10, label: 15 }
-  const LONG = { hours: 8, bucket: 15, arrow: 60, label: 120 }
+  const LONG = { hours: 8, bucket: 10, arrow: 60, label: 120 }
   let long = $state(false)
-  const view = $derived(long ? LONG : SHORT)
   const W = 320
   const H = 76 // Low enough to stay under the left buttons (⟳) on a phone.
   const TOP = 16 // Row of direction arrows.
@@ -28,6 +29,15 @@
 
   const history = $derived(app.obsHistory?.id === obs.id ? app.obsHistory : null)
   const points = $derived(history?.points ?? [])
+  /** One reading every 5 min or more (Météo-France, FFVL, Weameter): the long period only. */
+  const sparse = $derived((history?.step ?? 0) >= 5)
+  /** Hours of readings, so a station recorded for 3 h fills its chart instead of its right third. */
+  const span = $derived(points.length ? (points.at(-1)!.t - points[0].t) / 3_600_000 : 0)
+  const view = $derived.by(() => {
+    if (!sparse) return long ? LONG : SHORT
+    const hours = Math.min(LONG.hours, Math.max(2, Math.ceil(span)))
+    return hours > 4 ? { ...LONG, hours } : { hours, bucket: 10, arrow: 30, label: 60 }
+  })
   const end = $derived(points.at(-1)?.t ?? Date.now())
   const start = $derived(end - view.hours * 3_600_000)
   const minutes = $derived(Math.max(view.bucket, history?.step ?? 0))
@@ -39,7 +49,7 @@
   const arrows = $derived(
     bucketize(points.filter((p) => p.t >= start), view.arrow).filter((a) => arrowX(a) >= LEFT + ARROW_HALF && arrowX(a) <= W - ARROW_HALF),
   )
-  const hasMore = $derived(points.some((p) => p.t < end - SHORT.hours * 3_600_000))
+  const hasMore = $derived(!sparse && points.some((p) => p.t < end - SHORT.hours * 3_600_000))
 
   const top = $derived(Math.max(10, ...buckets.map((b) => b.gust)) * 1.08)
   const step = $derived(top > 40 ? 20 : top > 20 ? 10 : 5)
@@ -73,7 +83,13 @@
       {sector(obs.dir)}
     </span>
     {#if hasMore}
-      <button type="button" class="more" onclick={() => (long = !long)}>{long ? 'Dernière heure' : 'Historique complet'}</button>
+      <!-- The period shown, always written: 1 h and 8 h must never be taken for one another. -->
+      <span class="period" role="group" aria-label="Période du graphique">
+        <button type="button" class:on={!long} aria-pressed={!long} onclick={() => (long = false)}>1 h</button>
+        <button type="button" class:on={long} aria-pressed={long} onclick={() => (long = true)}>{LONG.hours} h</button>
+      </span>
+    {:else if buckets.length > 1}
+      <span class="period"><span class="on">{view.hours} h</span></span>
     {/if}
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.picked = null)}>✕</button>
   </header>
@@ -194,18 +210,41 @@
     stroke-linejoin: round;
     opacity: 0.85;
   }
-  .more + .close {
+  .period + .close {
     margin-left: 0;
   }
-  .more {
-    height: 44px;
-    margin: -10px -6px -10px auto;
-    padding: 0 6px;
+  /* Two small tabs (detailed sources) or one label: which period the chart covers. */
+  .period {
+    display: flex;
+    margin-left: auto;
+    border-radius: 8px;
+    background: var(--border);
+    padding: 2px;
+  }
+  .period > * {
+    min-width: 36px;
+    padding: 3px 8px;
     border: 0;
+    border-radius: 6px;
     background: none;
-    color: var(--accent);
-    font: 600 13px var(--font);
+    color: var(--muted);
+    font: 600 12px var(--font);
+    text-align: center;
     white-space: nowrap;
+  }
+  /* Larger tap target than it looks. */
+  .period button {
+    position: relative;
+  }
+  .period button::after {
+    content: '';
+    position: absolute;
+    inset: -10px -2px;
+  }
+  .period .on {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
   }
   .arrow {
     fill: var(--text);
