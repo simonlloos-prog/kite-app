@@ -1,9 +1,9 @@
 /**
  * "Mix" map: the wind, lighter, and the waves only where they matter, along the ocean beaches, as
  * short crest arcs in the water just off the sand, like « ) ) ) » rolling in: across the swell and
- * bulging the way it goes (its direction), short and close together for a short period, long and
- * far apart for a long one (its period), in more rows, wider and warmer in colour (WAVE_BINS) for
- * a bigger swell (its height).
+ * bulging the way it goes (its direction), in more and closer rows for a short period, fewer and
+ * further apart for a long one (its period), wider and warmer in colour (WAVE_BINS) for a bigger
+ * swell (its height). Every arc has the same length.
  */
 import { isLand } from '../map/land'
 import type { Bounds } from './field'
@@ -49,8 +49,10 @@ const FIRST_PX = 5
 export const waveColor = (hs: number) => WAVE_BINS.reduce((c, [min, col]) => (hs >= min ? col : c), WAVE_BINS[0][1])
 /** Line width, px: thin for a ripple, thick for a big swell. */
 export const crestWidth = (hs: number) => Math.min(5, 1 + hs * 1.1)
-/** Rows of crests: one for a small sea, up to three for a big swell. */
-export const crestRows = (hs: number) => (hs < 0.75 ? 1 : hs < 1.5 ? 2 : 3)
+/** Rows of crests, from the period: many close waves for a short one (wind sea), few for a long one (groundswell). */
+export const crestRows = (tp: number) => (tp < 7 ? 4 : tp < 11 ? 3 : 2)
+/** Gap between rows, px: tight for a short period, wide for a long one, like the wavelength. */
+export const rowGap = (tp: number) => Math.min(24, Math.max(8, tp * 1.6))
 /** Where the swell goes (east, north), unit vector. */
 const travel = (dir: number): [number, number] => {
   const to = ((dir + 180) * Math.PI) / 180
@@ -77,29 +79,29 @@ function samples(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null,
   return out
 }
 
-/** Arc length, px: short for a short period (wind sea), long for a long one (groundswell). */
-export const arcLength = (tp: number) => Math.min(34, Math.max(8, (tp - 3) * 3))
+/** Arc length, px, the same for every sea: the bulge shows where the waves go. */
+export const ARC = { length: 24, bulge: 0.28 }
 
 /** Crest arcs along the beaches in view, for a zoom (MapLibre's, 512 px tiles). */
 export function surfArcs(points: CoastPoint[], waveAt: (p: CoastPoint) => WaveAt | null, zoom: number, bounds: Bounds): Crest[] {
   const degPx = 360 / (512 * 2 ** zoom)
   const out: Crest[] = []
-  for (const { p, w, cos, row } of samples(points, waveAt, degPx, bounds, (w) => arcLength(w.tp) * 1.25 + 6)) {
+  const L = ARC.length
+  for (const { p, w, cos, row } of samples(points, waveAt, degPx, bounds, () => L * 1.25 + 6)) {
     const t = travel(w.dir)
     const c: [number, number] = [t[1], -t[0]]
     // Offshore: against the swell when it comes in from the sea, else straight west.
     const off = t[0] > 0.3 ? [-t[0], -t[1]] : [-1, 0]
-    const L = arcLength(w.tp)
-    const rowGap = Math.min(20, Math.max(10, w.tp * 1.3))
+    const gap = rowGap(w.tp)
     const at = (x: number, y: number): [number, number] => [p.lon + x * degPx, p.lat + y * degPx * cos]
-    for (let k = 0; k < crestRows(w.hs); k++) {
+    for (let k = 0; k < crestRows(w.tp); k++) {
       // Rows staggered: every other sample shifts its arcs by half a gap.
-      const d = FIRST_PX + L * 0.25 + k * rowGap + (row % 2) * rowGap * 0.5
+      const d = FIRST_PX + L * ARC.bulge + k * gap + (row % 2) * gap * 0.5
       const coords: [number, number][] = []
       for (let i = 0; i <= 8; i++) {
         const u = i / 4 - 1
-        const x = off[0] * d + c[0] * (u * L) / 2 + t[0] * L * 0.22 * (1 - u * u)
-        const y = off[1] * d + c[1] * (u * L) / 2 + t[1] * L * 0.22 * (1 - u * u)
+        const x = off[0] * d + c[0] * (u * L) / 2 + t[0] * L * ARC.bulge * (1 - u * u)
+        const y = off[1] * d + c[1] * (u * L) / 2 + t[1] * L * ARC.bulge * (1 - u * u)
         coords.push(at(x, y))
       }
       if (coords.some(([lon, lat]) => isLand(lon, lat))) continue

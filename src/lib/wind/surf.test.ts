@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isLand } from '../map/land'
-import { arcLength, crestRows, oceanCoast, surfArcs, waveColor } from './surf'
+import { crestRows, rowGap, oceanCoast, surfArcs, waveColor } from './surf'
 
 // Le Porge – Le Grand Crohot, zoom 10.5.
 const bounds = { south: 44.78, north: 44.92, west: -1.4, east: -1.0 }
@@ -28,16 +28,15 @@ describe('surf crests (Mix)', () => {
     expect(first[1]).not.toBeCloseTo(last[1], 3)
   })
 
-  it('shows the height in rows, width and colour', () => {
-    expect([crestRows(0.5), crestRows(1), crestRows(2)]).toEqual([1, 2, 3])
-    expect(arcs(2, 12, 270).length).toBeGreaterThan(arcs(0.5, 12, 270).length * 2)
+  it('shows the height in width and colour only', () => {
+    expect(arcs(2, 12, 270).length).toBe(arcs(0.5, 12, 270).length)
     expect(arcs(2, 12, 270)[0].width).toBeGreaterThan(arcs(0.5, 12, 270)[0].width)
     expect(waveColor(2)).not.toBe(waveColor(0.5))
   })
 
-  it('shows the period in the arc length', () => {
-    expect(arcLength(6)).toBeLessThan(arcLength(14))
-    // Short arcs, close together: more of them along the same beach.
+  it('shows the period in rows: more and closer for a short one', () => {
+    expect([crestRows(5), crestRows(9), crestRows(14)]).toEqual([4, 3, 2])
+    expect(rowGap(6)).toBeLessThan(rowGap(14))
     expect(arcs(1, 6, 270).length).toBeGreaterThan(arcs(1, 14, 270).length)
   })
 
