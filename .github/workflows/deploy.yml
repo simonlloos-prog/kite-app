@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # list this run's artifacts (wait for the Pages archive)
   pages: write
   id-token: write
 
@@ -145,6 +146,20 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+      # The archive is uploaded, but GitHub's list of the run's artifacts can lag behind: deploy-pages
+      # looking for it half a second later sometimes found none (« No artifacts named github-pages »,
+      # 22 nov. 2026, twice in a row after a push). Wait until it is listed, 2 min at most.
+      - name: Attente de l'archive Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 24); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=github-pages" --jq .total_count || echo 0)
+            [ "$n" -ge 1 ] && { echo "archive visible après $((i - 1)) attente(s) de 5 s"; exit 0; }
+            sleep 5
+          done
+          echo "archive toujours absente de la liste : on tente quand même"
 
       - id: deployment
         uses: actions/deploy-pages@v5
