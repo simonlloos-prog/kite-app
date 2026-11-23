@@ -85,8 +85,21 @@
         .map((f) => SPOTS.find((s) => s.id === f.properties.id))
         .filter((s) => s !== undefined)
         .sort((a, b) => dist(a) - dist(b))[0]
+      // A wave height label: the waves' card, read where the label is (at sea).
+      const label = s
+        ? null
+        : map.queryRenderedFeatures(
+            [
+              [x - TAP_PX, y - TAP_PX],
+              [x + TAP_PX, y + TAP_PX],
+            ],
+            { layers: ['surf-labels'] },
+          )[0]
       if (s) {
         app.picked = { lat: s.lat, lon: s.lon, name: s.name, area: s.area, windPoint: s.windPoint, spot: s }
+      } else if (label?.geometry.type === 'Point') {
+        const [lon, lat] = label.geometry.coordinates
+        app.picked = { lat, lon, name: 'vagues', wave: true }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
       }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkWave, fmtWave, waveAt, type WaveMeta } from './wave'
+import { checkWave, fmtWave, waveAt, wavePower, type WaveMeta } from './wave'
 
 // 3 rows × 4 cols at 0.025°, from 45.00 N / 1.30 W; the east column (−1.225) is land.
 const meta: WaveMeta = {
@@ -42,5 +42,22 @@ describe('waves', () => {
   it('formats like the spot list', () => {
     expect(fmtWave({ hs: 0.52, tp: 12.8, dir: 271 })).toBe('0,5 m · 13 s · O')
     expect(fmtWave({ hs: 1.25, tp: 9, dir: 300 })).toBe('1,3 m · 9 s · ONO')
+  })
+
+  it('reads the wave systems when the run has them', () => {
+    const fields = ['hs', 'tp', 'dir', 'sea_h', 'sea_tp', 'sea_dir', 'sw1_h', 'sw1_tp', 'sw1_dir', 'sw2_h', 'sw2_tp', 'sw2_dir']
+    const m = { ...meta, fields, times: [meta.times[0]], grid: { ...meta.grid, rows: 1, cols: 1 } }
+    // 2 m from the west at 7 s (wind sea), 1.5 m from the WNW at 14 s, no secondary swell.
+    const d = Uint8Array.from([40, 120, 192, 40, 70, 192, 30, 140, 203, 1, 90, 0])
+    expect(waveAt(m, d, 0, { lat: 45, lon: -1.3 })!.systems).toEqual({
+      sea: { hs: 2, tp: 7, dir: 270 },
+      sw1: { hs: 1.5, tp: 14, dir: (203 * 360) / 256 },
+    })
+    expect(waveAt(meta, data, 0, { lat: 45.025, lon: -1.275 })!.systems).toBeUndefined()
+  })
+
+  it('gives the wave power', () => {
+    expect(wavePower({ hs: 1, tp: 8 })).toBeCloseTo(3.5, 1)
+    expect(wavePower({ hs: 2, tp: 14 })).toBeCloseTo(24.7, 1)
   })
 })

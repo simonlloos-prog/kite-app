@@ -13,11 +13,18 @@ came in (22 nov. 2026): 3.6 m of wind sea from the west, and a 0.2 m swell from 
 as the direction of the whole 3.6 m. The mean direction (10, 0, 14) mixes both: a 1 m wind sea
 from the south and a 1.2 m swell from the west gave the south-west. The dominant one goes with
 the peak period, which is that of the highest waves too, like Windguru's direction.
+Then, for the card of a tapped wave label (since 23 nov. 2026), the three wave systems, each
+with its height, mean period and direction (where it comes from):
+  sea_h, sea_tp, sea_dir   wind sea                 (10, 0, 5), (10, 0, 6), (10, 0, 4)
+  sw1_h, sw1_tp, sw1_dir   primary swell            (10, 0, 192), (10, 0, 195), (10, 0, 194)
+  sw2_h, sw2_tp, sw2_dir   secondary swell          (10, 0, 193), (10, 0, 197), (10, 0, 196)
+A system missing at a sea cell (no swell) is written as 0 m.
 
 Output, next to the AROME files:
   <out>/wave-<run>_<grid>.bin  uint8, hours one after another, then fields in FIELDS order, then
                          rows (row 0 = south) and columns (col 0 = west). 255 = land (no value)
-                         for every field. hs in HS_SCALE m, tp in TP_SCALE s, dir in 360/256°.
+                         for every field. Heights (hs, *_h) in HS_SCALE m, periods (tp, *_tp) in
+                         TP_SCALE s, directions (dir, *_dir) in 360/256°.
   <out>/meta.json        gains a "wave" entry: run, grid, fields, validity times (UTC), file name
 
 With --reuse-from, a run already published is kept as it is (its file stays in R2), and so is
@@ -46,9 +53,23 @@ MAX_STEP = 51
 # The run comes out in one block: this step (the last of the continuous series, +49 and +50
 # are missing) tells it is there.
 READY_STEP = 48
-FIELDS = ["hs", "tp", "dir"]
-# GRIB fields read: dir is worked out from the last four (dominant_dir).
-GRIB = {"hs": (10, 0, 3), "tp": (10, 0, 34), "sea_h": (10, 0, 5), "sea_dir": (10, 0, 4), "swell_h": (10, 0, 192), "swell_dir": (10, 0, 194)}
+SYSTEMS = ["sea", "sw1", "sw2"]
+FIELDS = ["hs", "tp", "dir"] + [f"{s}_{k}" for s in SYSTEMS for k in ("h", "tp", "dir")]
+# GRIB fields read: dir is worked out from the heights and directions of the wind sea and the
+# primary swell (dominant_dir).
+GRIB = {
+    "hs": (10, 0, 3),
+    "tp": (10, 0, 34),
+    "sea_h": (10, 0, 5),
+    "sea_tp": (10, 0, 6),
+    "sea_dir": (10, 0, 4),
+    "sw1_h": (10, 0, 192),
+    "sw1_tp": (10, 0, 195),
+    "sw1_dir": (10, 0, 194),
+    "sw2_h": (10, 0, 193),
+    "sw2_tp": (10, 0, 197),
+    "sw2_dir": (10, 0, 196),
+}
 # How dir is made, in meta.json and in the file name: a run published by an older rule is redone.
 DIR_RULE = "dominant"
 HS_SCALE = 0.05  # m per unit: up to 12.7 m
@@ -81,15 +102,15 @@ def dominant_dir(g: dict[str, np.ndarray]) -> np.ndarray:
     """Direction of the wind sea or of the primary swell, whichever is higher; either when the
     other is missing (no wind sea, no swell)."""
     sea = np.nan_to_num(g["sea_h"], nan=-1)
-    swell = np.nan_to_num(g["swell_h"], nan=-1)
-    d = np.where(sea >= swell, g["sea_dir"], g["swell_dir"])
-    return np.where(np.isnan(d), np.where(sea >= swell, g["swell_dir"], g["sea_dir"]), d)
+    swell = np.nan_to_num(g["sw1_h"], nan=-1)
+    d = np.where(sea >= swell, g["sea_dir"], g["sw1_dir"])
+    return np.where(np.isnan(d), np.where(sea >= swell, g["sw1_dir"], g["sea_dir"]), d)
 
 
 def read_fields(path: Path) -> dict[str, np.ndarray]:
     """FIELDS cropped to BOX, row 0 = south, NaN on land."""
     g = read_grib(path)
-    return {"hs": g["hs"], "tp": g["tp"], "dir": dominant_dir(g)}
+    return {**g, "dir": dominant_dir(g)}
 
 
 def read_grib(path: Path) -> dict[str, np.ndarray]:
@@ -128,13 +149,22 @@ def crop(values: np.ndarray, lat1: float, lon1: float) -> np.ndarray:
     return values[j_north : j_south + 1, i_west : i_east + 1][::-1].copy()
 
 
+def kind(name: str) -> str:
+    """height, period or direction, from the field name."""
+    return "dir" if name.endswith("dir") else "tp" if name.endswith("tp") else "h"
+
+
 def encode(fields: dict[str, np.ndarray]) -> bytes:
     land = np.isnan(fields["hs"])
-    hs = np.clip(np.round(fields["hs"] / HS_SCALE), 0, 254)
-    tp = np.clip(np.round(fields["tp"] / TP_SCALE), 0, 254)
-    # 0-255 for 0-360°: every value is a direction, land is told by hs.
-    d = np.round(np.nan_to_num(fields["dir"]) / 360 * 256) % 256
-    return b"".join(np.where(land, LAND, a).astype(np.uint8).tobytes() for a in (hs, tp, d))
+
+    def one(name: str) -> np.ndarray:
+        v = np.nan_to_num(fields[name])  # A system missing at a sea cell: 0 m.
+        if kind(name) == "dir":
+            # 0-255 for 0-360°: every value is a direction, land is told by hs.
+            return np.round(v / 360 * 256) % 256
+        return np.clip(np.round(v / (TP_SCALE if kind(name) == "tp" else HS_SCALE)), 0, 254)
+
+    return b"".join(np.where(land, LAND, one(f)).astype(np.uint8).tobytes() for f in FIELDS)
 
 
 MAX_GAP = 3  # hours: +48 → +51, the steps Météo-France never publishes
@@ -149,13 +179,18 @@ def fill_gaps(by_step: dict[int, dict[str, np.ndarray]]) -> list[int]:
         if b - a < 2 or b - a > MAX_GAP:
             continue
         fa, fb = by_step[a], by_step[b]
-        ra, rb = np.radians(fa["dir"]), np.radians(fb["dir"])
         for s in range(a + 1, b):
             t = (s - a) / (b - a)
-            mix = lambda k: (1 - t) * fa[k] + t * fb[k]  # noqa: E731
-            e = (1 - t) * np.sin(ra) + t * np.sin(rb)
-            n = (1 - t) * np.cos(ra) + t * np.cos(rb)
-            by_step[s] = {"hs": mix("hs"), "tp": mix("tp"), "dir": np.degrees(np.arctan2(e, n)) % 360}
+
+            def mix(k: str) -> np.ndarray:
+                if kind(k) != "dir":
+                    return (1 - t) * fa[k] + t * fb[k]
+                ra, rb = np.radians(fa[k]), np.radians(fb[k])
+                e = (1 - t) * np.sin(ra) + t * np.sin(rb)
+                n = (1 - t) * np.cos(ra) + t * np.cos(rb)
+                return np.degrees(np.arctan2(e, n)) % 360
+
+            by_step[s] = {k: mix(k) for k in FIELDS}
             filled.append(s)
     return filled
 
@@ -219,7 +254,7 @@ def main() -> None:
         run = args.run or latest_run(now)
         if run is None:
             return keep("no run out in the last day")
-        if published and published.get("run") == run and published.get("grid") == grid and published.get("dir") == DIR_RULE:
+        if published and published.get("run") == run and published.get("grid") == grid and published.get("dir") == DIR_RULE and published.get("fields") == FIELDS:
             return keep(f"run {run} already published")
         print(f"MFWAM run {run}")
         run_time = datetime.strptime(run, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)

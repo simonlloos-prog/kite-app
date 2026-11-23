@@ -22,6 +22,8 @@ export interface Picked extends LatLon {
   obs?: Obs
   /** A spot: its card (SpotCard). */
   spot?: Spot
+  /** A wave-height label: the waves' card there (WaveCard). */
+  wave?: true
 }
 
 /** Forecast files: R2 through the Worker in production (VITE_DATA_URL), public/data in development. */
@@ -197,6 +199,13 @@ class AppState {
   waveAt(p: LatLon): WaveAt | null {
     void this.dataVersion
     const h = this.wave?.hourOf.get(this.selectedTime)
+    return h === undefined ? null : waveAt(this.wave!.meta, this.wave!.data, h, p)
+  }
+
+  /** Waves at a point at an hour, null while unknown. */
+  waveAtTime(p: LatLon, time: string): WaveAt | null {
+    void this.dataVersion
+    const h = this.wave?.hourOf.get(time)
     return h === undefined ? null : waveAt(this.wave!.meta, this.wave!.data, h, p)
   }
 

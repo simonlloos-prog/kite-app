@@ -11,7 +11,8 @@ export interface WaveMeta {
   /** Run time, ISO UTC: a new run every 6 h. */
   run: string
   grid: Grid
-  /** Field order in the file: hs, tp, dir. */
+  /** Field order in the file: hs, tp, dir, then the wave systems' sea_h, sea_tp, sea_dir, sw1_…, sw2_…
+   * (runs from before 23 nov. 2026 have the first three only). */
   fields: string[]
   scales: { hs: number; tp: number }
   /** Validity times, ISO UTC, one per hour in the file. */
@@ -20,6 +21,26 @@ export interface WaveMeta {
   file: string
 }
 
+/** One wave system: the wind sea, the primary or the secondary swell. */
+export interface WaveSystem {
+  /** Significant height, m. */
+  hs: number
+  /** Mean period, s. */
+  tp: number
+  /** Where it comes from, degrees. */
+  dir: number
+}
+
+export const SYSTEMS = [
+  { key: 'sw1', label: 'Houle' },
+  { key: 'sea', label: 'Mer du vent' },
+  { key: 'sw2', label: 'Houle secondaire' },
+] as const
+export type SystemKey = (typeof SYSTEMS)[number]['key']
+
+/** Below this height a system is left out: there is none. */
+const MIN_SYSTEM_M = 0.1
+
 export interface WaveAt {
   /** Significant wave height, m. */
   hs: number
@@ -27,6 +48,8 @@ export interface WaveAt {
   tp: number
   /** Direction of the dominant waves (wind sea or primary swell), where they come from, degrees. */
   dir: number
+  /** The wave systems, when the run has them; a missing one (under 0.1 m) is absent. */
+  systems?: Partial<Record<SystemKey, WaveSystem>>
 }
 
 const LAND = 255
@@ -64,11 +87,26 @@ export function waveAt(meta: WaveMeta, data: Uint8Array, h: number, p: LatLon): 
   }
   if (best < 0) return null
   const field = (name: string) => data[base + meta.fields.indexOf(name) * n + best]
-  return { hs: field('hs') * meta.scales.hs, tp: field('tp') * meta.scales.tp, dir: (field('dir') * 360) / 256 }
+  const out: WaveAt = { hs: field('hs') * meta.scales.hs, tp: field('tp') * meta.scales.tp, dir: (field('dir') * 360) / 256 }
+  if (meta.fields.includes('sw1_h')) {
+    out.systems = {}
+    for (const { key } of SYSTEMS) {
+      const hs = field(`${key}_h`) * meta.scales.hs
+      if (hs >= MIN_SYSTEM_M)
+        out.systems[key] = { hs, tp: field(`${key}_tp`) * meta.scales.tp, dir: (field(`${key}_dir`) * 360) / 256 }
+    }
+  }
+  return out
 }
 
+/**
+ * Wave power, kW per metre of crest: the usual deep-water formula ρg²/64π · Hs² · Te, with the
+ * energy period Te taken as 0.9 × the peak period. 1 m at 8 s ≈ 3.5 kW/m, 2 m at 14 s ≈ 25.
+ */
+export const wavePower = (w: { hs: number; tp: number }) => 0.49 * w.hs * w.hs * 0.9 * w.tp
+
 /** « 0,5 m · 13 s · O » */
-export function fmtWave(w: WaveAt): string {
+export function fmtWave(w: { hs: number; tp: number; dir: number }): string {
   const hs = w.hs.toFixed(1).replace('.', ',')
   return `${hs} m · ${Math.round(w.tp)} s · ${sector(w.dir)}`
 }
