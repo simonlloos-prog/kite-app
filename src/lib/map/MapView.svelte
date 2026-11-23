@@ -108,11 +108,6 @@
     }
   })
 
-  $effect(() => {
-    const bottom = app.mapPadBottom
-    if (styleReady) app.map!.easeTo({ padding: { top: 0, left: 0, right: 0, bottom }, duration: 250 })
-  })
-
   // Wave crests along the ocean beaches, over the lighter wind.
   $effect(() => {
     if (!ready) return

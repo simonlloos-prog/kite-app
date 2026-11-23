@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SPOTS } from './spots'
-import { rideableWindows, spotHours, upcomingSlots, windowLabel } from './timeline'
+import { rideableWindows, spotHours, spotSlots, windowLabel } from './timeline'
 
 const crohot = SPOTS.find((s) => s.id === 'grand-crohot')!
 const key = (d: number, h: number) => `2026-11-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:00`
@@ -39,23 +39,19 @@ describe('spot timeline', () => {
   })
 })
 
-describe('upcoming slots', () => {
-  const porge = SPOTS.find((s) => s.id === 'le-porge')!
+describe('spot slots', () => {
   const times = [10, 11, 12, 13, 14].map((h) => key(23, h))
   // West wind: 18 kn at 10–12 h, then 13 kn at 13–14 h.
-  const wind = (_: unknown, t: string) => ({ speed: times.indexOf(t) < 3 ? 18 : 13, gust: 25, dir: 270 })
+  const wind = (t: string) => ({ speed: times.indexOf(t) < 3 ? 18 : 13, gust: 25, dir: 270 })
+  const hours = spotHours(crohot, times, wind, () => null)
 
-  it('groups the spots sharing the same hours, by date', () => {
-    const spots = [crohot, porge]
-    const slots = upcomingSlots(spots, times, wind, () => null)
-    expect(slots).toHaveLength(1)
-    expect(slots[0]).toMatchObject({ from: key(23, 10), to: key(23, 14), best: 3, minKn: 13, maxKn: 18, dirFrom: 'O', dirTo: 'O' })
-    expect(slots[0].spots).toEqual(spots)
+  it('sums up each slot', () => {
+    expect(spotSlots(hours)).toEqual([{ from: key(23, 10), to: key(23, 14), best: 3, color: '#22c55e', maxKn: 18, dir: 'O', hours: 5 }])
   })
 
   it('keeps the good slots only on demand', () => {
-    const light = () => ({ speed: 13, gust: 18, dir: 270 })
-    expect(upcomingSlots([crohot], times, light, () => null)).toHaveLength(1)
-    expect(upcomingSlots([crohot], times, light, () => null, 2)).toEqual([])
+    const light = spotHours(crohot, times, () => ({ speed: 13, gust: 18, dir: 270 }), () => null)
+    expect(spotSlots(light)).toHaveLength(1)
+    expect(spotSlots(light, 2)).toEqual([])
   })
 })

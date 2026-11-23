@@ -11,7 +11,6 @@ import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
 
 /** Spots sheet position. Closed by default: the time dial lives on its own. */
-export type Snap = 'closed' | 'half' | 'full'
 
 export interface Picked extends LatLon {
   name?: string
@@ -67,9 +66,8 @@ class AppState {
   error = $state<string | null>(null)
   kind = $state<Kind>('speed')
   picked = $state<Picked | null>(null)
-  snap = $state<Snap>('closed')
-  /** Bottom padding of the map: what the open spots sheet covers. */
-  mapPadBottom = $state(0)
+  /** The full-screen table of the coming slots (☰). */
+  slotsOpen = $state(false)
   layers = $state({ field: true, values: true, arrows: true, spots: true, obs: true })
   unit = $state<Unit>(prefs.unit ?? 'kn')
   zoom = $state(11)
@@ -337,10 +335,8 @@ class AppState {
     if (!map) return
     this.picked = p
     const fly = () => map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 12.5) })
-    if (this.snap === 'closed') return fly()
-    // Wait for the padding ease triggered by the snap change, or it would cancel the flight.
-    this.snap = 'closed'
-    map.once('moveend', fly)
+    this.slotsOpen = false
+    fly()
   }
 }
 

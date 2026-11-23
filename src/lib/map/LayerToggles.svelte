@@ -56,7 +56,7 @@
     class="list"
     title="Prochains créneaux"
     aria-label="Prochains créneaux"
-    onclick={() => (app.snap = app.snap === 'closed' ? 'half' : 'closed')}>☰</button
+    onclick={() => (app.slotsOpen = !app.slotsOpen)}>☰</button
   >
   <button
     type="button"
