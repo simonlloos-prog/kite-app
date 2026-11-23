@@ -10,6 +10,8 @@
    * hours (tap an hour to go there).
    */
   const { at }: { at: LatLon } = $props()
+  /** How to read it, on demand only. */
+  let help = $state(false)
 
   const wave = $derived(app.waveAt(at))
   const hours = $derived(app.times.map((t) => ({ t, w: app.waveAtTime(at, t) })))
@@ -48,6 +50,7 @@
   <header>
     <b>Vagues</b>
     {#if wave}<span class="big">{m(wave.hs)} m</span>{/if}
+    <button type="button" class="info" aria-pressed={help} aria-label="Comment lire les vagues" onclick={() => (help = !help)}>ⓘ</button>
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.picked = null)}>✕</button>
   </header>
 
@@ -70,13 +73,18 @@
         </tbody>
       </table>
     {/if}
-    <p class="note">
-      Hauteur des vagues (moyenne du tiers le plus haut), période de pic, direction des vagues dominantes
-      {systems.length ? ' ; par type de vagues, période moyenne' : ''}. La flèche montre où vont les vagues. Énergie : celle d'une vague par mètre de crête, comme sur
-      surf-forecast (estimée, leur formule n'est pas publiée). MFWAM, Météo-France.
-    </p>
   {:else}
     <p class="line muted">Pas de vagues à cette heure ici.</p>
+  {/if}
+
+  {#if help}
+    <p class="note">
+      Hauteur des vagues (moyenne du tiers le plus haut), période de pic, direction des vagues dominantes ; par type de
+      vagues, période moyenne. Les flèches montrent où vont les vagues. Énergie : celle d'une vague par mètre de crête,
+      comme sur surf-forecast (estimée, leur formule n'est pas publiée). Sur la carte, les arcs ) ) ) avancent vers la
+      plage dans le sens de la houle : rangées nombreuses et serrées = période courte, trait épais = grosses vagues.
+      MFWAM, Météo-France.
+    </p>
   {/if}
 
   <!-- Tap an hour: the dial goes there. -->
@@ -131,10 +139,22 @@
     font-weight: 800;
     color: #1d6fd8;
   }
+  .info {
+    width: 36px;
+    height: 44px;
+    margin: -10px -6px -10px auto;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .info[aria-pressed='true'] {
+    color: var(--accent);
+  }
   .close {
     width: 40px;
     height: 44px;
-    margin: -10px -8px -10px auto;
+    margin: -10px -8px -10px 0;
     border: 0;
     background: none;
     color: var(--muted);

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
-  import { DRY_HATCH, DRY_SAND } from './windLayers'
   import { runProgress } from '../wind/arome'
   import { staleHours } from '../wind/time'
   import { fmtSpeed, UNIT_LABEL } from '../wind/units'
@@ -22,7 +21,7 @@
   const late = $derived(app.meta ? staleHours(app.meta.run, now) : null)
   const progress = $derived(app.meta ? runProgress(app.meta) : null)
 
-  // The open map credits start below the legend, whose height varies (run line, tide line).
+  // The open map credits start below the legend, whose height varies (run line).
   let height = $state(0)
   $effect(() => {
     document.documentElement.style.setProperty('--legend-h', `${height}px`)
@@ -56,22 +55,6 @@
         {app.meta.model} · run {runHour}{#if progress !== null}{` · en cours (jusqu'à +${progress} h)`}{/if}{#if late}<b class="late"> · en retard ({late} h)</b>{/if}
       </span>
     {/if}
-    {#if app.meta?.wave}
-      <!-- How to read the crests along the beaches. -->
-      <span class="run">vagues ) ) ) : vers où va la houle · « 2,5 m » = hauteur des vagues · rangées nombreuses et serrées = période courte</span>
-    {/if}
-    {#if app.tide}
-      <span class="dry">
-        <i style:--sand={DRY_SAND} style:--hatch={DRY_HATCH}></i> à sec dans le Bassin (marée)
-      </span>
-    {/if}
-    {#if app.layers.obs && app.obs.length}
-      <!-- Off the current hour the stations are greyed: say why, they only measure now. -->
-      <span class="dry obs">
-        <i></i>
-        {app.obsLive ? 'balises : vent mesuré en direct' : 'balises grisées : vent mesuré maintenant'}
-      </span>
-    {/if}
   </div>
 {/if}
 
@@ -102,31 +85,6 @@
     flex-basis: 100%;
     font: 10px var(--font);
     color: var(--muted);
-  }
-  .dry {
-    flex-basis: 100%;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font: 10px var(--font);
-    color: var(--muted);
-  }
-  /* Same sand and hatching as on the map. */
-  .dry i {
-    width: 16px;
-    height: 9px;
-    border-radius: 2px;
-    background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, var(--sand) 1px 4px);
-  }
-  /* Same ringed disc as the stations on the map (MapView.svelte). */
-  .obs i {
-    width: 9px;
-    height: 9px;
-    margin: 0 3px;
-    border: 1.5px solid #fff;
-    border-radius: 50%;
-    background: #5fd83a;
-    box-shadow: 0 0 0 1px #0b1320;
   }
   .late {
     color: #ea580c;
