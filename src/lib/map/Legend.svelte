@@ -62,9 +62,11 @@
   .legend {
     position: fixed;
     top: calc(12px + env(safe-area-inset-top));
-    left: 64px;
-    right: 60px;
-    max-width: 360px;
+    /* Centred on the page, clear of the buttons on both sides (64 px each). */
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(360px, calc(100vw - 128px));
+    box-sizing: border-box;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
