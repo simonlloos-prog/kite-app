@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkWave, fmtWave, waveAt, wavePower, type WaveMeta } from './wave'
+import { checkWave, fmtWave, waveAt, waveEnergy, type WaveMeta } from './wave'
 
 // 3 rows × 4 cols at 0.025°, from 45.00 N / 1.30 W; the east column (−1.225) is land.
 const meta: WaveMeta = {
@@ -56,8 +56,8 @@ describe('waves', () => {
     expect(waveAt(meta, data, 0, { lat: 45.025, lon: -1.275 })!.systems).toBeUndefined()
   })
 
-  it('gives the wave power', () => {
-    expect(wavePower({ hs: 1, tp: 8 })).toBeCloseTo(3.5, 1)
-    expect(wavePower({ hs: 2, tp: 14 })).toBeCloseTo(24.7, 1)
+  it('gives the wave energy', () => {
+    expect(waveEnergy({ hs: 1, tp: 10 })).toBeCloseTo(196, 0)
+    expect(waveEnergy({ hs: 2, tp: 14 })).toBeCloseTo(1540, -1)
   })
 })

@@ -62,6 +62,22 @@ function chevronImage() {
   return g.getImageData(0, 0, s, s)
 }
 
+/** Box of the tapped wave label: blue like the labels' halo, ringed in black. Stretches to the text. */
+function labelBoxImage() {
+  const s = 48 // pixelRatio 2: 24 px.
+  const c = document.createElement('canvas')
+  c.width = c.height = s
+  const g = c.getContext('2d')!
+  g.beginPath()
+  g.roundRect(3, 3, s - 6, s - 6, 12)
+  g.fillStyle = '#0d47a1'
+  g.fill()
+  g.lineWidth = 5
+  g.strokeStyle = '#000'
+  g.stroke()
+  return g.getImageData(0, 0, s, s)
+}
+
 /** Dry sand, hatched: reads as "out of the water" rather than as one more wind colour. */
 export const DRY_SAND = '#e6d6a8'
 export const DRY_HATCH = '#a08a5c'
@@ -99,6 +115,7 @@ export function gridBounds(g: Grid): [[number, number], [number, number]] {
 export function addWindLayers(map: MlMap) {
   map.addImage('wind-chevron', chevronImage(), { pixelRatio: 2 })
   map.addImage('dry-hatch', dryPattern(), { pixelRatio: 2 })
+  map.addImage('label-box', labelBoxImage(), { pixelRatio: 2, stretchX: [[16, 32]], stretchY: [[16, 32]], content: [12, 12, 36, 36] })
   for (const id of ['wind-bands', 'wind-lines', 'wind-values', 'picked']) map.addSource(id, { type: 'geojson', data: empty() })
   map.addSource('spots', { type: 'geojson', data: empty(), attribution: 'Infos spots : <a href="https://windspot.fr/">WindSpot</a>' })
 
@@ -209,6 +226,26 @@ export function addWindLayers(map: MlMap) {
     layout: { 'text-field': ['get', 'text'], 'text-font': FONT, 'text-size': 11 },
     paint: { 'text-color': '#ffffff', 'text-halo-color': '#0d47a1', 'text-halo-width': 1.6 },
   })
+  // The tapped one: boxed in black, where it was tapped, shown at every zoom (its card reads there).
+  map.addSource('surf-label-sel', { type: 'geojson', data: empty() })
+  map.addLayer({
+    id: 'surf-label-sel',
+    type: 'symbol',
+    source: 'surf-label-sel',
+    layout: {
+      'text-field': ['get', 'text'],
+      'text-font': FONT,
+      'text-size': 12,
+      'icon-image': 'label-box',
+      'icon-text-fit': 'both',
+      'icon-text-fit-padding': [1, 4, 1, 4],
+      'icon-allow-overlap': true,
+      'text-allow-overlap': true,
+      'icon-ignore-placement': true,
+      'text-ignore-placement': true,
+    },
+    paint: { 'text-color': '#ffffff' },
+  })
   map.addLayer({
     id: 'spots-circle',
     type: 'circle',
@@ -290,11 +327,24 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
 }
 
 /** The wave heights written along the beaches, or none. */
-export function setSurfLabels(map: MlMap, labels: SurfLabel[]) {
+const pointsOf = (labels: SurfLabel[]) => {
   const fc = empty()
   for (const l of labels) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lon, l.lat] }, properties: { text: l.text } })
-  ;(map.getSource('surf-labels') as GeoJSONSource).setData(fc)
+  return fc
 }
+
+/** Wave labels, and the tapped one (boxed) with the labels too close to it left out. */
+export function setSurfLabels(map: MlMap, labels: SurfLabel[], sel: SurfLabel | null = null) {
+  const near = (l: SurfLabel) => {
+    if (!sel) return false
+    const [a, b] = [map.project([l.lon, l.lat]), map.project([sel.lon, sel.lat])]
+    return Math.hypot(a.x - b.x, a.y - b.y) < SEL_CLEAR_PX
+  }
+  ;(map.getSource('surf-labels') as GeoJSONSource).setData(pointsOf(labels.filter((l) => !near(l))))
+  ;(map.getSource('surf-label-sel') as GeoJSONSource).setData(pointsOf(sel ? [sel] : []))
+}
+/** Room kept around the tapped label: a neighbour any closer would read as its double. */
+const SEL_CLEAR_PX = 50
 
 export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null) {
   const fc = empty()
@@ -314,7 +364,8 @@ export function setObsData(map: MlMap, obs: Obs[]) {
 
 export function setPickedData(map: MlMap, p: Picked | null) {
   const fc = empty()
-  if (p) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: {} })
+  // A wave label shows its selection itself (setSurfLabels).
+  if (p && !p.wave) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: {} })
   ;(map.getSource('picked') as GeoJSONSource).setData(fc)
 }
 

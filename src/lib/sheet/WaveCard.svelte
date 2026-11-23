@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { LatLon } from '../wind/arome'
   import { app } from '../stores/app.svelte'
-  import { fmtWave, SYSTEMS, wavePower } from '../wind/wave'
+  import { fmtWave, SYSTEMS, waveEnergy } from '../wind/wave'
   import { sector } from '../wind/units'
 
   /**
    * A tapped wave-height label: the sea there at the hour shown (height, peak period, direction,
-   * power), its wave systems (swell, wind sea, secondary swell), and the height over the coming
+   * energy in kJ), its wave systems (swell, wind sea, secondary swell), and the height over the coming
    * hours (tap an hour to go there).
    */
   const { at }: { at: LatLon } = $props()
@@ -15,7 +15,8 @@
   const hours = $derived(app.times.map((t) => ({ t, w: app.waveAtTime(at, t) })))
   const systems = $derived(wave?.systems ? SYSTEMS.filter((s) => wave.systems![s.key]).map((s) => ({ ...s, ...wave.systems![s.key]! })) : [])
   const m = (v: number) => v.toFixed(1).replace('.', ',')
-  const kw = (v: number) => (v < 10 ? m(v) : String(Math.round(v)))
+  /** « 640 kJ », « 1 540 kJ »: tens are noise. */
+  const kj = (v: number) => (v < 100 ? Math.round(v) : Math.round(v / 10) * 10).toLocaleString('fr-FR')
 
   // Strip: one bar per hour, its height the waves' height.
   const W = 320
@@ -53,7 +54,7 @@
   {#if wave}
     <p class="line">
       {fmtWave(wave)}{@render arrow(wave.dir)}
-      <span class="muted">· puissance {kw(wavePower(wave))} kW/m</span>
+      <span class="muted">·</span> <b>{kj(waveEnergy(wave))} kJ</b>
     </p>
     {#if systems.length}
       <table>
@@ -71,7 +72,8 @@
     {/if}
     <p class="note">
       Hauteur des vagues (moyenne du tiers le plus haut), période de pic, direction des vagues dominantes
-      {systems.length ? ' ; par type de vagues, période moyenne' : ''}. La flèche montre où vont les vagues. MFWAM, Météo-France.
+      {systems.length ? ' ; par type de vagues, période moyenne' : ''}. La flèche montre où vont les vagues. Énergie : celle d'une vague par mètre de crête, comme sur
+      surf-forecast (estimée, leur formule n'est pas publiée). MFWAM, Météo-France.
     </p>
   {:else}
     <p class="line muted">Pas de vagues à cette heure ici.</p>

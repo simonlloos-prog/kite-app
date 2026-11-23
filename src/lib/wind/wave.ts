@@ -99,11 +99,16 @@ export function waveAt(meta: WaveMeta, data: Uint8Array, h: number, p: LatLon): 
   return out
 }
 
+const RHO = 1025 // sea water, kg/m³
+const G = 9.81
 /**
- * Wave power, kW per metre of crest: the usual deep-water formula ρg²/64π · Hs² · Te, with the
- * energy period Te taken as 0.9 × the peak period. 1 m at 8 s ≈ 3.5 kW/m, 2 m at 14 s ≈ 25.
+ * Wave energy, kJ, like the surfing sites show it (surf-forecast, Surfline; they do not publish
+ * their formula): the energy of one wave, per metre of crest, in deep water, ρgH²/8 over a
+ * wavelength gT²/2π, with the significant height and the peak period. Height squared times
+ * period squared: 1 m at 10 s ≈ 200 kJ, 2 m at 14 s ≈ 1 500 kJ.
  */
-export const wavePower = (w: { hs: number; tp: number }) => 0.49 * w.hs * w.hs * 0.9 * w.tp
+export const waveEnergy = (w: { hs: number; tp: number }) =>
+  ((RHO * G * w.hs * w.hs) / 8) * ((G * w.tp * w.tp) / (2 * Math.PI)) / 1000
 
 /** « 0,5 m · 13 s · O » */
 export function fmtWave(w: { hs: number; tp: number; dir: number }): string {
