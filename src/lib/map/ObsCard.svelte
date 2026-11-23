@@ -140,12 +140,6 @@
     box-shadow: 0 4px 24px rgb(0 0 0 / 0.25);
     touch-action: pan-y;
   }
-  /* Short screens (a phone's browser): the card stays right of the left buttons. */
-  @media (max-height: 780px) {
-    .card {
-      left: 48px;
-    }
-  }
   header {
     display: flex;
     align-items: center;

@@ -3,9 +3,10 @@
   import { isOcean, windPointOf, type Spot } from '../spots/spots'
   import { rideableWindows, spotHours, windowLabel } from '../spots/timeline'
   import { app } from '../stores/app.svelte'
-  import { nearestObs, obsClock } from '../wind/obs'
+  import { nearestObs } from '../wind/obs'
   import { tideLabel } from '../wind/tide'
-  import { fmtSpeed, sector, sectorAngle, type Sector } from '../wind/units'
+  import { fmtSpeed, sector, sectorAngle, UNIT_LABEL, type Sector } from '../wind/units'
+  import { windColor } from '../wind/windColor'
   import PiBadge from './PiBadge.svelte'
   import WaveLine from './WaveLine.svelte'
 
@@ -21,6 +22,12 @@
   const trend = $derived(app.gustTrendAt(point))
   const wave = $derived(isOcean(spot) ? app.waveAt(point) : null)
   const obs = $derived(app.obsLive ? nearestObs(point, app.obs) : null)
+  const piGust = $derived(app.piGustAt(point))
+  /** « à l'instant », « il y a 6 min », « il y a 1 h 10 ». */
+  const ago = (time: string) => {
+    const min = Math.max(0, Math.round((Date.now() - Date.parse(time)) / 60_000))
+    return min < 2 ? "à l'instant" : min < 60 ? `il y a ${min} min` : `il y a ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`
+  }
   const hours = $derived(
     spotHours(
       spot,
@@ -35,7 +42,7 @@
 
   // Strip: one bar per hour, its height the mean wind, its colour the spot's rating.
   const W = 320
-  const H = 54
+  const H = 68
   const BOTTOM = 12 // Day names.
   const LEFT = 14 // Speed marks.
   const TOP_KN = 35
@@ -64,6 +71,12 @@
   }
 </script>
 
+{#snippet arrow(dir: number)}
+  <svg class="arrow" viewBox="0 0 24 24" style:transform="rotate({dir + 180}deg)" aria-hidden="true">
+    <path d="M12 2l6 9h-4.5v11h-3V11H6z" fill="currentColor" />
+  </svg>
+{/snippet}
+
 <!-- The dial's swipe must not start from here. -->
 <section class="card" aria-label="Spot {spot.name}" onpointerdown={(e) => e.stopPropagation()}>
   <header>
@@ -84,15 +97,27 @@
   </header>
 
   {#if !info}
+    <!-- The forecast at the hour shown, and right under it what the nearest station measures now. -->
+    {#if w}
+      <div class="wind">
+        <span class="tag">Prévu</span>
+        <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
+        <span>raf. {fmtSpeed(w.gust, app.unit)}{#if piGust != null && !Number.isNaN(piGust)}<span class="muted">&nbsp;(PI {fmtSpeed(piGust, app.unit)})</span>{/if} {UNIT_LABEL[app.unit]}</span>
+        {@render arrow(w.dir)}<span>{sector(w.dir)}</span>
+      </div>
+    {/if}
+    {#if obs}
+      <div class="wind">
+        <span class="tag live"><i></i>En direct</span>
+        <span class="pill" style:background={windColor(obs.speed)}>{fmtSpeed(obs.speed, app.unit)}</span>
+        {#if obs.gust != null}<span>raf. {fmtSpeed(obs.gust, app.unit)} {UNIT_LABEL[app.unit]}</span>{/if}
+        {@render arrow(obs.dir)}<span>{sector(obs.dir)}</span>
+        <span class="muted src">balise {obs.name}, {ago(obs.time)}</span>
+      </div>
+    {/if}
     {#if wave}<p class="line"><WaveLine {wave} /></p>{/if}
     {#if spot.tide !== undefined && app.tide}
       <p class="line">{tideLabel(app.tide)} · navigable à ±{spot.tide} h de la pleine mer</p>
-    {/if}
-    {#if obs}
-      <p class="line muted">
-        mesuré {fmtSpeed(obs.speed, app.unit)}{obs.gust != null ? ` raf. ${fmtSpeed(obs.gust, app.unit)}` : ''}
-        {sector(obs.dir)} · {obs.name}, {obsClock(obs.time)}
-      </p>
     {/if}
 
     <!-- Tap an hour: the dial goes there. -->
@@ -181,12 +206,6 @@
     box-shadow: 0 4px 24px rgb(0 0 0 / 0.25);
     touch-action: pan-y;
   }
-  /* Short screens (a phone's browser): the card stays right of the left buttons. */
-  @media (max-height: 780px) {
-    .card {
-      left: 48px;
-    }
-  }
   header {
     display: flex;
     align-items: center;
@@ -244,10 +263,65 @@
     color: var(--muted);
     font-size: 16px;
   }
+  .wind {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    margin: 4px 0 0;
+    font-size: 13px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: 66px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .tag.live {
+    color: #22c55e;
+    font-weight: 700;
+  }
+  /* Live: a pulsing green dot. */
+  .tag.live i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tag.live i {
+      animation: none;
+    }
+  }
+  .pill {
+    min-width: 26px;
+    padding: 1px 5px;
+    border-radius: 7px;
+    text-align: center;
+    color: #0b1320;
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .arrow {
+    width: 14px;
+    height: 14px;
+    flex: none;
+  }
+  .src {
+    font-size: 11px;
+  }
   .line,
   .windows {
-    margin: 2px 0 0;
-    font-size: 12px;
+    margin: 4px 0 0;
+    font-size: 13px;
   }
   .muted {
     color: var(--muted);

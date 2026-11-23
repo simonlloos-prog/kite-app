@@ -145,6 +145,9 @@
       <span class="muted">Chargement AROME…</span>
     {:else if !app.hour}
       <span class="muted">Chargement de cette heure… ({app.loaded}/{app.times.length})</span>
+    {:else if app.picked?.spot || app.picked?.wave}
+      <!-- A spot or the waves: their card says it all. -->
+      <span class="muted">Glisse → pour avancer</span>
     {:else if picked?.w}
       {@const w = picked.w}
       <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>

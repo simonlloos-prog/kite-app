@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { slide } from 'svelte/transition'
   import { app } from '../stores/app.svelte'
   import { UNIT_LABEL } from '../wind/units'
 
@@ -21,9 +22,30 @@
     }, 700)
   }
   const pressEnd = () => clearTimeout(pressTimer)
+
+  /** The map settings fold into one button: room for the cards. */
+  let open = $state(false)
 </script>
 
 <div class="toggles">
+  <button
+    type="button"
+    class="menu"
+    class:open
+    title="Réglages de la carte"
+    aria-label="Réglages de la carte"
+    aria-expanded={open}
+    onclick={() => (open = !open)}
+  >
+    <!-- Stacked layers. -->
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M12 3.5 21 8l-9 4.5L3 8z" />
+      <path d="m3 12 9 4.5 9-4.5" />
+      <path d="m3 16 9 4.5 9-4.5" />
+    </svg>
+  </button>
+  {#if open}
+  <div class="group" transition:slide={{ duration: 160 }}>
   {#each toggles as t (t.key)}
     <button
       type="button"
@@ -51,6 +73,8 @@
       app.savePrefs()
     }}>{UNIT_LABEL[app.unit]}</button
   >
+  </div>
+  {/if}
   <button
     type="button"
     class="list"
@@ -116,6 +140,26 @@
   }
   .kind {
     font-size: 13px;
+  }
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .menu {
+    background: var(--surface);
+    color: var(--text);
+    opacity: 1;
+  }
+  .menu.open {
+    background: var(--accent);
+    color: #fff;
+  }
+  .ico {
+    display: block;
+    width: 24px;
+    height: 24px;
+    margin: auto;
   }
   .list {
     margin-top: 8px;
