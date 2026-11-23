@@ -7,6 +7,7 @@ import { isDayHour } from '../wind/sun'
 import type { Tide } from '../wind/tide'
 import { rateSpot, type Rating } from './rating'
 import type { Spot } from './spots'
+import { sector, type Sector } from '../wind/units'
 
 export interface SpotHour {
   /** Paris hour key, YYYY-MM-DDTHH:00. */
@@ -67,3 +68,55 @@ export function windowLabel(w: Window, today: string): string {
 }
 
 const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', timeZone: 'UTC' })
+
+/** A slot across spots: the same hours, the same best rating, for one or more spots. */
+export interface Slot extends Window {
+  spots: Spot[]
+  /** Mean wind range over the slot's rideable hours, knots. */
+  minKn: number
+  maxKn: number
+  /** Where the wind comes from at the first and last hour, 16 sectors: shows a turning wind. */
+  dirFrom: Sector
+  dirTo: Sector
+  /** Colour of the best hour's rating. */
+  color: string
+}
+
+/**
+ * Every rideable daylight slot to come, all spots together, by date ("quand et où"). Spots sharing
+ * the exact same hours and best rating share a row: the ocean beaches often go together.
+ * `minBest` 2 keeps the good and strong slots only.
+ */
+export function upcomingSlots(
+  spots: Spot[],
+  times: string[],
+  windAt: (spot: Spot, t: string) => WindAt | null,
+  tideAt: (t: string) => Tide | null,
+  minBest = 1,
+): Slot[] {
+  const byKey = new Map<string, Slot>()
+  for (const spot of spots) {
+    const hours = spotHours(spot, times, (t) => windAt(spot, t), tideAt)
+    for (const w of rideableWindows(hours)) {
+      if (w.best < minBest) continue
+      const run = hours.filter((h) => h.time >= w.from && h.time <= w.to)
+      const speeds = run.map((h) => h.w!.speed)
+      const top = run.find((h) => h.rating.score === w.best)!
+      const key = `${w.from}|${w.to}|${w.best}`
+      const s = byKey.get(key) ?? {
+        ...w,
+        spots: [],
+        minKn: Infinity,
+        maxKn: -Infinity,
+        dirFrom: sector(run[0].w!.dir),
+        dirTo: sector(run.at(-1)!.w!.dir),
+        color: top.rating.color,
+      }
+      s.spots.push(spot)
+      s.minKn = Math.min(s.minKn, ...speeds)
+      s.maxKn = Math.max(s.maxKn, ...speeds)
+      byKey.set(key, s)
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.from.localeCompare(b.from) || b.best - a.best || b.spots.length - a.spots.length)
+}

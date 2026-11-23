@@ -54,8 +54,8 @@
   <button
     type="button"
     class="list"
-    title="Liste des spots"
-    aria-label="Liste des spots"
+    title="Prochains créneaux"
+    aria-label="Prochains créneaux"
     onclick={() => (app.snap = app.snap === 'closed' ? 'half' : 'closed')}>☰</button
   >
   <button

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, type Snap } from '../stores/app.svelte'
-  import SpotList from './SpotList.svelte'
+  import SlotTable from './SlotTable.svelte'
 
 
   /** Page height: --page-h (app.css), which iOS may report taller than innerHeight. */
@@ -73,12 +73,12 @@
 >
   <div class="grab" role="presentation" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
     <div class="handle"></div>
-    <button type="button" class="close" aria-label="Fermer la liste" onclick={() => (app.snap = 'closed')}>✕</button>
+    <button type="button" class="close" aria-label="Fermer les créneaux" onclick={() => (app.snap = 'closed')}>✕</button>
   </div>
   <!-- Always scrollable. The sheet is full height and slid down, so its bottom is off screen
        at "half": the padding lets the last spots scroll up into view. -->
   <div class="body" style:padding-bottom="calc({16 + heights.full - visible}px + env(safe-area-inset-bottom))">
-    <SpotList />
+    <SlotTable />
   </div>
 </section>
 
