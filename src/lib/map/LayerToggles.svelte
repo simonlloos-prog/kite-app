@@ -68,13 +68,6 @@
   <button
     type="button"
     class="kind on"
-    title="Vent moyen ou rafales"
-    aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
-    onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
-  >
-  <button
-    type="button"
-    class="kind on"
     title="Unité : nœuds ou km/h"
     aria-label={app.unit === 'kn' ? 'Afficher en km/h' : 'Afficher en nœuds'}
     onclick={() => {
@@ -84,6 +77,31 @@
   >
   </div>
   {/if}
+  <!-- Always at hand: what the map shows, not a preference. -->
+  <button
+    type="button"
+    class="list kind"
+    class:gust={app.kind === 'gust'}
+    title="Vent moyen ou rafales"
+    aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
+    onclick={() => (app.kind = app.kind === 'speed' ? 'gust' : 'speed')}>{app.kind === 'speed' ? 'Moy' : 'Raf'}</button
+  >
+  <button
+    type="button"
+    class="list rain"
+    class:on={app.layers.rain}
+    title="Pluie et orages (AROME)"
+    aria-label="Pluie et orages"
+    aria-pressed={app.layers.rain}
+    onclick={() => (app.layers.rain = !app.layers.rain)}
+  >
+    <!-- A cloud, rain, and a small bolt. -->
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 15.5h9.5a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 7 15.5z" />
+      <path d="M7.5 18.5l-1 2.5M11 18.5l-1 2.5" />
+      <path d="M15.6 16.8l-1.6 2.6h2.4l-1.4 2.6" stroke-width="1.6" />
+    </svg>
+  </button>
   <button
     type="button"
     class="list"
@@ -158,6 +176,17 @@
   }
   .kind {
     font-size: 13px;
+  }
+  .list.kind {
+    font-size: 14px;
+  }
+  .list.kind.gust {
+    background: var(--accent);
+    color: #fff;
+  }
+  .list.rain.on {
+    background: var(--accent);
+    color: #fff;
   }
   .group {
     display: flex;

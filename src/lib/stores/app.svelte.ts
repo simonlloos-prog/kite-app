@@ -7,6 +7,7 @@ import type { Bounds, Kind } from '../wind/field'
 import { tideByTime, type Tide } from '../wind/tide'
 import type { Spot } from '../spots/spots'
 import { checkWave, waveAt, type WaveAt, type WaveMeta } from '../wind/wave'
+import { decodeRain, rainAt, type RainAt, type RainHour, type RainMeta } from '../wind/rain'
 import { parisHourKey } from '../wind/time'
 import type { Unit } from '../wind/units'
 
@@ -70,7 +71,7 @@ class AppState {
   picked = $state<Picked | null>(null)
   /** The full-screen table of the coming slots (☰). */
   slotsOpen = $state(false)
-  layers = $state({ field: true, values: true, arrows: true, spots: true, obs: true })
+  layers = $state({ field: true, values: true, arrows: true, spots: true, obs: true, rain: false })
   unit = $state<Unit>(prefs.unit ?? 'kn')
   /** Favourite spot ids, kept on the phone only (no account). */
   favorites = $state<string[]>(Array.isArray(prefs.favorites) ? prefs.favorites : [])
@@ -234,6 +235,35 @@ class AppState {
     }
   }
 
+  /** Rain per Paris hour key (not reactive: read through dataVersion). */
+  private rain = new Map<string, RainHour>()
+  private rainFile: string | null = null
+  /** The rain of the selected hour, for the map. */
+  get rainHour(): RainHour | undefined {
+    void this.dataVersion
+    return this.rain.get(this.selectedTime)
+  }
+
+  rainAtTime(p: LatLon, time: string): RainAt | null {
+    void this.dataVersion
+    return this.meta ? rainAt(this.meta.grid, this.rain.get(time), p) : null
+  }
+
+  /** Rain file, from DATA_URL or, to try a file before it is published, from any URL. */
+  async loadRain(rain: RainMeta, url = DATA_URL + rain.file) {
+    const meta = this.meta
+    if (!meta) return
+    try {
+      const buf = await fetchBin(url, rain.times.length * rain.fields.length * meta.grid.rows * meta.grid.cols)
+      const hours = decodeRain(buf, meta.grid, rain)
+      this.rain = new Map(rain.times.map((t, i) => [parisHourKey(new Date(t)), hours[i]]))
+      this.rainFile = rain.file
+      this.dataVersion++
+    } catch {
+      // Optional: without it, no rain is drawn.
+    }
+  }
+
   private async loadPi(meta: Meta) {
     const pi = meta.pi!
     const n = meta.grid.rows * meta.grid.cols
@@ -292,6 +322,7 @@ class AppState {
     }
     this.fileOf = fileOf
     this.meta = meta
+    if (meta.rain && meta.rain.file !== this.rainFile) this.loadRain(meta.rain)
     this.times = keys.filter((k) => k >= now)
     if (!this.times.includes(this.selectedTime)) this.selectedTime = this.times[0] ?? now
     const toFetch = (k: string) => this.hourFiles.get(k) !== fileOf.get(k)

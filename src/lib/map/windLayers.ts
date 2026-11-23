@@ -405,3 +405,4 @@ export function setLayerVisibility(map: MlMap, l: Layers) {
   for (const id of ['spots-circle', 'spots-label']) map.setLayoutProperty(id, 'visibility', vis(l.spots))
   map.setLayoutProperty('obs-credit', 'visibility', vis(l.obs))
 }
+

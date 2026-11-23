@@ -10,6 +10,7 @@
   import { heightText, oceanCoast, surfLabels, surfTrains } from '../wind/surf'
   import { setObsMarkers } from './obsMarkers'
   import { setSurfTrains } from './surfCanvas'
+  import { setRainField } from './rainCanvas'
   import {
     addWindLayers,
     gridBounds,
@@ -145,6 +146,12 @@
   $effect(() => {
     const { meta, hour, bounds, zoom, unit } = app
     if (ready && meta && hour && bounds) setLinesData(app.map!, meta.grid, hour, app.kind, { zoom, bounds, unit })
+  })
+
+  // Rain of the selected hour, falling streaks (rainCanvas.ts), when switched on (☂).
+  $effect(() => {
+    const { meta, rainHour } = app
+    if (ready && meta) setRainField(app.map!, app.layers.rain && rainHour ? { grid: meta.grid, rr: rainHour.rr, cape: rainHour.cape } : null)
   })
 
   $effect(() => {

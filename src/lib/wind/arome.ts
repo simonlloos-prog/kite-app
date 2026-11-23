@@ -39,6 +39,8 @@ export interface Meta {
     /** uint8 per cell and hour, hours one after another, `scale` kn per unit. */
     file: string
   }
+  /** Rain and storm index of the AROME run (see pipeline/fetch_rain.py). */
+  rain?: import('./rain').RainMeta
   /** Latest MFWAM waves, on their own grid (see pipeline/fetch_mfwam.py). */
   wave?: WaveMeta
   /** Sea level at the Bassin inlet, when the pipeline could fetch it (see pipeline/fetch_tide.py). */
