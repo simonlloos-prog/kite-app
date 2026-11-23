@@ -54,10 +54,23 @@
   <button
     type="button"
     class="list"
-    title="Prochains créneaux"
-    aria-label="Prochains créneaux"
-    onclick={() => (app.slotsOpen = !app.slotsOpen)}>☰</button
+    title="Où et quand : prochains créneaux"
+    aria-label="Où et quand : prochains créneaux"
+    onclick={() => (app.slotsOpen = !app.slotsOpen)}
   >
+    <!-- A crystal ball with the wind inside: the forecast of where and when. -->
+    <svg class="ball" viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11.5" cy="10.5" r="7" fill="currentColor" />
+      <g fill="none" stroke="var(--surface)" stroke-width="1.6">
+        <path d="M7 9h5.2a1.6 1.6 0 1 0-1.6-1.6" />
+        <path d="M7.4 12.2h6a1.5 1.5 0 1 1-1.5 1.5" />
+      </g>
+      <path d="M8 17.6 L6.6 21.2 H16.4 L15 17.6" fill="none" stroke="currentColor" stroke-width="1.7" />
+      <path d="M20.2 1.6Q20.2 3.6 22.2 3.6Q20.2 3.6 20.2 5.6Q20.2 3.6 18.2 3.6Q20.2 3.6 20.2 1.6Z" fill="currentColor" />
+      <path d="M21.3 8Q21.3 9.2 22.5 9.2Q21.3 9.2 21.3 10.4Q21.3 9.2 20.1 9.2Q21.3 9.2 21.3 8Z" fill="currentColor" />
+      <path d="M3 2.2Q3 3.5 4.3 3.5Q3 3.5 3 4.8Q3 3.5 1.7 3.5Q3 3.5 3 2.2Z" fill="currentColor" />
+    </svg>
+  </button>
   <button
     type="button"
     class="list"
@@ -110,6 +123,12 @@
     color: var(--text);
     opacity: 1;
     font-size: 20px;
+  }
+  .ball {
+    display: block;
+    width: 26px;
+    height: 26px;
+    margin: auto;
   }
   .list + .list {
     margin-top: 0;
