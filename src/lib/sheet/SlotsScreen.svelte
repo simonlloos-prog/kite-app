@@ -168,6 +168,8 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
+    /* Off the screen edges: nothing seems cut beyond them. */
+    padding: 0 14px;
   }
   table {
     border-collapse: separate;
@@ -193,7 +195,7 @@
     text-align: left;
     font-weight: 600;
     font-size: 12px;
-    padding: 2px 6px 2px 10px;
+    padding: 2px 6px 2px 2px;
     line-height: 1.15;
     border-bottom: 1px solid var(--border);
     width: 84px;
