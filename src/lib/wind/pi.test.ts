@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './arome'
-import { decodePi, gustTrend } from './pi'
+import { decodePi, gustTrend, piSentence } from './pi'
 
 const grid: Grid = { south: 44, west: -2, step: 0.01, rows: 2, cols: 3 }
 
@@ -24,5 +24,11 @@ describe('AROME-PI', () => {
     expect(gustTrend([[NaN, 30], [20, 22]])).toEqual({ delta: 2, trend: 'up' })
     expect(gustTrend([[NaN, 30]])).toBeNull()
     expect(gustTrend([])).toBeNull()
+  })
+
+  it('says the badge in full', () => {
+    expect(piSentence({ delta: 2, trend: 'up' }, 'kn')).toBe('Dernière prévision (AROME-PI, mise à jour chaque heure) : rafales plus fortes de 2 kn à cette heure.')
+    expect(piSentence({ delta: -2.5, trend: 'down' }, 'kn')).toContain('plus faibles de')
+    expect(piSentence({ delta: 0.5, trend: 'flat' }, 'kn')).toContain('mêmes rafales')
   })
 })

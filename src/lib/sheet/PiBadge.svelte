@@ -1,23 +1,19 @@
 <script lang="ts">
   import { app } from '../stores/app.svelte'
-  import type { GustTrend } from '../wind/pi'
-  import { fmtSpeed, UNIT_LABEL } from '../wind/units'
+  import { piSentence, type GustTrend } from '../wind/pi'
+  import { fmtSpeed } from '../wind/units'
 
   /**
    * The hourly AROME-PI run against AROME's gusts at this hour: a small trend line (the latest
-   * forecast) and ↑ +3, ↓ −2 or =. Shown only for the hours AROME-PI covers.
+   * forecast) and +3, −2 or =. Shown only for the hours AROME-PI covers; a tap toggles the full
+   * sentence, which the parent shows (a phone has no hover tooltip).
    */
-  let { trend }: { trend: GustTrend } = $props()
+  let { trend, open = false, ontoggle }: { trend: GustTrend; open?: boolean; ontoggle?: () => void } = $props()
 
   const value = $derived(trend.trend === 'flat' ? '=' : `${trend.delta > 0 ? '+' : '−'}${fmtSpeed(Math.abs(trend.delta), app.unit)}`)
-  const said = $derived(
-    trend.trend === 'flat'
-      ? 'la dernière prévision (AROME-PI, chaque heure) confirme les rafales'
-      : `la dernière prévision (AROME-PI, chaque heure) donne des rafales ${trend.trend === 'up' ? 'plus fortes' : 'plus faibles'} de ${fmtSpeed(Math.abs(trend.delta), app.unit)} ${UNIT_LABEL[app.unit]}`,
-  )
 </script>
 
-<span class="pi {trend.trend}" title={said} aria-label={said}>
+<button type="button" class="pi {trend.trend}" aria-expanded={open} aria-label={piSentence(trend, app.unit)} onclick={ontoggle}>
   <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     {#if trend.trend === 'up'}
       <path d="M2 12l4-4 3 2 5-5" /><path d="M10 5h4v4" />
@@ -28,7 +24,7 @@
     {/if}
   </svg>
   {value}
-</span>
+</button>
 
 <style>
   .pi {
@@ -36,23 +32,42 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 1px 6px;
-    border-radius: 7px;
+    /* A bigger finger target than the chip itself. */
+    margin: -8px 0;
+    padding: 9px 8px;
+    border: 0;
+    background: none;
     font: 700 12px var(--font);
     white-space: nowrap;
-    background: var(--selected);
     color: var(--muted);
+    position: relative;
+    z-index: 0;
+  }
+  .pi::before {
+    content: '';
+    position: absolute;
+    inset: 8px 0;
+    border-radius: 7px;
+    background: var(--selected);
+    z-index: -1;
+  }
+  .pi[aria-expanded='true']::before {
+    outline: 1.5px solid currentColor;
   }
   svg {
     width: 14px;
     height: 14px;
   }
   .up {
-    background: #fde4cf;
     color: #9a3412;
   }
+  .up::before {
+    background: #fde4cf;
+  }
   .down {
-    background: #dbeafe;
     color: #1e40af;
+  }
+  .down::before {
+    background: #dbeafe;
   }
 </style>

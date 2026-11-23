@@ -4,6 +4,7 @@
  * gusts than the AROME 0.01° run on display.
  */
 import type { Grid } from './arome'
+import { fmtSpeed, UNIT_LABEL, type Unit } from './units'
 
 /** One Float32Array of gusts (kn, NaN when missing) per hour in the file. */
 export function decodePi(buf: ArrayBuffer, grid: Grid, hours: number, scale: number): Float32Array[] {
@@ -28,4 +29,11 @@ export function gustTrend(pairs: [number, number][]): GustTrend | null {
   if (!ok.length) return null
   const delta = ok.reduce((s, [a, p]) => s + p - a, 0) / ok.length
   return { delta, trend: delta >= SIGNIFICANT_KN ? 'up' : delta <= -SIGNIFICANT_KN ? 'down' : 'flat' }
+}
+
+/** What the badge means, said in full (shown when it is tapped). */
+export function piSentence(t: GustTrend, unit: Unit): string {
+  const head = 'Dernière prévision (AROME-PI, mise à jour chaque heure)'
+  if (t.trend === 'flat') return `${head} : mêmes rafales à cette heure, à ${unit === 'kn' ? '1,5 kn' : '3 km/h'} près.`
+  return `${head} : rafales plus ${t.trend === 'up' ? 'fortes' : 'faibles'} de ${fmtSpeed(Math.abs(t.delta), unit)} ${UNIT_LABEL[unit]} à cette heure.`
 }

@@ -8,6 +8,7 @@
   import { fmtSpeed, sector, sectorAngle, UNIT_LABEL, type Sector } from '../wind/units'
   import { windColor } from '../wind/windColor'
   import PiBadge from './PiBadge.svelte'
+  import { piSentence } from '../wind/pi'
   import WaveLine from './WaveLine.svelte'
 
   /**
@@ -38,6 +39,8 @@
   const windows = $derived(rideableWindows(hours))
   const today = $derived(app.times[0]?.slice(0, 10) ?? '')
   let info = $state(false)
+  /** The AROME-PI badge's sentence, on a tap. */
+  let piHelp = $state(false)
 
   // Strip: one bar per hour, its height the mean wind, its colour the spot's rating.
   const W = 320
@@ -102,8 +105,9 @@
         <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
         <span>raf. {fmtSpeed(w.gust, app.unit)} {UNIT_LABEL[app.unit]}</span>
         {@render arrow(w.dir)}<span>{sector(w.dir)}</span>
-        {#if trend}<PiBadge {trend} />{/if}
+        {#if trend}<PiBadge {trend} open={piHelp} ontoggle={() => (piHelp = !piHelp)} />{/if}
       </div>
+      {#if trend && piHelp}<p class="pihelp">{piSentence(trend, app.unit)}</p>{/if}
     {/if}
     {#if obs}
       <div class="wind">
@@ -313,6 +317,14 @@
     width: 14px;
     height: 14px;
     flex: none;
+  }
+  .pihelp {
+    margin: 4px 0 0;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--selected);
+    font-size: 12px;
+    line-height: 1.35;
   }
   .src {
     font-size: 12px;
