@@ -9,6 +9,7 @@
    * the spot's daylight slots in each cell. Tap a slot: the map, at its first hour.
    */
   let all = $state(false)
+  let favOnly = $state(false)
 
   const rows = $derived(
     SPOTS.map((spot) => {
@@ -21,9 +22,14 @@
       const slots = spotSlots(hours, all ? 1 : 2)
       return { spot, slots, hours: slots.reduce((n, s) => n + s.hours, 0) }
     })
-      .filter((r) => r.slots.length)
-      // Most rideable hours first.
-      .sort((a, b) => b.hours - a.hours || a.spot.name.localeCompare(b.spot.name)),
+      .filter((r) => r.slots.length && (!favOnly || app.isFavorite(r.spot.id)))
+      // Favourites first, then the most rideable hours.
+      .sort(
+        (a, b) =>
+          Number(app.isFavorite(b.spot.id)) - Number(app.isFavorite(a.spot.id)) ||
+          b.hours - a.hours ||
+          a.spot.name.localeCompare(b.spot.name),
+      ),
   )
   const today = $derived(app.times[0]?.slice(0, 10) ?? '')
   const days = $derived([...new Set(app.times.map((t) => t.slice(0, 10)))])
@@ -45,6 +51,14 @@
       <button type="button" aria-pressed={!all} onclick={() => (all = false)}>Bons</button>
       <button type="button" aria-pressed={all} onclick={() => (all = true)}>Tous</button>
     </div>
+    <button
+      type="button"
+      class="favs"
+      aria-pressed={favOnly}
+      aria-label="Favoris seulement"
+      title={app.favorites.length ? 'Favoris seulement' : 'Pas encore de favori : ☆ dans la carte d’un spot'}
+      onclick={() => (favOnly = !favOnly)}>★</button
+    >
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.slotsOpen = false)}>✕</button>
   </header>
 
@@ -59,7 +73,7 @@
       <tbody>
         {#each rows as r (r.spot.id)}
           <tr>
-            <th class="spot">{r.spot.name}</th>
+            <th class="spot">{#if app.isFavorite(r.spot.id)}<span class="star">★</span> {/if}{r.spot.name}</th>
             {#each days as d (d)}
               <td>
                 {#each r.slots.filter((s) => s.from.startsWith(d)) as s (s.from)}
@@ -76,6 +90,11 @@
             <td colspan={days.length + 1} class="empty">
               {#if loading}
                 Prévision en chargement…
+              {:else if favOnly && !app.favorites.length}
+                Pas encore de favori : touche ☆ dans la carte d'un spot pour l'ajouter.
+              {:else if favOnly}
+                Aucun créneau {all ? 'navigable' : 'bon ou fort'} de jour pour tes favoris.
+                <button type="button" class="link" onclick={() => (favOnly = false)}>Voir tous les spots</button>
               {:else}
                 Aucun créneau {all ? 'navigable' : 'bon ou fort'} de jour sur les heures à venir.
                 {#if !all}<button type="button" class="link" onclick={() => (all = true)}>Voir tous les créneaux</button>{/if}
@@ -205,6 +224,23 @@
     display: block;
     font-size: 10px;
     font-weight: 600;
+  }
+  .favs {
+    width: 36px;
+    min-height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: none;
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .favs[aria-pressed='true'] {
+    background: var(--text);
+    color: #f5b301;
+  }
+  .star {
+    margin-right: 3px;
+    color: #f5b301;
   }
   .link {
     display: block;

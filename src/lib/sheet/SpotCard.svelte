@@ -69,6 +69,14 @@
   <header>
     <span class="dot" style:background={rating.color}></span>
     <b class="name">{spot.name}</b>
+    <button
+      type="button"
+      class="fav"
+      class:on={app.isFavorite(spot.id)}
+      aria-pressed={app.isFavorite(spot.id)}
+      aria-label={app.isFavorite(spot.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+      onclick={() => app.toggleFavorite(spot.id)}>{app.isFavorite(spot.id) ? '★' : '☆'}</button
+    >
     <span class="label">{rating.label}</span>
     {#if trend}<PiBadge {trend} />{/if}
     <button type="button" class="more" aria-pressed={info} onclick={() => (info = !info)}>{info ? 'Prévision' : 'Info spot'}</button>
@@ -196,6 +204,20 @@
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .fav {
+    flex: none;
+    width: 36px;
+    height: 44px;
+    margin: -10px -8px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 19px;
+    line-height: 1;
+  }
+  .fav.on {
+    color: #f5b301;
   }
   .label {
     color: var(--muted);
