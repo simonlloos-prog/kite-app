@@ -62,11 +62,12 @@
   .legend {
     position: fixed;
     top: calc(12px + env(safe-area-inset-top));
-    /* Centred on the page, clear of the buttons on both sides (64 px each). */
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(360px, calc(100vw - 128px));
-    box-sizing: border-box;
+    /* The same 10 px gap to the left buttons (10 + 44 px) and to the geolocation button on the
+       right (10 + 29 px); centred in that space when wider than 360 px. */
+    left: 64px;
+    right: 49px;
+    max-width: 360px;
+    margin: 0 auto;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

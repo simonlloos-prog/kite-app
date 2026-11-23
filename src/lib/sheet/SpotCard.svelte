@@ -22,7 +22,6 @@
   const trend = $derived(app.gustTrendAt(point))
   const wave = $derived(isOcean(spot) ? app.waveAt(point) : null)
   const obs = $derived(app.obsLive ? nearestObs(point, app.obs) : null)
-  const piGust = $derived(app.piGustAt(point))
   /** « à l'instant », « il y a 6 min », « il y a 1 h 10 ». */
   const ago = (time: string) => {
     const min = Math.max(0, Math.round((Date.now() - Date.parse(time)) / 60_000))
@@ -91,7 +90,6 @@
       onclick={() => app.toggleFavorite(spot.id)}>{app.isFavorite(spot.id) ? '★' : '☆'}</button
     >
     <span class="label">{rating.label}</span>
-    {#if trend}<PiBadge {trend} />{/if}
     <button type="button" class="more" aria-pressed={info} onclick={() => (info = !info)}>{info ? 'Prévision' : 'Info spot'}</button>
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.picked = null)}>✕</button>
   </header>
@@ -102,8 +100,9 @@
       <div class="wind">
         <span class="tag">Prévu</span>
         <span class="pill" style:background={windColor(w.speed)}>{fmtSpeed(w.speed, app.unit)}</span>
-        <span>raf. {fmtSpeed(w.gust, app.unit)}{#if piGust != null && !Number.isNaN(piGust)}<span class="muted">&nbsp;(PI {fmtSpeed(piGust, app.unit)})</span>{/if} {UNIT_LABEL[app.unit]}</span>
+        <span>raf. {fmtSpeed(w.gust, app.unit)} {UNIT_LABEL[app.unit]}</span>
         {@render arrow(w.dir)}<span>{sector(w.dir)}</span>
+        {#if trend}<PiBadge {trend} />{/if}
       </div>
     {/if}
     {#if obs}

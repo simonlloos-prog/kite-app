@@ -199,12 +199,13 @@ class AppState {
     return k === null ? null : gusts![k]
   }
 
-  /** AROME-PI against AROME gusts at a point, over the hours both cover. */
+  /** AROME-PI against AROME gusts at a point at the selected hour; null when AROME-PI does not cover it. */
   gustTrendAt(p: LatLon): GustTrend | null {
     void this.dataVersion
-    const k = this.meta ? cellOf(this.meta.grid, p) : null
+    const gusts = this.pi.get(this.selectedTime)
+    const k = gusts && this.meta ? cellOf(this.meta.grid, p) : null
     if (k === null) return null
-    return gustTrend([...this.pi].map(([key, gusts]) => [this.hours.get(key)?.gust[k] ?? NaN, gusts[k]]))
+    return gustTrend([[this.hour?.gust[k] ?? NaN, gusts![k]]])
   }
 
   /** Waves at the sea cell nearest to a point for the selected hour; null on land or outside the run. */
