@@ -347,9 +347,9 @@ export function setSurfLabels(map: MlMap, labels: SurfLabel[], sel: SurfLabel | 
 /** Room kept around the tapped label: a neighbour any closer would read as its double. */
 const SEL_CLEAR_PX = 50
 
-export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null) {
+export function setSpotsData(map: MlMap, g: Grid, h: Hour | undefined, tide: Tide | null, time: string | null, shown: (id: string) => boolean = () => true) {
   const fc = empty()
-  for (const s of SPOTS) {
+  for (const s of SPOTS.filter((s) => shown(s.id))) {
     const r = rateSpot(s, windAt(g, h, windPointOf(s)), tide, time)
     fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { id: s.id, color: r.color, name: s.name } })
   }

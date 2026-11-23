@@ -149,7 +149,9 @@
 
   $effect(() => {
     const { meta, hour, tide } = app
-    if (ready && meta) setSpotsData(app.map!, meta.grid, hour, tide, app.selectedTime)
+    // Favourites only (★ in the map settings): read here so the effect follows it.
+    const fav = app.favOnly && app.favorites.length ? new Set(app.favorites) : null
+    if (ready && meta) setSpotsData(app.map!, meta.grid, hour, tide, app.selectedTime, fav ? (id) => fav.has(id) : undefined)
   })
 
   $effect(() => {

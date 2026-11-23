@@ -9,7 +9,6 @@
    * the spot's daylight slots in each cell. Tap a slot: the map, at its first hour.
    */
   let all = $state(false)
-  let favOnly = $state(false)
 
   const rows = $derived(
     SPOTS.map((spot) => {
@@ -22,7 +21,7 @@
       const slots = spotSlots(hours, all ? 1 : 2)
       return { spot, slots, hours: slots.reduce((n, s) => n + s.hours, 0) }
     })
-      .filter((r) => r.slots.length && (!favOnly || app.isFavorite(r.spot.id)))
+      .filter((r) => r.slots.length && app.spotShown(r.spot.id))
       // Favourites first, then the most rideable hours.
       .sort(
         (a, b) =>
@@ -54,10 +53,10 @@
     <button
       type="button"
       class="favs"
-      aria-pressed={favOnly}
+      aria-pressed={app.favOnly}
       aria-label="Favoris seulement"
       title={app.favorites.length ? 'Favoris seulement' : 'Pas encore de favori : ☆ dans la carte d’un spot'}
-      onclick={() => (favOnly = !favOnly)}>★</button
+      onclick={() => app.setFavOnly(!app.favOnly)}>★</button
     >
     <button type="button" class="close" aria-label="Fermer" onclick={() => (app.slotsOpen = false)}>✕</button>
   </header>
@@ -90,11 +89,11 @@
             <td colspan={days.length + 1} class="empty">
               {#if loading}
                 Prévision en chargement…
-              {:else if favOnly && !app.favorites.length}
+              {:else if app.favOnly && !app.favorites.length}
                 Pas encore de favori : touche ☆ dans la carte d'un spot pour l'ajouter.
-              {:else if favOnly}
+              {:else if app.favOnly}
                 Aucun créneau {all ? 'navigable' : 'bon ou fort'} de jour pour tes favoris.
-                <button type="button" class="link" onclick={() => (favOnly = false)}>Voir tous les spots</button>
+                <button type="button" class="link" onclick={() => app.setFavOnly(false)}>Voir tous les spots</button>
               {:else}
                 Aucun créneau {all ? 'navigable' : 'bon ou fort'} de jour sur les heures à venir.
                 {#if !all}<button type="button" class="link" onclick={() => (all = true)}>Voir tous les créneaux</button>{/if}

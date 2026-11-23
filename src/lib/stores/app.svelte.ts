@@ -33,7 +33,7 @@ const OBS_URL: string | undefined = import.meta.env.VITE_OBS_URL
 const PREFS_KEY = 'kite-prefs'
 
 /** Per-phone preferences. Storage may be unavailable (private mode): fall back to defaults. */
-function loadPrefs(): { unit?: Unit; favorites?: string[] } {
+function loadPrefs(): { unit?: Unit; favorites?: string[]; favOnly?: boolean } {
   try {
     return JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
   } catch {
@@ -74,6 +74,8 @@ class AppState {
   unit = $state<Unit>(prefs.unit ?? 'kn')
   /** Favourite spot ids, kept on the phone only (no account). */
   favorites = $state<string[]>(Array.isArray(prefs.favorites) ? prefs.favorites : [])
+  /** Favourite spots only, on the map and in « Où et quand » (when there is at least one). */
+  favOnly = $state(prefs.favOnly === true)
   zoom = $state(11)
   bounds = $state.raw<Bounds | null>(null)
   /** Run time (ISO UTC) of the AROME-PI gusts loaded, if any. */
@@ -121,6 +123,16 @@ class AppState {
     return this.favorites.includes(id)
   }
 
+  /** Whether a spot is shown under the favourites filter. */
+  spotShown(id: string): boolean {
+    return !this.favOnly || !this.favorites.length || this.isFavorite(id)
+  }
+
+  setFavOnly(on: boolean) {
+    this.favOnly = on
+    this.savePrefs()
+  }
+
   toggleFavorite(id: string) {
     this.favorites = this.isFavorite(id) ? this.favorites.filter((f) => f !== id) : [...this.favorites, id]
     this.savePrefs()
@@ -128,7 +140,7 @@ class AppState {
 
   savePrefs() {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ unit: this.unit, favorites: this.favorites }))
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ unit: this.unit, favorites: this.favorites, favOnly: this.favOnly }))
     } catch {
       // Not remembered, but still applied for this visit.
     }

@@ -58,6 +58,15 @@
   {/each}
   <button
     type="button"
+    class="fav"
+    class:on={app.favOnly}
+    title={app.favorites.length ? 'Spots favoris seulement' : 'Pas encore de favori : ☆ dans la carte d’un spot'}
+    aria-label="Spots favoris seulement"
+    aria-pressed={app.favOnly}
+    onclick={() => app.setFavOnly(!app.favOnly)}>★</button
+  >
+  <button
+    type="button"
     class="kind on"
     title="Vent moyen ou rafales"
     aria-label={app.kind === 'speed' ? 'Afficher les rafales' : 'Afficher le vent moyen'}
@@ -108,14 +117,23 @@
     oncontextmenu={(e) => e.preventDefault()}
     onclick={() => {
       if (!longPressed) app.refresh()
-    }}>⟳</button
+    }}
   >
+    <!-- Two arrows chasing each other round. -->
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19.5 10A7.6 7.6 0 0 0 5.8 7.2" />
+      <path d="M4.5 14a7.6 7.6 0 0 0 13.7 2.8" />
+      <path d="M19.8 4.6v5.6h-5.6" />
+      <path d="M4.2 19.4v-5.6h5.6" />
+    </svg>
+  </button>
 </div>
 
 <style>
   .toggles {
     position: fixed;
-    top: calc(10px + env(safe-area-inset-top));
+    /* The settings button centred on the legend beside it (--legend-h, set by Legend). */
+    top: calc(max(10px, 12px + var(--legend-h, 44px) / 2 - 22px) + env(safe-area-inset-top));
     left: 10px;
     display: flex;
     flex-direction: column;
@@ -177,7 +195,10 @@
   .list + .list {
     margin-top: 0;
   }
-  .spinning {
+  .fav.on {
+    color: #fde047;
+  }
+  .spinning .ico {
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin {

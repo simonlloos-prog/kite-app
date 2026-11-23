@@ -42,7 +42,7 @@
 
   // Strip: one bar per hour, its height the mean wind, its colour the spot's rating.
   const W = 320
-  const H = 68
+  const H = 84
   const BOTTOM = 12 // Day names.
   const LEFT = 14 // Speed marks.
   const TOP_KN = 35
@@ -199,7 +199,7 @@
     right: 0;
     bottom: calc(100% + 8px);
     box-sizing: border-box;
-    padding: 6px 10px 8px;
+    padding: 8px 12px 10px;
     border-radius: 14px;
     background: var(--surface);
     color: var(--text);
@@ -210,7 +210,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: 16px;
     white-space: nowrap;
   }
   .dot {
@@ -240,7 +240,7 @@
   }
   .label {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -269,15 +269,15 @@
     align-items: center;
     gap: 4px 6px;
     margin: 4px 0 0;
-    font-size: 13px;
+    font-size: 14px;
   }
   .tag {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    width: 66px;
+    width: 74px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
   }
   .tag.live {
     color: #22c55e;
@@ -308,7 +308,7 @@
     text-align: center;
     color: #0b1320;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 16px;
   }
   .arrow {
     width: 14px;
@@ -316,12 +316,12 @@
     flex: none;
   }
   .src {
-    font-size: 11px;
+    font-size: 12px;
   }
   .line,
   .windows {
     margin: 4px 0 0;
-    font-size: 13px;
+    font-size: 14px;
   }
   .muted {
     color: var(--muted);
@@ -379,7 +379,7 @@
     grid-template-columns: auto 1fr;
     gap: 2px 8px;
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
   }
   dt {
     color: var(--muted);
