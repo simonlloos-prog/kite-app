@@ -184,7 +184,7 @@
       <SpotCard spot={app.picked.spot} />
     {/key}
   {:else if app.picked?.wave}
-    <WaveCard at={app.picked} />
+    <WaveCard at={app.picked.wave} />
   {/if}
 </div>
 

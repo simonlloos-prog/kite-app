@@ -54,7 +54,8 @@ describe('surf crests (Mix)', () => {
     expect(labels.length).toBeGreaterThan(1)
     expect(labels.length).toBeLessThanOrEqual(trains.length / 3)
     expect(new Set(labels.map((l) => l.text))).toEqual(new Set(['1,0 m', '2,0 m']))
-    // Offshore of the crests: west of the coastline, at sea.
+    // Read at the foot of its train, on the coast, and written offshore of the crests, at sea.
+    for (const l of labels) expect(trains.some((t) => t.lon === l.from.lon && t.lat === l.from.lat)).toBe(true)
     for (const l of labels) expect(isLand(l.lon, l.lat)).toBe(false)
   })
 

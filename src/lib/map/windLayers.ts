@@ -329,7 +329,8 @@ export function setLinesData(map: MlMap, g: Grid, h: Hour, kind: Kind, v: View) 
 /** The wave heights written along the beaches, or none. */
 const pointsOf = (labels: SurfLabel[]) => {
   const fc = empty()
-  for (const l of labels) fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lon, l.lat] }, properties: { text: l.text } })
+  for (const l of labels)
+    fc.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lon, l.lat] }, properties: { text: l.text, fromLon: l.from.lon, fromLat: l.from.lat } })
   return fc
 }
 

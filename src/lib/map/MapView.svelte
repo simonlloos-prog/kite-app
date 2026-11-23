@@ -99,7 +99,8 @@
         app.picked = { lat: s.lat, lon: s.lon, name: s.name, area: s.area, windPoint: s.windPoint, spot: s }
       } else if (label?.geometry.type === 'Point') {
         const [lon, lat] = label.geometry.coordinates
-        app.picked = { lat, lon, name: 'vagues', wave: true }
+        const { fromLon, fromLat } = label.properties
+        app.picked = { lat, lon, name: 'vagues', wave: { lat: fromLat, lon: fromLon } }
       } else {
         app.picked = { lat: e.lngLat.lat, lon: e.lngLat.lng }
       }
@@ -132,8 +133,8 @@
     const trains = surfTrains(oceanCoast(), (p) => app.waveAt(p), zoom, bounds)
     setSurfTrains(app.map!, trains)
     const p = app.picked?.wave ? app.picked : null
-    const w = p && app.waveAt(p)
-    setSurfLabels(app.map!, surfLabels(trains, zoom), p && w ? { lon: p.lon, lat: p.lat, text: heightText(w.hs) } : null)
+    const w = p && app.waveAt(p.wave!)
+    setSurfLabels(app.map!, surfLabels(trains, zoom), p && w ? { lon: p.lon, lat: p.lat, text: heightText(w.hs), from: p.wave! } : null)
   })
 
   $effect(() => {

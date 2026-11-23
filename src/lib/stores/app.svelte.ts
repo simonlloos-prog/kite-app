@@ -22,8 +22,8 @@ export interface Picked extends LatLon {
   obs?: Obs
   /** A spot: its card (SpotCard). */
   spot?: Spot
-  /** A wave-height label: the waves' card there (WaveCard). */
-  wave?: true
+  /** A wave-height label: the waves' card (WaveCard), read where the label's height was read. */
+  wave?: LatLon
 }
 
 /** Forecast files: R2 through the Worker in production (VITE_DATA_URL), public/data in development. */

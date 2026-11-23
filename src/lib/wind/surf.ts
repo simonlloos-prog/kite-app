@@ -152,6 +152,9 @@ export interface SurfLabel {
   lon: number
   lat: number
   text: string
+  /** Where the height was read: the foot of the train, on the coastline (its nearest sea cell).
+   * The label itself stands offshore, often over another, bigger cell. */
+  from: { lon: number; lat: number }
 }
 
 /** Screen px between labels along the beach; sooner when the height changes. */
@@ -175,7 +178,7 @@ export function surfLabels(trains: Train[], zoom: number): SurfLabel[] {
       if (dist < (changed ? LABEL_SOONER : LABEL_EVERY)) continue
     }
     const d = FIRST_PX + ARC.length * ARC.bulge + tr.rows * tr.gap + LABEL_OUT
-    out.push({ lon: tr.lon + tr.off[0] * d * degPx, lat: tr.lat + tr.off[1] * d * degPx * tr.cos, text: heightText(tr.hs) })
+    out.push({ lon: tr.lon + tr.off[0] * d * degPx, lat: tr.lat + tr.off[1] * d * degPx * tr.cos, text: heightText(tr.hs), from: { lon: tr.lon, lat: tr.lat } })
     last = tr
   }
   return out
